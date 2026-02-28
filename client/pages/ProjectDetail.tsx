@@ -2,6 +2,13 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { PROJECTS, VENDOR_PAST_PROJECTS } from "@/data/projectData";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 const STAR_PATH = "M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z";
 
@@ -97,6 +104,71 @@ export default function ProjectDetail() {
     try { return JSON.parse(localStorage.getItem(ratingKey) ?? "null"); } catch { return null; }
   })();
   const [expandedBid, setExpandedBid] = useState<string | null>(null);
+
+  // Service window dialog
+  const [serviceDialogBidId, setServiceDialogBidId] = useState<string | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [serviceNotes, setServiceNotes] = useState("");
+  const [bookingConfirmed, setBookingConfirmed] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(`booking_${id}`) ?? "null"); } catch { return null; }
+  });
+
+  const serviceDialogBid = serviceDialogBidId
+    ? project.bids.find((b) => b.id === serviceDialogBidId)
+    : null;
+
+  // Generate next 6 week options starting from next Monday
+  const weekOptions = (() => {
+    const options: { label: string; sublabel: string; index: number }[] = [];
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+    const nextMonday = new Date(today);
+    nextMonday.setDate(today.getDate() + daysUntilMonday);
+    for (let i = 0; i < 6; i++) {
+      const start = new Date(nextMonday);
+      start.setDate(nextMonday.getDate() + i * 7);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 4);
+      const fmt = (d: Date) =>
+        d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      options.push({
+        index: i,
+        label: fmt(start) + " – " + fmt(end),
+        sublabel: i === 0 ? "Next week" : i === 1 ? "In 2 weeks" : `In ${i + 1} weeks`,
+      });
+    }
+    return options;
+  })();
+
+  const TIME_OPTIONS = [
+    { id: "morning", label: "Morning", sub: "8 am – 12 pm" },
+    { id: "afternoon", label: "Afternoon", sub: "12 pm – 5 pm" },
+    { id: "flexible", label: "Flexible", sub: "Either works" },
+  ];
+
+  function handleAcceptBid(bidId: string) {
+    setServiceDialogBidId(bidId);
+    setSelectedWeek(null);
+    setSelectedTime(null);
+    setServiceNotes("");
+  }
+
+  function handleConfirmBooking() {
+    if (selectedWeek === null || !selectedTime) return;
+    const booking = {
+      bidId: serviceDialogBidId,
+      vendorName: serviceDialogBid?.vendorName,
+      week: weekOptions[selectedWeek].label,
+      time: TIME_OPTIONS.find((t) => t.id === selectedTime)?.label,
+      notes: serviceNotes,
+    };
+    localStorage.setItem(`booking_${id}`, JSON.stringify(booking));
+    setBookingConfirmed(booking);
+    setServiceDialogBidId(null);
+  }
+
   const [ratingValue, setRatingValue] = useState<number>(savedRating?.stars ?? 0);
   const [ratingComment, setRatingComment] = useState<string>(savedRating?.comment ?? "");
   const [hoverStar, setHoverStar] = useState(0);
@@ -193,7 +265,10 @@ export default function ProjectDetail() {
                         ${bid.price.toLocaleString()}
                       </div>
                       {project.status === "active" && (
-                        <button className="mt-2 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity">
+                        <button
+                          onClick={() => handleAcceptBid(bid.id)}
+                          className="mt-2 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+                        >
                           Accept Bid
                         </button>
                       )}
@@ -447,6 +522,119 @@ export default function ProjectDetail() {
           </section>
         )}
       </main>
+
+      {/* Booking confirmed banner */}
+      {bookingConfirmed && project.status === "active" && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-lg flex items-center gap-2">
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          Bid accepted · {bookingConfirmed.week} · {bookingConfirmed.time}
+        </div>
+      )}
+
+      {/* Service window dialog */}
+      <Dialog
+        open={!!serviceDialogBidId}
+        onOpenChange={(v) => !v && setServiceDialogBidId(null)}
+      >
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select a Service Window</DialogTitle>
+            <DialogDescription>
+              {serviceDialogBid && (
+                <>
+                  You're accepting{" "}
+                  <span className="font-semibold text-foreground">
+                    {serviceDialogBid.vendorName}
+                  </span>
+                  's bid of{" "}
+                  <span className="font-semibold text-foreground">
+                    ${serviceDialogBid.price.toLocaleString()}
+                  </span>
+                  . Choose a week and time that works for you.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 pt-1">
+            {/* Week selection */}
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-2">Preferred Week</p>
+              <div className="grid grid-cols-2 gap-2">
+                {weekOptions.map((w) => (
+                  <button
+                    key={w.index}
+                    onClick={() => setSelectedWeek(w.index)}
+                    className={`text-left p-3 rounded-md border transition-colors ${
+                      selectedWeek === w.index
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary hover:bg-primary/5"
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-foreground">{w.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{w.sublabel}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Time of day */}
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-2">Time of Day</p>
+              <div className="grid grid-cols-3 gap-2">
+                {TIME_OPTIONS.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedTime(t.id)}
+                    className={`flex flex-col items-center gap-1 p-3 rounded-md border transition-colors text-center ${
+                      selectedTime === t.id
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border hover:border-primary hover:bg-primary/5 text-foreground"
+                    }`}
+                  >
+                    <span className="text-sm font-semibold">{t.label}</span>
+                    <span className="text-xs text-muted-foreground">{t.sub}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-2">
+                Notes for the Vendor{" "}
+                <span className="font-normal text-muted-foreground">(optional)</span>
+              </label>
+              <textarea
+                value={serviceNotes}
+                onChange={(e) => setServiceNotes(e.target.value)}
+                placeholder="e.g. Boat is at slip 14B, gate code is 1234…"
+                rows={3}
+                className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-between pt-1">
+              <button
+                onClick={() => setServiceDialogBidId(null)}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={selectedWeek === null || !selectedTime}
+                onClick={handleConfirmBooking}
+                className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Confirm Booking
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

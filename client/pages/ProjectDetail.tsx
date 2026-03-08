@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { PROJECTS, VENDOR_PAST_PROJECTS } from "@/data/projectData";
+import { VENDOR_PROFILES } from "@/data/vendorData";
 import {
   Dialog,
   DialogContent,
@@ -174,6 +175,31 @@ export default function ProjectDetail() {
   const [hoverStar, setHoverStar] = useState(0);
   const [ratingSubmitted, setRatingSubmitted] = useState(!!savedRating);
 
+  // Payment/deposit state
+  const depositKey = `deposit_${id}`;
+  const [depositPaid, setDepositPaid] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(depositKey) ?? "null"); } catch { return null; }
+  });
+
+  // Project status progression (stored locally for demo)
+  const statusKey = `project_status_${id}`;
+  const [projectStatus, setProjectStatus] = useState<string>(() => {
+    try { return localStorage.getItem(statusKey) ?? project.status; } catch { return project.status; }
+  });
+
+  function advanceStatus() {
+    const next = projectStatus === "active" ? "in-progress" : projectStatus === "in-progress" ? "completed" : "completed";
+    localStorage.setItem(statusKey, next);
+    setProjectStatus(next);
+  }
+
+  function daysUntil(dateStr: string) {
+    const parts = dateStr.split(" ");
+    const parsed = new Date(`${parts[0]} ${parts[1]}, ${parts[2]}`);
+    const diff = Math.ceil((parsed.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    return diff;
+  }
+
   function submitRating() {
     if (!ratingValue) return;
     localStorage.setItem(ratingKey, JSON.stringify({ stars: ratingValue, comment: ratingComment }));
@@ -197,17 +223,19 @@ export default function ProjectDetail() {
         </button>
 
         {/* Project header */}
-        <div className="mb-10">
+        <div className="mb-8">
           <div className="flex items-start justify-between gap-4 mb-2">
             <h1 className="text-2xl font-semibold text-foreground">{project.title}</h1>
             <span
               className={`text-xs font-semibold px-2.5 py-1 rounded flex-shrink-0 capitalize ${
-                project.status === "active"
+                projectStatus === "active"
                   ? "bg-primary text-white"
+                  : projectStatus === "in-progress"
+                  ? "bg-amber-500 text-white"
                   : "bg-muted text-foreground"
               }`}
             >
-              {project.status}
+              {projectStatus === "in-progress" ? "In Progress" : projectStatus}
             </span>
           </div>
           <p className="text-sm text-muted-foreground">{project.description}</p>
@@ -215,6 +243,53 @@ export default function ProjectDetail() {
             Posted {project.date} &middot; {project.bids.length} bid
             {project.bids.length !== 1 ? "s" : ""}
           </p>
+        </div>
+
+        {/* Status progression */}
+        <div className="mb-10 border border-border rounded-lg px-5 py-4">
+          <div className="flex items-center justify-between relative">
+            {/* Line */}
+            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-0.5 bg-border mx-5" />
+            {[
+              { key: "active", label: "Bids Received" },
+              { key: "in-progress", label: "In Progress" },
+              { key: "completed", label: "Completed" },
+            ].map((step, i) => {
+              const steps = ["active", "in-progress", "completed"];
+              const currentIdx = steps.indexOf(projectStatus);
+              const stepIdx = steps.indexOf(step.key);
+              const isDone = stepIdx <= currentIdx;
+              return (
+                <div key={step.key} className="flex flex-col items-center gap-1.5 z-10">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 ${isDone ? "bg-primary border-primary text-white" : "bg-white border-border text-muted-foreground"}`}>
+                    {isDone ? (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      i + 1
+                    )}
+                  </div>
+                  <span className={`text-xs font-medium ${isDone ? "text-foreground" : "text-muted-foreground"}`}>
+                    {step.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {projectStatus !== "completed" && bookingConfirmed && (
+            <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {projectStatus === "active" ? "Vendor accepted — waiting to begin work" : "Work is underway"}
+              </p>
+              <button
+                onClick={advanceStatus}
+                className="text-xs font-semibold text-primary hover:opacity-70 transition-opacity"
+              >
+                {projectStatus === "active" ? "Mark as In Progress →" : "Mark as Completed →"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Bids */}
@@ -243,33 +318,73 @@ export default function ProjectDetail() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-semibold text-foreground">
+                          <button
+                            onClick={() => navigate(`/vendor/${encodeURIComponent(bid.vendorName)}`)}
+                            className="text-sm font-semibold text-foreground hover:text-primary transition-colors"
+                          >
                             {bid.vendorName}
-                          </span>
+                          </button>
                           {isChosen && (
                             <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                               Chosen
                             </span>
                           )}
+                          {VENDOR_PROFILES[bid.vendorName]?.insured && (
+                            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                              Insured
+                            </span>
+                          )}
+                          {VENDOR_PROFILES[bid.vendorName]?.licensed && (
+                            <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full">
+                              Licensed
+                            </span>
+                          )}
                         </div>
                         <Stars rating={bid.rating} reviewCount={bid.reviewCount} />
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Submitted {bid.submittedDate}
-                        </p>
+                        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                          <p className="text-xs text-muted-foreground">
+                            Submitted {bid.submittedDate}
+                          </p>
+                          {VENDOR_PROFILES[bid.vendorName]?.responseTime && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Responds {VENDOR_PROFILES[bid.vendorName].responseTime}
+                            </p>
+                          )}
+                          {(() => {
+                            const days = daysUntil(bid.expiryDate);
+                            if (days <= 0) return <span className="text-xs text-red-500 font-semibold">Expired</span>;
+                            if (days <= 5) return <span className="text-xs text-amber-600 font-semibold">Expires in {days}d</span>;
+                            return <span className="text-xs text-muted-foreground">Expires {bid.expiryDate}</span>;
+                          })()}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Right: price + action */}
-                    <div className="text-right flex-shrink-0">
+                    {/* Right: price + actions */}
+                    <div className="text-right flex-shrink-0 flex flex-col items-end gap-1.5">
                       <div className="text-xl font-bold text-foreground">
                         ${bid.price.toLocaleString()}
                       </div>
                       {project.status === "active" && (
                         <button
                           onClick={() => handleAcceptBid(bid.id)}
-                          className="mt-2 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+                          className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
                         >
                           Accept Bid
+                        </button>
+                      )}
+                      {bid.thread.length > 0 && (
+                        <button
+                          onClick={() => navigate("/inbox")}
+                          className="flex items-center gap-1 text-xs text-primary font-semibold hover:opacity-70 transition-opacity"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                          </svg>
+                          Messages ({bid.thread.length})
                         </button>
                       )}
                     </div>
@@ -350,6 +465,85 @@ export default function ProjectDetail() {
             })}
           </div>
         </section>
+
+        {/* Deposit / Payment — shown when booking is confirmed on active project */}
+        {bookingConfirmed && project.status === "active" && (
+          <section className="mt-10">
+            <h2 className="text-base font-semibold text-foreground mb-4">Payment</h2>
+            <div className="border border-border rounded-lg p-6">
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{bookingConfirmed.vendorName}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {bookingConfirmed.week} · {bookingConfirmed.time}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Bid total</p>
+                  <p className="text-lg font-bold text-foreground">
+                    ${project.bids.find((b) => b.id === bookingConfirmed.bidId)?.price.toLocaleString() ?? "—"}
+                  </p>
+                </div>
+              </div>
+
+              {depositPaid ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-semibold text-green-700">Deposit paid</p>
+                    <p className="text-xs text-green-600">${depositPaid.amount} · {depositPaid.date} · Remaining balance due at completion</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="bg-muted/40 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground mb-0.5">25% Deposit</p>
+                      <p className="font-bold text-foreground">
+                        ${Math.round((project.bids.find((b) => b.id === bookingConfirmed.bidId)?.price ?? 0) * 0.25).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Due now to confirm</p>
+                    </div>
+                    <div className="bg-muted/40 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground mb-0.5">Remaining Balance</p>
+                      <p className="font-bold text-foreground">
+                        ${Math.round((project.bids.find((b) => b.id === bookingConfirmed.bidId)?.price ?? 0) * 0.75).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Due at completion</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const price = project.bids.find((b) => b.id === bookingConfirmed.bidId)?.price ?? 0;
+                      const deposit = Math.round(price * 0.25);
+                      const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                      const info = { amount: deposit, date };
+                      localStorage.setItem(depositKey, JSON.stringify(info));
+                      setDepositPaid(info);
+                    }}
+                    className="w-full px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+                  >
+                    Pay 25% Deposit
+                  </button>
+                  <button
+                    onClick={() => {
+                      const price = project.bids.find((b) => b.id === bookingConfirmed.bidId)?.price ?? 0;
+                      const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                      const info = { amount: price, date, full: true };
+                      localStorage.setItem(depositKey, JSON.stringify(info));
+                      setDepositPaid(info);
+                    }}
+                    className="w-full px-4 py-2.5 rounded-md border border-border text-sm font-semibold text-foreground hover:border-primary hover:bg-primary/5 transition-colors"
+                  >
+                    Pay in Full
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Rate the vendor — completed projects only */}
         {project.status === "completed" && chosenBid && (

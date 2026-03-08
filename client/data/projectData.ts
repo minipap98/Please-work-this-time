@@ -1,3 +1,9 @@
+export interface BidMessage {
+  from: "vendor" | "user";
+  text: string;
+  time: string;
+}
+
 export interface Bid {
   id: string;
   vendorName: string;
@@ -7,6 +13,8 @@ export interface Bid {
   message: string;
   price: number;
   submittedDate: string;
+  expiryDate: string;
+  thread: BidMessage[];
 }
 
 export interface InvoiceItem {
@@ -19,10 +27,11 @@ export interface Project {
   id: string;
   title: string;
   description: string;
-  status: "active" | "completed";
+  status: "active" | "in-progress" | "completed";
   date: string;
   bids: Bid[];
   chosenBidId?: string;
+  photos?: string[];
   invoice?: {
     invoiceNumber: string;
     issuedDate: string;
@@ -266,6 +275,10 @@ export const PROJECTS: Project[] = [
           "Hi Dean! We specialize in Mercury outboard service and can get you scheduled as early as next week. Our annual service includes a full multi-point inspection, oil & filter change, spark plugs, gear lube, impeller check, and a written engine health report.",
         price: 485,
         submittedDate: "Feb 20, 2026",
+        expiryDate: "Mar 12, 2026",
+        thread: [
+          { from: "vendor", text: "Hi Dean! Just wanted to follow up on our bid. We have availability next week if you'd like to get scheduled.", time: "Feb 21, 10:14 AM" },
+        ],
       },
       {
         id: "b2",
@@ -277,6 +290,8 @@ export const PROJECTS: Project[] = [
           "We've been servicing outboard engines for over 15 years and are factory-trained on Mercury and Yamaha. Our annual package covers everything your motors need, plus a complimentary fuel system inspection at no extra charge.",
         price: 420,
         submittedDate: "Feb 20, 2026",
+        expiryDate: "Mar 15, 2026",
+        thread: [],
       },
       {
         id: "b3",
@@ -288,6 +303,12 @@ export const PROJECTS: Project[] = [
           "Your twin outboards will receive a complete multi-point inspection, oil & filter change, spark plugs, zinc replacement, and gear lube service. We're factory-certified for Mercury, Yamaha, and Evinrude — fully insured with a 90-day workmanship warranty.",
         price: 520,
         submittedDate: "Feb 21, 2026",
+        expiryDate: "Mar 18, 2026",
+        thread: [
+          { from: "vendor", text: "Hi Dean, we'd love to earn your business. Happy to match any comparable quote and still include the full 90-day warranty.", time: "Feb 22, 9:05 AM" },
+          { from: "user", text: "Thanks — can you confirm the zinc replacement is included for both motors?", time: "Feb 22, 11:30 AM" },
+          { from: "vendor", text: "Absolutely — zincs on both motors and the trim tabs are all included at no extra charge.", time: "Feb 22, 12:02 PM" },
+        ],
       },
     ],
   },
@@ -308,6 +329,8 @@ export const PROJECTS: Project[] = [
           "Our full hull detail package includes clay bar treatment, compound, polish, and premium carnauba wax application. We use Meguiar's Marine Pro line exclusively. Typical turnaround is 1–2 days depending on hull size and oxidation level.",
         price: 650,
         submittedDate: "Feb 18, 2026",
+        expiryDate: "Mar 10, 2026",
+        thread: [],
       },
       {
         id: "b5",
@@ -319,6 +342,8 @@ export const PROJECTS: Project[] = [
           "Professional boat detailing with quality products. Our 3-step polish and seal process will have your hull looking brand new. Schedule is open next week and we offer a satisfaction guarantee on all work.",
         price: 580,
         submittedDate: "Feb 18, 2026",
+        expiryDate: "Mar 11, 2026",
+        thread: [],
       },
       {
         id: "b6",
@@ -330,6 +355,10 @@ export const PROJECTS: Project[] = [
           "Our 3-stage hull restoration removes heavy oxidation, restores gel coat color, and seals with UV-protective marine wax. Fully insured with a 6-month wax warranty. We've detailed over 800 boats at this marina — references available.",
         price: 720,
         submittedDate: "Feb 19, 2026",
+        expiryDate: "Mar 14, 2026",
+        thread: [
+          { from: "vendor", text: "Hey Dean, just a heads up — our schedule is filling up fast for March. We'd love to get your hull booked in.", time: "Feb 20, 8:45 AM" },
+        ],
       },
       {
         id: "b7",
@@ -341,6 +370,8 @@ export const PROJECTS: Project[] = [
           "Quick turnaround with quality results — we can complete your full detail in a single day. Our pricing is straightforward with no hidden fees. Great value for owners who want their boat ready for the weekend.",
         price: 540,
         submittedDate: "Feb 19, 2026",
+        expiryDate: "Mar 12, 2026",
+        thread: [],
       },
       {
         id: "b8",
@@ -352,6 +383,8 @@ export const PROJECTS: Project[] = [
           "Eight years detailing boats at this marina. I use IronX fallout remover and CarPro CQuartz ceramic coating for a finish that lasts up to 2 years — far superior to standard wax. Fully insured, references available on request.",
         price: 695,
         submittedDate: "Feb 20, 2026",
+        expiryDate: "Mar 16, 2026",
+        thread: [],
       },
     ],
   },
@@ -373,6 +406,11 @@ export const PROJECTS: Project[] = [
           "We'll install your Garmin GPSMAP 942xs Plus with clean wiring routed neatly through the console. Includes full transducer mounting, NMEA 2000 integration, calibration, and a walkthrough of every feature before you leave the dock.",
         price: 1850,
         submittedDate: "Dec 28, 2025",
+        expiryDate: "Jan 18, 2026",
+        thread: [
+          { from: "vendor", text: "Dean, great working with you. Unit is installed and calibrated. Let me know if you have any questions as you get familiar with it!", time: "Jan 14, 4:30 PM" },
+          { from: "user", text: "Looks great! Really clean install. Thanks.", time: "Jan 14, 5:10 PM" },
+        ],
       },
       {
         id: "b10",
@@ -384,6 +422,8 @@ export const PROJECTS: Project[] = [
           "We can install the Garmin combo unit and handle full integration with your existing NMEA network. Pricing includes all hardware, labor, and a 90-day workmanship guarantee. Typical install takes 4–5 hours.",
         price: 2100,
         submittedDate: "Dec 29, 2025",
+        expiryDate: "Jan 20, 2026",
+        thread: [],
       },
     ],
     invoice: {

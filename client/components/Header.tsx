@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { PROJECTS } from "@/data/projectData";
 
 const MENU_ITEMS = [
   { label: "My Boats", to: "/my-boats" },
@@ -7,9 +8,21 @@ const MENU_ITEMS = [
   { label: "Sign Out", to: null },
 ];
 
+// Count unread messages across all projects
+function getUnreadCount() {
+  return PROJECTS.reduce((total, project) => {
+    return total + project.bids.reduce((bidTotal, bid) => {
+      const lastRead = parseInt(localStorage.getItem(`msg_read_${bid.id}`) ?? "0");
+      const unread = bid.thread.filter((m, i) => m.from === "vendor" && i >= lastRead).length;
+      return bidTotal + unread;
+    }, 0);
+  }, 0);
+}
+
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const unreadCount = getUnreadCount();
 
   return (
     <header className="border-b border-border bg-white sticky top-0 z-50">
@@ -37,12 +50,26 @@ export default function Header() {
             </Link>
             <Link
               to="/inbox"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-foreground hover:opacity-70 transition-opacity"
+              className="relative flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-foreground hover:opacity-70 transition-opacity"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
               Inbox
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                  {unreadCount}
+                </span>
+              )}
+            </Link>
+            <Link
+              to="/vendors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-foreground hover:opacity-70 transition-opacity"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Vendors
             </Link>
           </nav>
 

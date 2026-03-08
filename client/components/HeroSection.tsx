@@ -19,9 +19,18 @@ const PROJECT_CATEGORIES = [
   { icon: "🔧", label: "Other / Custom", description: "Something else not listed above" },
 ];
 
+const PROJECT_TEMPLATES = [
+  { icon: "⚙️", label: "Annual Service", title: "Annual Engine Service", description: "Annual engine service including oil & filter change, spark plugs, gear lube, impeller check, and multi-point inspection." },
+  { icon: "🎨", label: "Bottom Paint", title: "Bottom Paint & Antifouling", description: "Full hull cleaning, light sanding, and application of antifouling bottom paint to prevent marine growth." },
+  { icon: "❄️", label: "Winterization", title: "Engine Winterization", description: "Full winterization service including fogging, fuel stabilizer, coolant flush, and outdoor storage prep." },
+  { icon: "✨", label: "Full Detail", title: "Full Boat Detail & Wax", description: "Complete hull and interior detail including clay bar treatment, compound, polish, and carnauba wax seal." },
+  { icon: "📡", label: "Electronics", title: "Chartplotter Installation", description: "Install and configure new GPS/chartplotter unit with transducer mounting and NMEA 2000 network integration." },
+  { icon: "🔋", label: "Battery Upgrade", title: "Battery System Upgrade", description: "Replace aging battery bank, upgrade to AGM or lithium, and inspect all electrical connections and charging system." },
+];
+
 const DEFAULT_HERO = "https://cdn.builder.io/api/v1/image/assets%2F6d21a31dd9f5464480f247d960742b01%2Fbc990cddf7ea4c13b79484a350ac1943?format=webp&width=1400&height=700";
 
-type Step = "category" | "engine";
+type Step = "category" | "engine" | "details";
 
 export default function HeroSection() {
   const [open, setOpen] = useState(false);
@@ -40,6 +49,10 @@ export default function HeroSection() {
     () => localStorage.getItem("user_location") ?? ""
   );
   const [step, setStep] = useState<Step>("category");
+  const [projectTitle, setProjectTitle] = useState("");
+  const [projectDescription, setProjectDescription] = useState("");
+  const [projectPhotos, setProjectPhotos] = useState<string[]>([]);
+  const [postSubmitted, setPostSubmitted] = useState(false);
 
   // Sync hero image, boat info, and location when returning from other pages
   useEffect(() => {
@@ -65,7 +78,38 @@ export default function HeroSection() {
       setEngineType(null);
       setMake(null);
       setModel(null);
+      setProjectTitle("");
+      setProjectDescription("");
+      setProjectPhotos([]);
+      setPostSubmitted(false);
     }, 200);
+  }
+
+  function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (ev.target?.result) {
+          setProjectPhotos((prev) => [...prev, ev.target!.result as string]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function handleSelectCategory(label: string) {
+    if (label === "Engine Service") {
+      setStep("engine");
+    } else {
+      setStep("details");
+    }
+  }
+
+  function handleSelectTemplate(template: typeof PROJECT_TEMPLATES[0]) {
+    setProjectTitle(template.title);
+    setProjectDescription(template.description);
+    setStep("details");
   }
 
   function handleEngineTypeSelect(type: EngineType) {
@@ -152,31 +196,52 @@ export default function HeroSection() {
               <DialogHeader>
                 <DialogTitle>Start a New Project</DialogTitle>
                 <DialogDescription>
-                  What kind of work does your boat need? Select a category to get started.
+                  Choose a template or select a category to get started.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                {PROJECT_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.label}
-                    className="flex items-start gap-3 text-left p-3 rounded-md border border-border hover:border-primary hover:bg-primary/5 transition-colors group"
-                    onClick={() =>
-                      cat.label === "Engine Service"
-                        ? setStep("engine")
-                        : handleClose()
-                    }
-                  >
-                    <span className="text-2xl leading-none mt-0.5">{cat.icon}</span>
-                    <div>
-                      <div className="text-sm font-semibold text-foreground group-hover:text-primary">
-                        {cat.label}
+
+              {/* Quick templates */}
+              <div className="pt-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  Quick Templates
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-5">
+                  {PROJECT_TEMPLATES.map((t) => (
+                    <button
+                      key={t.label}
+                      onClick={() => handleSelectTemplate(t)}
+                      className="flex items-center gap-2 text-left p-2.5 rounded-md border border-border hover:border-primary hover:bg-primary/5 transition-colors group"
+                    >
+                      <span className="text-lg leading-none">{t.icon}</span>
+                      <span className="text-xs font-semibold text-foreground group-hover:text-primary leading-tight">
+                        {t.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  Browse Categories
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {PROJECT_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.label}
+                      className="flex items-start gap-3 text-left p-3 rounded-md border border-border hover:border-primary hover:bg-primary/5 transition-colors group"
+                      onClick={() => handleSelectCategory(cat.label)}
+                    >
+                      <span className="text-2xl leading-none mt-0.5">{cat.icon}</span>
+                      <div>
+                        <div className="text-sm font-semibold text-foreground group-hover:text-primary">
+                          {cat.label}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {cat.description}
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {cat.description}
-                      </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </div>
               </div>
             </>
           )}
@@ -267,13 +332,120 @@ export default function HeroSection() {
                   </button>
                   <button
                     disabled={!canSubmit}
-                    onClick={handleClose}
+                    onClick={() => setStep("details")}
                     className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    Find Technicians
+                    Next →
                   </button>
                 </div>
               </div>
+            </>
+          )}
+
+          {/* Step 3: Project details + photo upload */}
+          {step === "details" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Project Details</DialogTitle>
+                <DialogDescription>
+                  Describe what you need so vendors can give you an accurate quote.
+                </DialogDescription>
+              </DialogHeader>
+
+              {postSubmitted ? (
+                <div className="py-8 flex flex-col items-center gap-3 text-center">
+                  <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-base font-semibold text-foreground">Project Posted!</p>
+                  <p className="text-sm text-muted-foreground">
+                    Verified vendors in your area will review your project and submit bids.
+                  </p>
+                  <button
+                    onClick={handleClose}
+                    className="mt-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4 pt-1">
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-1.5">Project Title</label>
+                    <input
+                      type="text"
+                      value={projectTitle}
+                      onChange={(e) => setProjectTitle(e.target.value)}
+                      placeholder="e.g. Annual Engine Service"
+                      className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-1.5">Description</label>
+                    <textarea
+                      value={projectDescription}
+                      onChange={(e) => setProjectDescription(e.target.value)}
+                      placeholder="Describe the work needed, any issues you've noticed, your timeline, and any special requirements…"
+                      rows={4}
+                      className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                    />
+                  </div>
+
+                  {/* Photo upload */}
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-1.5">
+                      Photos <span className="text-muted-foreground font-normal">(optional)</span>
+                    </label>
+                    <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-border rounded-lg p-4 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors">
+                      <svg className="w-6 h-6 text-muted-foreground mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-xs text-muted-foreground">Click to upload photos</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    {projectPhotos.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {projectPhotos.map((src, i) => (
+                          <div key={i} className="relative">
+                            <img src={src} className="w-16 h-16 rounded-md object-cover border border-border" />
+                            <button
+                              onClick={() => setProjectPhotos((prev) => prev.filter((_, j) => j !== i))}
+                              className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      onClick={() => setStep("category")}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      disabled={!projectTitle.trim()}
+                      onClick={() => setPostSubmitted(true)}
+                      className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Post Project
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
 

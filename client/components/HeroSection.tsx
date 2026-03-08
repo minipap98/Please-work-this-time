@@ -28,7 +28,20 @@ const PROJECT_TEMPLATES = [
   { icon: "🔋", label: "Battery Upgrade", title: "Battery System Upgrade", description: "Replace aging battery bank, upgrade to AGM or lithium, and inspect all electrical connections and charging system." },
 ];
 
-const DEFAULT_HERO = "https://cdn.builder.io/api/v1/image/assets%2F6d21a31dd9f5464480f247d960742b01%2Fbc990cddf7ea4c13b79484a350ac1943?format=webp&width=1400&height=700";
+const DEFAULT_HERO = "/hero-default.jpg";
+
+const DEFAULT_BOAT = {
+  id: "boat-1773000691182",
+  make: "Sea Ray",
+  model: "SDX 250 OB",
+  year: "2020",
+  name: "No Vacancy",
+  engineType: "Outboard" as EngineType,
+  engineMake: "Mercury",
+  engineModel: "Verado 250 (2021–present)",
+  engineCount: "Single",
+  isPrimary: true,
+};
 
 type Step = "category" | "engine" | "details";
 
@@ -40,9 +53,9 @@ export default function HeroSection() {
   const [boatInfo, setBoatInfo] = useState(() => {
     try {
       const stored = localStorage.getItem("my_boat");
-      return stored ? JSON.parse(stored) : null;
+      return stored ? JSON.parse(stored) : DEFAULT_BOAT;
     } catch {
-      return null;
+      return DEFAULT_BOAT;
     }
   });
   const [location, setLocation] = useState<string>(
@@ -61,12 +74,25 @@ export default function HeroSection() {
       setLocation(localStorage.getItem("user_location") ?? "");
       try {
         const stored = localStorage.getItem("my_boat");
-        setBoatInfo(stored ? JSON.parse(stored) : null);
+        setBoatInfo(stored ? JSON.parse(stored) : DEFAULT_BOAT);
       } catch {}
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
+
+  // Save current hero image as the default file on the server (dev only)
+  useEffect(() => {
+    const stored = localStorage.getItem("hero_image");
+    if (stored && import.meta.env.DEV) {
+      fetch("/api/save-default-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl: stored }),
+      }).catch(() => {});
+    }
+  }, []);
+
   const [engineType, setEngineType] = useState<EngineType | null>(null);
   const [make, setMake] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);

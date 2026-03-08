@@ -27,7 +27,7 @@ export interface Project {
   id: string;
   title: string;
   description: string;
-  status: "active" | "in-progress" | "completed";
+  status: "active" | "in-progress" | "completed" | "expired";
   date: string;
   bids: Bid[];
   chosenBidId?: string;
@@ -384,6 +384,39 @@ export const PROJECTS: Project[] = [
         price: 695,
         submittedDate: "Feb 20, 2026",
         expiryDate: "Mar 16, 2026",
+        thread: [],
+      },
+    ],
+  },
+  {
+    id: "bottom-paint",
+    title: "Bottom Paint & Antifouling",
+    description: "Antifouling paint application and light sanding before spring season",
+    status: "expired",
+    date: "Dec 3, 2025",
+    bids: [
+      {
+        id: "b11",
+        vendorName: "Saltwater Pros LLC",
+        vendorInitials: "SP",
+        rating: 4.9,
+        reviewCount: 215,
+        message: "We can complete your bottom paint job in a single haul-out day. Includes pressure wash, light sanding, two coats of Sea Hawk Cukote, and waterline touch-up.",
+        price: 890,
+        submittedDate: "Dec 5, 2025",
+        expiryDate: "Dec 19, 2025",
+        thread: [],
+      },
+      {
+        id: "b12",
+        vendorName: "Blue Water Detailing",
+        vendorInitials: "BW",
+        rating: 4.7,
+        reviewCount: 98,
+        message: "Full bottom prep and antifouling service. We use Interlux Micron 66 for superior protection in South Florida waters. All work done in the water at your slip.",
+        price: 760,
+        submittedDate: "Dec 6, 2025",
+        expiryDate: "Dec 20, 2025",
         thread: [],
       },
     ],

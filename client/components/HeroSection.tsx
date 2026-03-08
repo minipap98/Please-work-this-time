@@ -162,55 +162,53 @@ export default function HeroSection() {
   ].filter(Boolean).join(" ");
 
   return (
-    <section className="bg-white">
-      {/* Hero Image */}
-      <div className="w-full h-80 sm:h-96 bg-gray-200 overflow-hidden rounded-lg mb-6">
+    <section>
+      {/* Full-bleed hero with gradient overlay */}
+      <div className="relative h-[400px] sm:h-[460px] overflow-hidden bg-gray-900">
         <img
           src={heroImage}
           alt="Hero boat image"
           className="w-full h-full object-cover"
         />
-      </div>
-
-      {/* Hero Content */}
-      <div>
-        <h1 className="text-3xl font-semibold text-foreground mb-1">
-          {boatInfo?.name ||
-            (boatInfo?.make
-              ? [boatInfo.year, boatInfo.make, boatInfo.model].filter(Boolean).join(" ")
-              : "My Boat")}
-        </h1>
-        {boatInfo?.name && (boatInfo.make || boatInfo.year) && (
-          <p className="text-sm text-muted-foreground mb-1">
-            {[boatInfo.year, boatInfo.make, boatInfo.model].filter(Boolean).join(" ")}
-            {engineDisplay && ` · ${engineDisplay}`}
-          </p>
-        )}
-        {/* When no boat name, show engine info below the h1 */}
-        {!boatInfo?.name && engineDisplay && (
-          <p className="text-sm text-muted-foreground mb-1">{engineDisplay}</p>
-        )}
-        {location && (
-          <p className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
-            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            {location}
-          </p>
-        )}
-        <p className="text-base text-muted-foreground mb-6 max-w-2xl">
-          Connect with trusted marine contractors for all your boat maintenance and repair needs.
-        </p>
-        <button
-          onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded text-sm font-semibold hover:opacity-90 transition-opacity"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-            <path d="M12 4v16m8-8H4" />
-          </svg>
-          Start a New Project
-        </button>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-6 lg:px-8 pb-6">
+          <div className="max-w-6xl mx-auto">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-0.5">
+              {boatInfo?.name ||
+                (boatInfo?.make
+                  ? [boatInfo.year, boatInfo.make, boatInfo.model].filter(Boolean).join(" ")
+                  : "My Boat")}
+            </h1>
+            {boatInfo?.name && (boatInfo.make || boatInfo.year) && (
+              <p className="text-sm text-white/70 mb-0.5">
+                {[boatInfo.year, boatInfo.make, boatInfo.model].filter(Boolean).join(" ")}
+                {engineDisplay && ` · ${engineDisplay}`}
+              </p>
+            )}
+            {!boatInfo?.name && engineDisplay && (
+              <p className="text-sm text-white/70 mb-0.5">{engineDisplay}</p>
+            )}
+            {location && (
+              <p className="flex items-center gap-1 text-xs text-white/60 mt-1 mb-4">
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {location}
+              </p>
+            )}
+            {!location && <div className="mb-4" />}
+            <button
+              onClick={() => setOpen(true)}
+              className="inline-flex items-center gap-2 bg-white text-black px-4 py-2.5 rounded text-sm font-semibold hover:bg-white/90 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+                <path d="M12 4v16m8-8H4" />
+              </svg>
+              Start a New Project
+            </button>
+          </div>
+        </div>
       </div>
 
       <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>

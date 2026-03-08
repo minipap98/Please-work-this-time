@@ -20,7 +20,7 @@ export default function ProjectCard({
   return (
     <button
       onClick={onClick}
-      className="w-[272px] flex-shrink-0 text-left border border-border rounded-xl p-5 bg-white hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"
+      className="w-[260px] flex-shrink-0 text-left border border-border rounded-xl p-4 bg-white hover:shadow-md hover:border-primary/30 transition-all cursor-pointer"
     >
       {/* Header with status badge */}
       <div className="flex items-start justify-between mb-4 gap-4">

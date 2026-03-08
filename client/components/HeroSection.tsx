@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -46,6 +47,7 @@ const DEFAULT_BOAT = {
 type Step = "category" | "engine" | "details";
 
 export default function HeroSection() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [heroImage, setHeroImage] = useState(
     () => localStorage.getItem("hero_image") ?? DEFAULT_HERO
@@ -164,13 +166,15 @@ export default function HeroSection() {
   return (
     <section>
       {/* Full-bleed hero with gradient overlay */}
-      <div className="relative h-[400px] sm:h-[460px] overflow-hidden bg-gray-900">
+      <div className="relative h-[320px] sm:h-[460px] overflow-hidden bg-gray-900">
         <img
           src={heroImage}
           alt="Hero boat image"
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+
+        {/* Boat info overlay at bottom */}
         <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-6 lg:px-8 pb-6">
           <div className="max-w-6xl mx-auto">
             <h1 className="text-2xl sm:text-3xl font-bold text-white mb-0.5">
@@ -189,7 +193,7 @@ export default function HeroSection() {
               <p className="text-sm text-white/70 mb-0.5">{engineDisplay}</p>
             )}
             {location && (
-              <p className="flex items-center gap-1 text-xs text-white/60 mt-1 mb-4">
+              <p className="flex items-center gap-1 text-xs text-white/60 mt-1">
                 <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -197,18 +201,30 @@ export default function HeroSection() {
                 {location}
               </p>
             )}
-            {!location && <div className="mb-4" />}
-            <button
-              onClick={() => setOpen(true)}
-              className="inline-flex items-center gap-2 bg-white text-black px-4 py-2.5 rounded text-sm font-semibold hover:bg-white/90 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-                <path d="M12 4v16m8-8H4" />
-              </svg>
-              Start a New Project
-            </button>
           </div>
         </div>
+      </div>
+
+      {/* CTA buttons below the photo */}
+      <div className="px-4 sm:px-6 lg:px-8 pt-3 pb-1 flex flex-col sm:flex-row gap-2 sm:gap-3 max-w-6xl mx-auto">
+        <button
+          onClick={() => setOpen(true)}
+          className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-3 sm:py-2.5 rounded-lg sm:rounded text-sm font-semibold hover:opacity-90 transition-opacity"
+        >
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+            <path d="M12 4v16m8-8H4" />
+          </svg>
+          Start a New Project
+        </button>
+        <button
+          onClick={() => navigate("/vendors")}
+          className="flex items-center justify-center gap-2 border border-border text-foreground px-4 py-3 sm:py-2.5 rounded-lg sm:rounded text-sm font-semibold hover:bg-muted transition-colors"
+        >
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Browse Vendors
+        </button>
       </div>
 
       <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>

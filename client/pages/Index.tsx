@@ -29,10 +29,10 @@ export default function Index() {
       {/* Full-bleed hero */}
       <HeroSection />
 
-      <main className="max-w-6xl mx-auto py-8">
+      <main className="max-w-6xl mx-auto pt-4 pb-8">
         <section>
           {/* Tab toggle */}
-          <div className="flex gap-1.5 px-4 sm:px-6 lg:px-8 mb-5">
+          <div className="flex gap-1.5 px-4 sm:px-6 lg:px-8 mb-3">
             {TABS.map(({ label, value }) => {
               const count = PROJECTS.filter((p) =>
                 value === "active" ? p.status === "active" || p.status === "in-progress" : p.status === value

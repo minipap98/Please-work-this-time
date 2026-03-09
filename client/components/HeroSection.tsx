@@ -141,7 +141,7 @@ export default function HeroSection() {
 
   useEffect(() => {
     const stored = localStorage.getItem("hero_image");
-    if (stored && import.meta.env.DEV) {
+    if (stored) {
       fetch("/api/save-default-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -220,46 +220,49 @@ export default function HeroSection() {
   return (
     <section>
       {/* Full-bleed hero */}
-      <div className="relative h-[320px] sm:h-[460px] overflow-hidden bg-gray-900">
+      <div
+        className="relative h-[240px] sm:h-[340px] overflow-hidden"
+        style={{ backgroundColor: "#ffffff" }}
+      >
         <img
           src={heroImage}
           alt="Hero boat image"
-          className="w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-contain"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+      </div>
 
-        <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-6 lg:px-8 pb-6">
-          <div className="max-w-6xl mx-auto">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-0.5">
-              {boatInfo?.name ||
-                (boatInfo?.make
-                  ? [boatInfo.year, boatInfo.make, boatInfo.model].filter(Boolean).join(" ")
-                  : "My Boat")}
-            </h1>
-            {boatInfo?.name && (boatInfo.make || boatInfo.year) && (
-              <p className="text-sm text-white/70 mb-0.5">
-                {[boatInfo.year, boatInfo.make, boatInfo.model].filter(Boolean).join(" ")}
-                {engineDisplay && ` · ${engineDisplay}`}
-              </p>
-            )}
-            {!boatInfo?.name && engineDisplay && (
-              <p className="text-sm text-white/70 mb-0.5">{engineDisplay}</p>
-            )}
-            {location && (
-              <p className="flex items-center gap-1 text-xs text-white/60 mt-1">
-                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                {location}
-              </p>
-            )}
-          </div>
+      {/* Boat info strip */}
+      <div className="px-4 sm:px-6 lg:px-8 pt-3 pb-1 max-w-6xl mx-auto">
+        <h1 className="text-xl font-bold text-foreground leading-tight">
+          {boatInfo?.name ||
+            (boatInfo?.make
+              ? [boatInfo.year, boatInfo.make, boatInfo.model].filter(Boolean).join(" ")
+              : "My Boat")}
+        </h1>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+          {boatInfo?.name && (boatInfo.make || boatInfo.year) && (
+            <p className="text-sm text-muted-foreground">
+              {[boatInfo.year, boatInfo.make, boatInfo.model].filter(Boolean).join(" ")}
+              {engineDisplay && ` · ${engineDisplay}`}
+            </p>
+          )}
+          {!boatInfo?.name && engineDisplay && (
+            <p className="text-sm text-muted-foreground">{engineDisplay}</p>
+          )}
+          {location && (
+            <p className="flex items-center gap-1 text-xs text-muted-foreground">
+              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {location}
+            </p>
+          )}
         </div>
       </div>
 
       {/* CTA buttons */}
-      <div className="px-4 sm:px-6 lg:px-8 pt-3 pb-1 flex flex-col sm:flex-row gap-2 sm:gap-3 max-w-6xl mx-auto">
+      <div className="px-4 sm:px-6 lg:px-8 pt-2 pb-1 flex flex-col sm:flex-row gap-2 sm:gap-3 max-w-6xl mx-auto">
         <button
           onClick={() => setOpen(true)}
           className="flex items-center justify-center gap-2 bg-foreground text-background px-4 py-3 sm:py-2.5 rounded-md text-sm font-semibold hover:opacity-90 transition-opacity"
@@ -268,6 +271,24 @@ export default function HeroSection() {
             <path d="M12 4v16m8-8H4" />
           </svg>
           Start a New Project
+        </button>
+        <button
+          onClick={() => navigate("/find-crew?post=1")}
+          className="flex items-center justify-center gap-2 bg-foreground text-background px-4 py-3 sm:py-2.5 rounded-md text-sm font-semibold hover:opacity-90 transition-opacity"
+        >
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          Find Crew
+        </button>
+        <button
+          onClick={() => navigate("/find-crew")}
+          className="flex items-center justify-center gap-2 border border-border text-foreground px-4 py-3 sm:py-2.5 rounded-md text-sm font-semibold hover:bg-muted transition-colors"
+        >
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          Browse Crew
         </button>
         <button
           onClick={() => navigate("/vendors")}

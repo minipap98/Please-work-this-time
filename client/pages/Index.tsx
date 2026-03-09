@@ -20,7 +20,7 @@ export default function Index() {
   const [tab, setTab] = useState<Tab>("active");
 
   const visibleProjects = PROJECTS.filter((p) =>
-    tab === "active" ? p.status === "active" || p.status === "bidding" || p.status === "in-progress" : p.status === tab
+    tab === "active" ? p.status === "active" || p.status === "bidding" || p.status === "in-progress" || p.status === "gathering" : p.status === tab
   );
 
   return (
@@ -39,7 +39,7 @@ export default function Index() {
           <div className="flex border-b border-border px-4 sm:px-6 lg:px-8 mb-4">
             {TABS.map(({ label, value }) => {
               const count = PROJECTS.filter((p) =>
-                value === "active" ? p.status === "active" || p.status === "bidding" || p.status === "in-progress" : p.status === value
+                value === "active" ? p.status === "active" || p.status === "bidding" || p.status === "in-progress" || p.status === "gathering" : p.status === value
               ).length;
               return (
                 <button

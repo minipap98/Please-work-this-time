@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 interface ProjectCardProps {
   title: string;
   description: string;
-  status: "active" | "bidding" | "in-progress" | "completed" | "expired";
+  status: "active" | "bidding" | "in-progress" | "completed" | "expired" | "gathering";
   date: string;
   bids: number;
   onClick?: () => void;
@@ -13,6 +13,7 @@ const STATUS_DOT: Record<string, string> = {
   "in-progress": "bg-emerald-500",
   active:        "bg-emerald-500",
   bidding:       "bg-blue-400",
+  gathering:     "bg-amber-400",
   completed:     "bg-gray-300",
   expired:       "bg-gray-300",
 };
@@ -21,6 +22,7 @@ const STATUS_LABEL: Record<string, string> = {
   "in-progress": "In Progress",
   active:        "Active",
   bidding:       "Accepting Bids",
+  gathering:     "Gathering Candidates",
   completed:     "Completed",
   expired:       "Expired",
 };

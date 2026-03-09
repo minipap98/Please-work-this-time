@@ -14,6 +14,8 @@ import Settings from "./pages/Settings";
 import BrowseVendors from "./pages/BrowseVendors";
 import VendorProfile from "./pages/VendorProfile";
 import MaintenancePage from "./pages/MaintenancePage";
+import FindCrew from "./pages/FindCrew";
+import CrewProfile from "./pages/CrewProfile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +35,8 @@ const App = () => (
           <Route path="/vendors" element={<BrowseVendors />} />
           <Route path="/vendor/:name" element={<VendorProfile />} />
           <Route path="/maintenance" element={<MaintenancePage />} />
+          <Route path="/find-crew" element={<FindCrew />} />
+          <Route path="/find-crew/:id" element={<CrewProfile />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -27,7 +27,7 @@ export interface Project {
   id: string;
   title: string;
   description: string;
-  status: "active" | "bidding" | "in-progress" | "completed" | "expired";
+  status: "active" | "bidding" | "in-progress" | "completed" | "expired" | "gathering";
   date: string;
   bids: Bid[];
   chosenBidId?: string;
@@ -258,6 +258,14 @@ export const VENDOR_PAST_PROJECTS: Record<string, VendorPastProject[]> = {
 };
 
 export const PROJECTS: Project[] = [
+  {
+    id: "captain-day",
+    title: "Captain Needed for Day Trip",
+    description: "Looking for a licensed USCG captain for a full-day outing — approx. 8 hrs. Departing Fort Lauderdale, destination TBD based on weather.",
+    status: "gathering",
+    date: "Mar 9, 2026",
+    bids: [],
+  },
   {
     id: "engine-maintenance",
     title: "Engine Maintenance Service",

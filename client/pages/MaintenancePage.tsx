@@ -249,6 +249,13 @@ export default function MaintenancePage() {
     return tasks.filter((t) => t.status === "ok");
   }, [tasks, filter]);
 
+  // Group by category (preserving ALL_CATEGORIES order, skip empty groups)
+  const groupedVisible = useMemo(() => {
+    return ALL_CATEGORIES
+      .map((cat) => ({ category: cat, tasks: visible.filter((t) => t.category === cat) }))
+      .filter((g) => g.tasks.length > 0);
+  }, [visible]);
+
   // Show hidden section
   const [showHidden, setShowHidden] = useState(false);
 
@@ -363,9 +370,22 @@ export default function MaintenancePage() {
           ))}
         </div>
 
-        {/* ── Task list ────────────────────────────────────────── */}
-        <div className="flex flex-col gap-2">
-          {visible.map((task) => {
+        {/* ── Task list (grouped by category) ──────────────────── */}
+        <div className="flex flex-col gap-5">
+          {groupedVisible.map(({ category, tasks: groupTasks }) => (
+            <div key={category}>
+              {/* Category header */}
+              <div className="flex items-center gap-2 mb-2">
+                <CategoryIcon category={category} className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {category}
+                </span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+
+              {/* Tasks in this group */}
+              <div className="flex flex-col gap-2">
+                {groupTasks.map((task) => {
             const styles = STATUS_STYLES[task.status];
             const isUrgent = task.status === "overdue" || task.status === "never";
 
@@ -380,9 +400,8 @@ export default function MaintenancePage() {
                 <div className="flex-1 px-4 py-3.5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      {/* Task + category */}
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <CategoryIcon category={task.category} className="w-3.5 h-3.5" />
+                      {/* Task name */}
+                      <div className="flex items-center gap-1.5 mb-1">
                         <span className="text-sm font-semibold text-foreground leading-snug">
                           {task.task}
                         </span>
@@ -392,7 +411,6 @@ export default function MaintenancePage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mb-2">{task.category}</p>
 
                       {/* Last serviced + interval */}
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -464,10 +482,13 @@ export default function MaintenancePage() {
                   )}
                 </div>
               </div>
-            );
-          })}
+                  );
+                })}
+              </div>
+            </div>
+          ))}
 
-          {visible.length === 0 && (
+          {groupedVisible.length === 0 && (
             <div className="text-center py-12 text-sm text-muted-foreground">
               No tasks in this category.
             </div>

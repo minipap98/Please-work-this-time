@@ -27,7 +27,7 @@ export interface Project {
   id: string;
   title: string;
   description: string;
-  status: "active" | "in-progress" | "completed" | "expired";
+  status: "active" | "bidding" | "in-progress" | "completed" | "expired";
   date: string;
   bids: Bid[];
   chosenBidId?: string;
@@ -262,7 +262,7 @@ export const PROJECTS: Project[] = [
     id: "engine-maintenance",
     title: "Engine Maintenance Service",
     description: "Annual engine service and oil change needed for twin outboard motors",
-    status: "active",
+    status: "bidding",
     date: "Feb 19, 2026",
     bids: [
       {
@@ -316,7 +316,7 @@ export const PROJECTS: Project[] = [
     id: "hull-detailing",
     title: "Hull Detailing & Waxing",
     description: "Full hull cleaning, buffing, and waxing to restore shine",
-    status: "active",
+    status: "bidding",
     date: "Feb 17, 2026",
     bids: [
       {

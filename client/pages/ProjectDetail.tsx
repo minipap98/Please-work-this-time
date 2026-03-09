@@ -368,7 +368,7 @@ export default function ProjectDetail() {
                       <div className="text-xl font-bold text-foreground">
                         ${bid.price.toLocaleString()}
                       </div>
-                      {project.status === "active" && (
+                      {(project.status === "active" || project.status === "bidding") && (
                         <button
                           onClick={() => handleAcceptBid(bid.id)}
                           className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
@@ -467,7 +467,7 @@ export default function ProjectDetail() {
         </section>
 
         {/* Deposit / Payment — shown when booking is confirmed on active project */}
-        {bookingConfirmed && project.status === "active" && (
+        {bookingConfirmed && (project.status === "active" || project.status === "bidding") && (
           <section className="mt-10">
             <h2 className="text-base font-semibold text-foreground mb-4">Payment</h2>
             <div className="border border-border rounded-lg p-6">
@@ -718,7 +718,7 @@ export default function ProjectDetail() {
       </main>
 
       {/* Booking confirmed banner */}
-      {bookingConfirmed && project.status === "active" && (
+      {bookingConfirmed && (project.status === "active" || project.status === "bidding") && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-lg flex items-center gap-2">
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

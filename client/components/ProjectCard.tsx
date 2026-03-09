@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 interface ProjectCardProps {
   title: string;
   description: string;
-  status: "active" | "in-progress" | "completed" | "expired";
+  status: "active" | "bidding" | "in-progress" | "completed" | "expired";
   date: string;
   bids: number;
   onClick?: () => void;
@@ -28,14 +28,16 @@ export default function ProjectCard({
         <span
           className={cn(
             "text-xs font-semibold px-2.5 py-1 rounded flex-shrink-0 whitespace-nowrap",
-            status === "active" || status === "in-progress"
+            status === "in-progress" || status === "active"
               ? "bg-primary text-white"
+              : status === "bidding"
+              ? "bg-blue-100 text-blue-700"
               : status === "expired"
               ? "bg-orange-100 text-orange-700"
               : "bg-muted text-foreground"
           )}
         >
-          {status}
+          {status === "in-progress" ? "In Progress" : status === "bidding" ? "Bidding" : status.charAt(0).toUpperCase() + status.slice(1)}
         </span>
       </div>
 

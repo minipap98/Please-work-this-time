@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
+import MaintenanceAlert from "@/components/MaintenanceAlert";
 import ProjectCard from "@/components/ProjectCard";
 import { PROJECTS } from "@/data/projectData";
 import { cn } from "@/lib/utils";
@@ -19,7 +20,7 @@ export default function Index() {
   const [tab, setTab] = useState<Tab>("active");
 
   const visibleProjects = PROJECTS.filter((p) =>
-    tab === "active" ? p.status === "active" || p.status === "in-progress" : p.status === tab
+    tab === "active" ? p.status === "active" || p.status === "bidding" || p.status === "in-progress" : p.status === tab
   );
 
   return (
@@ -29,13 +30,16 @@ export default function Index() {
       {/* Full-bleed hero */}
       <HeroSection />
 
+      {/* Maintenance alert strip — full bleed, between hero and projects */}
+      <MaintenanceAlert />
+
       <main className="max-w-6xl mx-auto pt-4 pb-8">
         <section>
           {/* Tab toggle */}
           <div className="flex gap-1.5 px-4 sm:px-6 lg:px-8 mb-3">
             {TABS.map(({ label, value }) => {
               const count = PROJECTS.filter((p) =>
-                value === "active" ? p.status === "active" || p.status === "in-progress" : p.status === value
+                value === "active" ? p.status === "active" || p.status === "bidding" || p.status === "in-progress" : p.status === value
               ).length;
               return (
                 <button

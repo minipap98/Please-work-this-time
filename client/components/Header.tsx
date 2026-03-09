@@ -4,6 +4,7 @@ import { PROJECTS } from "@/data/projectData";
 
 const MENU_ITEMS = [
   { label: "My Boats", to: "/my-boats" },
+  { label: "Maintenance Log", to: "/maintenance" },
   { label: "Settings", to: "/settings" },
   { label: "Sign Out", to: null },
 ];

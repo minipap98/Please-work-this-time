@@ -35,8 +35,8 @@ export default function Index() {
 
       <main className="max-w-6xl mx-auto pt-4 pb-8">
         <section>
-          {/* Tab toggle */}
-          <div className="flex gap-1.5 px-4 sm:px-6 lg:px-8 mb-3">
+          {/* Tab bar */}
+          <div className="flex border-b border-border px-4 sm:px-6 lg:px-8 mb-4">
             {TABS.map(({ label, value }) => {
               const count = PROJECTS.filter((p) =>
                 value === "active" ? p.status === "active" || p.status === "bidding" || p.status === "in-progress" : p.status === value
@@ -46,20 +46,15 @@ export default function Index() {
                   key={value}
                   onClick={() => setTab(value)}
                   className={cn(
-                    "px-4 py-1.5 rounded-full text-sm font-medium transition-colors",
+                    "mr-5 pb-2.5 text-sm font-medium border-b-2 transition-colors",
                     tab === value
-                      ? "bg-black text-white"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "border-foreground text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
                   )}
                 >
                   {label}
                   {count > 0 && (
-                    <span className={cn(
-                      "ml-1.5 text-xs",
-                      tab === value ? "opacity-70" : "opacity-50"
-                    )}>
-                      {count}
-                    </span>
+                    <span className="ml-1.5 text-xs opacity-60">{count}</span>
                   )}
                 </button>
               );

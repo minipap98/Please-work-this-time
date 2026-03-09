@@ -3,12 +3,46 @@ import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   getMaintenanceTasks,
-  CATEGORY_ICONS,
   DEFAULT_SERVICE_RECORDS,
   type MaintenanceCategory,
   type MaintenanceTask,
   type ServiceRecord,
 } from "@/data/maintenanceData";
+
+// ─── Category Icons ───────────────────────────────────────────
+function CategoryIcon({ category, className = "w-4 h-4" }: { category: MaintenanceCategory; className?: string }) {
+  const cls = `${className} text-muted-foreground flex-shrink-0`;
+  const props = { fill: "none" as const, stroke: "currentColor", viewBox: "0 0 24 24", className: cls };
+  const p = { strokeLinecap: "round" as const, strokeLinejoin: "round" as const, strokeWidth: 1.5 };
+
+  if (category === "Engine Oil & Fuel") return (
+    <svg {...props}>
+      <path {...p} d="M12 2c-3 4-6 7-6 10a6 6 0 0012 0c0-3-3-6-6-10z" />
+    </svg>
+  );
+  if (category === "Cooling System") return (
+    <svg {...props}>
+      <path {...p} d="M12 3v18M3 12h18M6.34 6.34l11.32 11.32M17.66 6.34L6.34 17.66" />
+    </svg>
+  );
+  if (category === "Drivetrain") return (
+    <svg {...props}>
+      <path {...p} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path {...p} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+  if (category === "Electrical & Safety") return (
+    <svg {...props}>
+      <path {...p} d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+    </svg>
+  );
+  // Hull & Bottom (anchor)
+  return (
+    <svg {...props}>
+      <path {...p} d="M12 2a3 3 0 110 6 3 3 0 010-6zm0 4v12M5 11h14M5 18c1.5 2 3.5 3 7 3s5.5-1 7-3" />
+    </svg>
+  );
+}
 
 // ─── Types ───────────────────────────────────────────────────
 type StatusFilter = "all" | "overdue" | "due-soon" | "ok";
@@ -348,7 +382,7 @@ export default function MaintenancePage() {
                     <div className="flex-1 min-w-0">
                       {/* Task + category */}
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-sm">{CATEGORY_ICONS[task.category]}</span>
+                        <CategoryIcon category={task.category} className="w-3.5 h-3.5" />
                         <span className="text-sm font-semibold text-foreground leading-snug">
                           {task.task}
                         </span>
@@ -477,7 +511,7 @@ export default function MaintenancePage() {
                     <div className="w-1 flex-shrink-0 bg-gray-300" />
                     <div className="flex-1 px-4 py-3 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-sm">{CATEGORY_ICONS[task.category]}</span>
+                        <CategoryIcon category={task.category} className="w-3.5 h-3.5 flex-shrink-0" />
                         <span className="text-sm font-medium text-foreground truncate">{task.task}</span>
                         {task.isCustom && (
                           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary leading-none flex-shrink-0">
@@ -523,7 +557,7 @@ export default function MaintenancePage() {
           {logTask && (
             <div className="space-y-4 pt-1">
               <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                <span className="text-lg">{CATEGORY_ICONS[logTask.category]}</span>
+                <CategoryIcon category={logTask.category} className="w-5 h-5" />
                 <div>
                   <p className="text-sm font-semibold text-foreground">{logTask.task}</p>
                   <p className="text-xs text-muted-foreground">{logTask.category}</p>
@@ -606,9 +640,7 @@ export default function MaintenancePage() {
                 className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 {ALL_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {CATEGORY_ICONS[cat]} {cat}
-                  </option>
+                  <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
             </div>

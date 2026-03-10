@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
+import { getCurrentUser } from "@/data/authUtils";
 
 export type AppRole = "owner" | "vendor";
 
@@ -13,6 +14,13 @@ const RoleContext = createContext<RoleContextValue | null>(null);
 
 function loadPersistedRole(): { role: AppRole; vendorId: string | null } {
   try {
+    // Prefer the logged-in user's role as source of truth
+    const user = getCurrentUser();
+    if (user) {
+      if (user.role === "vendor") return { role: "vendor", vendorId: user.vendorId ?? user.name };
+      return { role: "owner", vendorId: null };
+    }
+    // Fall back to legacy keys (for mid-session switches)
     const role = (localStorage.getItem("bosun_role") as AppRole) ?? "owner";
     const vendorId = localStorage.getItem("bosun_vendor_id");
     if (role === "vendor" && vendorId) return { role: "vendor", vendorId };

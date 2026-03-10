@@ -4,6 +4,7 @@ import { PROJECTS } from "@/data/projectData";
 import { VENDOR_PROFILES } from "@/data/vendorData";
 import { useRole } from "@/context/RoleContext";
 import { getVendorUnreadCount } from "@/data/bidUtils";
+import { getCurrentUser, logout } from "@/data/authUtils";
 
 const OWNER_MENU_ITEMS = [
   { label: "My Boats", to: "/my-boats" },
@@ -33,8 +34,23 @@ export default function Header() {
   const navigate = useNavigate();
   const { role, vendorId, setVendorMode, setOwnerMode } = useRole();
 
+  const currentUser = getCurrentUser();
   const isVendor = role === "vendor";
   const currentVendor = vendorId ? VENDOR_PROFILES[vendorId] : null;
+
+  // Display name/initials: prefer auth user data, fall back to vendor profile
+  const displayName = isVendor
+    ? (currentVendor?.name.split(" ")[0] ?? currentUser?.name.split(" ")[0] ?? "Vendor")
+    : (currentUser?.name.split(" ")[0] ?? "Me");
+  const displayInitials = isVendor
+    ? (currentVendor?.initials ?? currentUser?.initials ?? "V")
+    : (currentUser?.initials ?? "?");
+
+  function handleSignOut() {
+    setMenuOpen(false);
+    logout();
+    navigate("/login");
+  }
 
   const ownerUnread = isVendor ? 0 : getOwnerUnreadCount();
   const vendorUnread = isVendor && vendorId ? getVendorUnreadCount(vendorId) : 0;
@@ -70,9 +86,9 @@ export default function Header() {
           {/* Logo / Nav */}
           {isVendor ? (
             <div className="flex items-center gap-3 sm:gap-6">
-              <Link to="/vendor-dashboard" className="hover:opacity-70 transition-opacity flex items-center gap-1.5">
+              <Link to="/vendor-dashboard" className="hover:opacity-70 transition-opacity flex items-center gap-1.5 whitespace-nowrap">
                 <span className="text-lg font-bold tracking-tight text-foreground">Bosun</span>
-                <span className="text-xs font-semibold text-sky-600 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5">Vendor</span>
+                <span className="text-xs font-semibold text-sky-600 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 whitespace-nowrap">Vendor</span>
               </Link>
               <nav className="flex items-center gap-1">
                 <Link
@@ -120,7 +136,7 @@ export default function Header() {
             <div className="relative ml-2">
               <button
                 onClick={() => setMenuOpen((v) => !v)}
-                className={`flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full border transition-colors ${
+                className={`flex items-center gap-1.5 pl-1.5 pr-2 sm:pl-2 sm:pr-3 py-1.5 rounded-full border transition-colors ${
                   isVendor
                     ? "border-sky-300 hover:border-sky-400 hover:bg-sky-50/60"
                     : "border-border hover:border-primary hover:bg-primary/5"
@@ -132,11 +148,11 @@ export default function Header() {
                   }`}
                 >
                   <span className={`text-xs font-bold ${isVendor ? "text-white" : "text-primary-foreground"}`}>
-                    {isVendor ? (currentVendor?.initials ?? "V") : "D"}
+                    {displayInitials}
                   </span>
                 </div>
-                <span className="text-sm font-medium text-foreground">
-                  {isVendor ? (currentVendor?.name.split(" ")[0] ?? "Vendor") : "Dean"}
+                <span className="hidden sm:inline text-sm font-medium text-foreground">
+                  {displayName}
                 </span>
                 <svg
                   className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${menuOpen ? "rotate-180" : ""}`}
@@ -179,7 +195,7 @@ export default function Header() {
                           Switch to Owner View
                         </button>
                         <button
-                          onClick={() => setMenuOpen(false)}
+                          onClick={handleSignOut}
                           className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
                         >
                           Sign Out
@@ -204,7 +220,7 @@ export default function Header() {
                           Switch to Vendor View
                         </button>
                         <button
-                          onClick={() => setMenuOpen(false)}
+                          onClick={handleSignOut}
                           className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
                         >
                           Sign Out
@@ -234,7 +250,7 @@ export default function Header() {
               </div>
 
               <div className="overflow-y-auto flex-1 py-2">
-                {Object.values(VENDOR_PROFILES).map((vendor) => (
+                {Object.values(VENDOR_PROFILES).filter((v) => v.name === "MarineMax Service Center").map((vendor) => (
                   <button
                     key={vendor.name}
                     onClick={() => handlePickVendor(vendor.name)}

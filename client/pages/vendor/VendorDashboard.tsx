@@ -2,8 +2,7 @@ import { useState, useMemo } from "react";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
 import { VENDOR_PROFILES } from "@/data/vendorData";
-import { PROJECTS } from "@/data/projectData";
-import { submitBid, vendorHasBid } from "@/data/bidUtils";
+import { submitBid, vendorHasBid, getAllProjects, getLocalProjectStatus } from "@/data/bidUtils";
 
 interface LineItem {
   description: string;
@@ -24,6 +23,11 @@ function bidTotal(items: LineItem[]): number {
 export default function VendorDashboard() {
   const { vendorId } = useRole();
   const [, forceUpdate] = useState(0);
+
+  // Detail panel state
+  const [detailProjectId, setDetailProjectId] = useState<string | null>(null);
+  const [questionText, setQuestionText] = useState("");
+  const [questionSent, setQuestionSent] = useState(false);
 
   // Bid dialog state
   const [dialogProjectId, setDialogProjectId] = useState<string | null>(null);
@@ -56,9 +60,10 @@ export default function VendorDashboard() {
   }
 
   const vendor = vendorId ? VENDOR_PROFILES[vendorId] : null;
-  const openRFPs = PROJECTS.filter(
-    (p) => p.status === "gathering" || p.status === "bidding"
-  );
+  const openRFPs = getAllProjects().filter((p) => {
+    const effective = getLocalProjectStatus(p.id, p.status);
+    return effective === "gathering" || effective === "bidding";
+  });
 
   const locations = useMemo(() => {
     const locs = new Set(openRFPs.map((p) => p.location ?? "Fort Lauderdale"));
@@ -80,9 +85,41 @@ export default function VendorDashboard() {
     });
   }, [openRFPs, locationFilters, categoryFilters]);
 
-  const dialogProject = dialogProjectId
-    ? PROJECTS.find((p) => p.id === dialogProjectId)
+  const allProjects = getAllProjects();
+
+  const detailProject = detailProjectId
+    ? allProjects.find((p) => p.id === detailProjectId)
     : null;
+
+  const dialogProject = dialogProjectId
+    ? allProjects.find((p) => p.id === dialogProjectId)
+    : null;
+
+  function openDetail(projectId: string) {
+    setDetailProjectId(projectId);
+    setQuestionText("");
+    setQuestionSent(false);
+  }
+
+  function closeDetail() {
+    setDetailProjectId(null);
+  }
+
+  function sendQuestion() {
+    if (!questionText.trim() || !vendorId || !detailProject) return;
+    const key = `rfp_questions_${detailProject.id}`;
+    const existing = JSON.parse(localStorage.getItem(key) ?? "[]");
+    existing.push({
+      vendorId,
+      vendorName: vendorId,
+      message: questionText.trim(),
+      timestamp: new Date().toISOString(),
+    });
+    localStorage.setItem(key, JSON.stringify(existing));
+    setQuestionText("");
+    setQuestionSent(true);
+    setTimeout(() => setQuestionSent(false), 3000);
+  }
 
   const total = bidTotal(lineItems);
   const isValid =
@@ -300,9 +337,10 @@ export default function VendorDashboard() {
               return (
                 <div
                   key={project.id}
-                  className={`bg-white border rounded-xl p-4 sm:p-5 transition-all ${
+                  onClick={() => openDetail(project.id)}
+                  className={`bg-white border rounded-xl p-4 sm:p-5 transition-all cursor-pointer ${
                     alreadyBid
-                      ? "border-green-200"
+                      ? "border-green-200 hover:shadow-sm"
                       : "border-border hover:border-sky-300 hover:shadow-sm"
                   }`}
                 >
@@ -337,7 +375,7 @@ export default function VendorDashboard() {
                         </div>
                       ) : (
                         <button
-                          onClick={() => openDialog(project.id)}
+                          onClick={(e) => { e.stopPropagation(); openDialog(project.id); }}
                           className="flex items-center gap-1 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-sky-500 text-white text-xs sm:text-sm font-bold hover:bg-sky-600 active:scale-95 transition-all shadow-sm whitespace-nowrap"
                         >
                           Bid Now
@@ -390,6 +428,174 @@ export default function VendorDashboard() {
           </div>
         )}
       </main>
+
+      {/* ── RFP Detail Panel ───────────────────────────────────── */}
+      {detailProject && (() => {
+        const alreadyBid =
+          submitted.includes(detailProject.id) ||
+          (vendorId ? vendorHasBid(detailProject.id, vendorId) : false);
+        return (
+          <>
+            <div className="fixed inset-0 bg-black/40 z-40" onClick={closeDetail} />
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+              <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full sm:max-w-2xl max-h-[92vh] flex flex-col">
+
+                {/* Header */}
+                <div className="px-5 pt-5 pb-4 border-b border-border flex-shrink-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-base font-semibold text-foreground leading-snug">{detailProject.title}</h2>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${
+                          detailProject.status === "gathering" ? "bg-blue-50 text-blue-700" : "bg-sky-50 text-sky-700"
+                        }`}>
+                          {detailProject.status === "gathering" ? "Gathering Candidates" : "Accepting Bids"}
+                        </span>
+                        {detailProject.category && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground whitespace-nowrap">
+                            {detailProject.category}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button onClick={closeDetail} className="p-1.5 rounded-md hover:bg-muted transition-colors flex-shrink-0 mt-0.5">
+                      <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Scrollable body */}
+                <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+
+                  {/* Meta */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {detailProject.date}
+                    </span>
+                    {detailProject.location && (
+                      <span className="flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        {detailProject.location}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      {detailProject.bids.length} bid{detailProject.bids.length !== 1 ? "s" : ""} submitted
+                    </span>
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Project Description</h3>
+                    <p className="text-sm text-foreground leading-relaxed">{detailProject.description}</p>
+                  </div>
+
+                  {/* Boat info */}
+                  {detailProject.boat && (
+                    <div className="bg-muted/40 rounded-lg px-4 py-3">
+                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Vessel</h3>
+                      <div className="flex items-start gap-3">
+                        <svg className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 17h18M5 17V9l7-5 7 5v8M9 17v-4h6v4" />
+                        </svg>
+                        <div className="min-w-0 space-y-0.5">
+                          <p className="text-sm font-semibold text-foreground">"{detailProject.boat.name}"</p>
+                          <p className="text-sm text-foreground">{detailProject.boat.year} {detailProject.boat.make} {detailProject.boat.model}</p>
+                          <p className="text-xs text-muted-foreground">{detailProject.boat.propulsion}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Photos */}
+                  {detailProject.photos && detailProject.photos.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Photos</h3>
+                      <div className="grid grid-cols-3 gap-2">
+                        {detailProject.photos.map((src, i) => (
+                          <img key={i} src={src} alt={`Project photo ${i + 1}`} className="w-full h-24 object-cover rounded-lg bg-muted" />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Ask a question */}
+                  <div className="border-t border-border pt-4">
+                    <h3 className="text-sm font-semibold text-foreground mb-1">Ask the owner a question</h3>
+                    <p className="text-xs text-muted-foreground mb-2">Need more info before bidding? Send a message — they'll reply in the thread.</p>
+                    {questionSent ? (
+                      <div className="flex items-center gap-2 py-3 px-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 font-medium">
+                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Message sent! The owner will follow up soon.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <textarea
+                          value={questionText}
+                          onChange={(e) => setQuestionText(e.target.value)}
+                          rows={3}
+                          placeholder="e.g. What's the current condition of the engine? Are there any existing issues I should know about?"
+                          className="w-full border border-border rounded-md px-3 py-2.5 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-sky-400/50 resize-none"
+                        />
+                        <button
+                          onClick={sendQuestion}
+                          disabled={!questionText.trim()}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-md border border-sky-300 text-sky-700 text-sm font-medium hover:bg-sky-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                          </svg>
+                          Send Message
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-5 py-4 border-t border-border flex-shrink-0 flex items-center justify-between gap-3">
+                  <button
+                    onClick={closeDetail}
+                    className="px-4 py-2 rounded-md border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                  >
+                    Close
+                  </button>
+                  {alreadyBid ? (
+                    <div className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-green-50 text-green-700 text-sm font-semibold border border-green-200">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Bid Submitted
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { closeDetail(); openDialog(detailProject.id); }}
+                      className="flex items-center gap-1.5 px-5 py-2 rounded-md bg-sky-500 text-white text-sm font-bold hover:bg-sky-600 transition-colors shadow-sm"
+                    >
+                      Bid Now
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {/* ── Submit Bid Dialog ──────────────────────────────────── */}
       {dialogProject && (

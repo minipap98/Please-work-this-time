@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
-import { PROJECTS, VENDOR_PAST_PROJECTS } from "@/data/projectData";
+import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
+import { getAugmentedProjects, getRejectedBidIds, rejectBid, unrejectBid, getBidAdjustment, getRescindedBidIds } from "@/data/bidUtils";
 import { VENDOR_PROFILES } from "@/data/vendorData";
 import {
   Dialog,
@@ -78,7 +79,7 @@ export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const project = PROJECTS.find((p) => p.id === id);
+  const project = getAugmentedProjects().find((p) => p.id === id);
 
   if (!project) {
     return (
@@ -105,6 +106,18 @@ export default function ProjectDetail() {
     try { return JSON.parse(localStorage.getItem(ratingKey) ?? "null"); } catch { return null; }
   })();
   const [expandedBid, setExpandedBid] = useState<string | null>(null);
+  const [rejectedIds, setRejectedIds] = useState<string[]>(() => getRejectedBidIds());
+  const [rescindedIds] = useState<string[]>(() => getRescindedBidIds());
+
+  function handleRejectBid(bidId: string) {
+    rejectBid(bidId);
+    setRejectedIds(getRejectedBidIds());
+  }
+
+  function handleUnrejectBid(bidId: string) {
+    unrejectBid(bidId);
+    setRejectedIds(getRejectedBidIds());
+  }
 
   // Service window dialog
   const [serviceDialogBidId, setServiceDialogBidId] = useState<string | null>(null);
@@ -301,19 +314,29 @@ export default function ProjectDetail() {
           <div className="space-y-4">
             {project.bids.map((bid) => {
               const isChosen = bid.id === project.chosenBidId;
+              const isRejected = rejectedIds.includes(bid.id);
+              const isRescinded = rescindedIds.includes(bid.id);
+              const canAct = (project.status === "active" || project.status === "bidding") && !isChosen && !isRescinded;
+              const bidAdj = getBidAdjustment(bid.id);
+              const displayPrice = bidAdj?.price ?? bid.price;
+              const displayMessage = bidAdj?.message || bid.message;
               return (
                 <div
                   key={bid.id}
                   className={`border rounded-lg p-5 transition-colors ${
                     isChosen
                       ? "border-primary bg-primary/5"
+                      : isRescinded
+                      ? "border-border bg-zinc-50 opacity-50"
+                      : isRejected
+                      ? "border-border bg-muted/30 opacity-60"
                       : "border-border"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     {/* Left: avatar + vendor info */}
                     <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold flex-shrink-0">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${isRejected ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"}`}>
                         {bid.vendorInitials}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -327,6 +350,16 @@ export default function ProjectDetail() {
                           {isChosen && (
                             <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                               Chosen
+                            </span>
+                          )}
+                          {isRejected && (
+                            <span className="text-xs font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                              Declined
+                            </span>
+                          )}
+                          {isRescinded && (
+                            <span className="text-xs font-semibold text-zinc-500 bg-zinc-100 border border-zinc-200 px-2 py-0.5 rounded-full">
+                              Withdrawn
                             </span>
                           )}
                           {VENDOR_PROFILES[bid.vendorName]?.insured && (
@@ -365,15 +398,38 @@ export default function ProjectDetail() {
 
                     {/* Right: price + actions */}
                     <div className="text-right flex-shrink-0 flex flex-col items-end gap-1.5">
-                      <div className="text-xl font-bold text-foreground">
-                        ${bid.price.toLocaleString()}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xl font-bold text-foreground">
+                          ${displayPrice.toLocaleString()}
+                        </span>
+                        {bidAdj && (
+                          <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                            Revised
+                          </span>
+                        )}
                       </div>
-                      {(project.status === "active" || project.status === "bidding") && (
+                      {canAct && !isRejected && (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleRejectBid(bid.id)}
+                            className="px-3 py-1.5 rounded-md border border-border text-xs font-semibold text-muted-foreground hover:border-red-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            Decline
+                          </button>
+                          <button
+                            onClick={() => handleAcceptBid(bid.id)}
+                            className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+                          >
+                            Accept Bid
+                          </button>
+                        </div>
+                      )}
+                      {canAct && isRejected && (
                         <button
-                          onClick={() => handleAcceptBid(bid.id)}
-                          className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+                          onClick={() => handleUnrejectBid(bid.id)}
+                          className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
                         >
-                          Accept Bid
+                          Undo decline
                         </button>
                       )}
                       {bid.thread.length > 0 && (
@@ -392,7 +448,10 @@ export default function ProjectDetail() {
 
                   {/* Message */}
                   <p className="text-sm text-muted-foreground mt-3 leading-relaxed border-t border-border/50 pt-3">
-                    {bid.message}
+                    {displayMessage}
+                    {bidAdj?.message && bidAdj.message !== bid.message && (
+                      <span className="ml-1.5 text-[10px] text-amber-600 font-medium">(updated)</span>
+                    )}
                   </p>
 
                   {/* Itemized estimate */}
@@ -421,7 +480,7 @@ export default function ProjectDetail() {
                         <tfoot>
                           <tr className="border-t-2 border-border">
                             <td colSpan={3} className="pt-2 text-right text-sm font-semibold text-foreground">Total</td>
-                            <td className="pt-2 text-right font-bold text-foreground">${bid.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                            <td className="pt-2 text-right font-bold text-foreground">${displayPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
                           </tr>
                         </tfoot>
                       </table>

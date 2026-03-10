@@ -8,6 +8,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { ENGINE_DATA, type EngineType } from "@/data/engineData";
+import { saveLocalProject } from "@/data/bidUtils";
+import { type Project, type ProjectBoat } from "@/data/projectData";
 
 // ─── Icons ───────────────────────────────────────────────────
 function SvgIcon({ d, d2, className = "w-5 h-5" }: { d: string; d2?: string; className?: string }) {
@@ -103,7 +105,11 @@ const DEFAULT_BOAT = {
 
 type Step = "category" | "engine" | "details";
 
-export default function HeroSection() {
+interface HeroSectionProps {
+  onProjectPosted?: () => void;
+}
+
+export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [heroImage, setHeroImage] = useState(
@@ -150,6 +156,7 @@ export default function HeroSection() {
     }
   }, []);
 
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [engineType, setEngineType] = useState<EngineType | null>(null);
   const [make, setMake] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);
@@ -158,6 +165,7 @@ export default function HeroSection() {
     setOpen(false);
     setTimeout(() => {
       setStep("category");
+      setSelectedCategory("");
       setEngineType(null);
       setMake(null);
       setModel(null);
@@ -182,6 +190,7 @@ export default function HeroSection() {
   }
 
   function handleSelectCategory(label: string) {
+    setSelectedCategory(label);
     if (label === "Engine Service") {
       setStep("engine");
     } else {
@@ -190,6 +199,7 @@ export default function HeroSection() {
   }
 
   function handleSelectTemplate(template: typeof PROJECT_TEMPLATES[0]) {
+    setSelectedCategory(template.label);
     setProjectTitle(template.title);
     setProjectDescription(template.description);
     setStep("details");
@@ -553,7 +563,51 @@ export default function HeroSection() {
                     </button>
                     <button
                       disabled={!projectTitle.trim()}
-                      onClick={() => setPostSubmitted(true)}
+                      onClick={() => {
+                        // Build propulsion from stored engine info
+                        const engineModelClean =
+                          boatInfo?.engineModel?.replace(/\s*\([\d–\-]+.*?\)$/, "") || null;
+                        const propulsion = [
+                          boatInfo?.engineType === "Outboard"
+                            ? boatInfo?.engineCount || null
+                            : null,
+                          boatInfo?.engineMake || null,
+                          engineModelClean,
+                        ]
+                          .filter(Boolean)
+                          .join(" ") || boatInfo?.engineType || "Unknown";
+
+                        const boat: ProjectBoat = {
+                          name: boatInfo?.name || "My Boat",
+                          make: boatInfo?.make || "",
+                          model: boatInfo?.model || "",
+                          year: boatInfo?.year || "",
+                          propulsion,
+                        };
+
+                        const dateStr = new Date().toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        });
+
+                        const newProject: Project = {
+                          id: `local_${Date.now()}`,
+                          title: projectTitle.trim(),
+                          description: projectDescription.trim(),
+                          status: "bidding",
+                          date: dateStr,
+                          location: location || "Fort Lauderdale",
+                          category: selectedCategory || undefined,
+                          boat,
+                          bids: [],
+                          photos: projectPhotos.length > 0 ? projectPhotos : undefined,
+                        };
+
+                        saveLocalProject(newProject);
+                        setPostSubmitted(true);
+                        onProjectPosted?.();
+                      }}
                       className="px-4 py-2 rounded-md bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       Post Project

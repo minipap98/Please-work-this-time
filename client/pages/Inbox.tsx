@@ -1,8 +1,103 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
-import { PROJECTS } from "@/data/projectData";
-import { getAllMessages } from "@/data/bidUtils";
+import { getAllMessages, getAugmentedProjects, getQuoteStatus, acceptQuote, rejectQuote } from "@/data/bidUtils";
+import { BidMessage } from "@/data/projectData";
+
+/** Quote card shown to the owner — with Accept / Decline actions */
+function InboxQuoteCard({
+  msg,
+  vendorName,
+  vendorInitials,
+  boat,
+  onAccept,
+  onDecline,
+}: {
+  msg: BidMessage;
+  vendorName: string;
+  vendorInitials: string;
+  boat?: { name: string; make: string; model: string; year: string; propulsion: string };
+  onAccept: () => void;
+  onDecline: () => void;
+}) {
+  const status = msg.quoteId ? getQuoteStatus(msg.quoteId) : null;
+
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-border bg-white shadow-sm overflow-hidden">
+        {/* Header bar */}
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-muted/50 border-b border-border">
+          <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+            {vendorInitials}
+          </div>
+          <span className="text-xs font-semibold text-foreground">{vendorName}</span>
+          <span className="text-xs text-muted-foreground">· Quote Proposal</span>
+        </div>
+
+        {/* Quote details */}
+        <div className="px-4 py-3 space-y-1">
+          <div className="flex items-start justify-between gap-4">
+            <p className="text-sm font-semibold text-foreground">{msg.quoteTitle}</p>
+            <p className="text-base font-bold text-foreground flex-shrink-0">
+              ${msg.quotePrice?.toLocaleString()}
+            </p>
+          </div>
+          {msg.quoteDescription && (
+            <p className="text-xs text-muted-foreground leading-relaxed">{msg.quoteDescription}</p>
+          )}
+          {boat && (
+            <p className="text-[10px] text-muted-foreground">
+              For "{boat.name}" · {boat.year} {boat.make} {boat.model}
+            </p>
+          )}
+          <p className="text-[10px] text-muted-foreground">{msg.time}</p>
+        </div>
+
+        {/* Action area */}
+        <div className="px-4 pb-3">
+          {status === null && (
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={onDecline}
+                className="flex-1 px-3 py-1.5 text-xs font-medium border border-border rounded-md text-muted-foreground hover:border-red-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+              >
+                Decline
+              </button>
+              <button
+                onClick={onAccept}
+                className="flex-1 px-3 py-1.5 text-xs font-semibold bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity"
+              >
+                Accept &amp; Create Project
+              </button>
+            </div>
+          )}
+          {status === "accepted" && (
+            <div className="flex items-center gap-2 pt-1">
+              <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1">
+                ✓ Project created
+              </span>
+              <button
+                onClick={() => {
+                  window.location.href = `/project/local_${msg.quoteId}`;
+                }}
+                className="text-xs text-primary font-semibold hover:opacity-70 transition-opacity"
+              >
+                View project →
+              </button>
+            </div>
+          )}
+          {status === "rejected" && (
+            <div className="pt-1">
+              <span className="text-xs text-muted-foreground bg-muted rounded-full px-2.5 py-1">
+                Declined
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Inbox() {
   const navigate = useNavigate();
@@ -10,8 +105,8 @@ export default function Inbox() {
   const [replyText, setReplyText] = useState("");
   const [, forceUpdate] = useState(0);
 
-  // Gather all threads that have at least one message (including vendor-sent messages)
-  const threads = PROJECTS.flatMap((project) =>
+  // Gather all threads that have at least one message (static + local projects + vendor bids)
+  const threads = getAugmentedProjects().flatMap((project) =>
     project.bids
       .filter((bid) => getAllMessages(bid).length > 0)
       .map((bid) => ({ project, bid }))
@@ -44,6 +139,26 @@ export default function Inbox() {
     forceUpdate((n) => n + 1);
   }
 
+  function handleAcceptQuote(msg: BidMessage) {
+    if (!msg.quoteId || !selected) return;
+    acceptQuote(
+      msg.quoteId,
+      selected.bid.vendorName,
+      selected.bid.vendorInitials,
+      msg.quoteTitle!,
+      msg.quotePrice!,
+      msg.quoteDescription ?? "",
+      selected.project.boat
+    );
+    forceUpdate((n) => n + 1);
+  }
+
+  function handleRejectQuote(msg: BidMessage) {
+    if (!msg.quoteId) return;
+    rejectQuote(msg.quoteId);
+    forceUpdate((n) => n + 1);
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <Header />
@@ -58,7 +173,7 @@ export default function Inbox() {
             <p className="text-muted-foreground text-sm">No messages yet.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-border rounded-lg overflow-hidden h-[600px]">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-border rounded-lg overflow-hidden h-[620px]">
             {/* Thread list */}
             <div className="md:col-span-1 border-r border-border overflow-y-auto">
               {threads.map(({ project, bid }) => {
@@ -67,6 +182,10 @@ export default function Inbox() {
                   selectedThread?.bidId === bid.id;
                 const allMsgs = getAllMessages(bid);
                 const lastMsg = allMsgs[allMsgs.length - 1];
+                // Check if there's any pending (unanswered) quote
+                const hasPendingQuote = allMsgs.some(
+                  (m) => m.type === "quote" && m.quoteId && getQuoteStatus(m.quoteId) === null
+                );
                 return (
                   <button
                     key={bid.id}
@@ -85,11 +204,18 @@ export default function Inbox() {
                       <p className="text-sm font-semibold text-foreground truncate flex-1">
                         {bid.vendorName}
                       </p>
+                      {hasPendingQuote && (
+                        <span className="flex-shrink-0 w-2 h-2 rounded-full bg-amber-400" title="Pending quote" />
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground truncate ml-9">{project.title}</p>
                     {lastMsg && (
                       <p className="text-xs text-muted-foreground truncate ml-9 mt-0.5 italic">
-                        {lastMsg.from === "user" ? "You: " : ""}{lastMsg.text}
+                        {lastMsg.type === "quote"
+                          ? `📋 Quote: ${lastMsg.quoteTitle}`
+                          : lastMsg.from === "user"
+                          ? `You: ${lastMsg.text}`
+                          : lastMsg.text}
                       </p>
                     )}
                   </button>
@@ -122,25 +248,41 @@ export default function Inbox() {
 
                   {/* Messages */}
                   <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-                    {allMessages.map((msg, i) => (
-                      <div
-                        key={i}
-                        className={`flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}
-                      >
+                    {allMessages.map((msg, i) => {
+                      // Quote proposal — render as action card
+                      if (msg.type === "quote") {
+                        return (
+                          <InboxQuoteCard
+                            key={i}
+                            msg={msg}
+                            vendorName={selected.bid.vendorName}
+                            vendorInitials={selected.bid.vendorInitials}
+                            boat={selected.project.boat}
+                            onAccept={() => handleAcceptQuote(msg)}
+                            onDecline={() => handleRejectQuote(msg)}
+                          />
+                        );
+                      }
+                      return (
                         <div
-                          className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
-                            msg.from === "user"
-                              ? "bg-primary text-primary-foreground rounded-br-sm"
-                              : "bg-muted text-foreground rounded-bl-sm"
-                          }`}
+                          key={i}
+                          className={`flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}
                         >
-                          <p className="text-sm leading-relaxed">{msg.text}</p>
-                          <p className={`text-[10px] mt-1 ${msg.from === "user" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                            {msg.time}
-                          </p>
+                          <div
+                            className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
+                              msg.from === "user"
+                                ? "bg-primary text-primary-foreground rounded-br-sm"
+                                : "bg-muted text-foreground rounded-bl-sm"
+                            }`}
+                          >
+                            <p className="text-sm leading-relaxed">{msg.text}</p>
+                            <p className={`text-[10px] mt-1 ${msg.from === "user" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                              {msg.time}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Reply box */}

@@ -1,4 +1,80 @@
-import { PROJECTS, Bid, BidMessage, Project } from "./projectData";
+import { PROJECTS, Bid, BidMessage, Project, ProjectBoat } from "./projectData";
+
+// ── Local project helpers ────────────────────────────────────────────────────
+
+/** All projects Dean created locally (saved in localStorage) */
+export function getLocalProjects(): Project[] {
+  try {
+    return JSON.parse(localStorage.getItem("local_projects") ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+/** Save a new locally-created project to localStorage */
+export function saveLocalProject(project: Project): void {
+  const existing = getLocalProjects();
+  localStorage.setItem("local_projects", JSON.stringify([...existing, project]));
+}
+
+/** Static PROJECTS + locally-created projects */
+export function getAllProjects(): Project[] {
+  return [...PROJECTS, ...getLocalProjects()];
+}
+
+// ── Cancellation helpers ─────────────────────────────────────────────────────
+
+/** IDs of projects the owner has cancelled */
+export function getCancelledProjectIds(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem("cancelled_projects") ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+/** Mark a project as cancelled (moves it to the Expired tab on the owner side) */
+export function cancelProject(projectId: string): void {
+  const existing = getCancelledProjectIds();
+  if (!existing.includes(projectId)) {
+    localStorage.setItem("cancelled_projects", JSON.stringify([...existing, projectId]));
+  }
+}
+
+/** Reinstate a cancelled or expired project back to active (accepting bids) */
+export function reinstateProject(projectId: string): void {
+  // Remove from cancelled list if present
+  const cancelled = getCancelledProjectIds();
+  localStorage.setItem("cancelled_projects", JSON.stringify(cancelled.filter((id) => id !== projectId)));
+  // Set an explicit status override back to bidding
+  // (required for statically-expired projects whose p.status can't be mutated)
+  localStorage.setItem(`project_status_${projectId}`, "bidding");
+}
+
+// ── Bid rejection helpers ────────────────────────────────────────────────────
+
+/** IDs of bids the owner has rejected */
+export function getRejectedBidIds(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem("rejected_bids") ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+/** Reject a vendor's bid */
+export function rejectBid(bidId: string): void {
+  const existing = getRejectedBidIds();
+  if (!existing.includes(bidId)) {
+    localStorage.setItem("rejected_bids", JSON.stringify([...existing, bidId]));
+  }
+}
+
+/** Undo a rejection */
+export function unrejectBid(bidId: string): void {
+  const existing = getRejectedBidIds();
+  localStorage.setItem("rejected_bids", JSON.stringify(existing.filter((id) => id !== bidId)));
+}
 
 // ── Message helpers ──────────────────────────────────────────────────────────
 
@@ -60,9 +136,7 @@ export function getSubmittedBids(vendorId: string): Array<{ project: Project; bi
   const results: Array<{ project: Project; bid: Bid }> = [];
   for (const entry of entries) {
     if (entry.bid.vendorName !== vendorId) continue;
-    const project =
-      PROJECTS.find((p) => p.id === entry.projectId) ??
-      getAugmentedProjects().find((p) => p.id === entry.projectId);
+    const project = getAllProjects().find((p) => p.id === entry.projectId);
     if (project) results.push({ project, bid: entry.bid });
   }
   return results;
@@ -88,10 +162,10 @@ export function submitBid(projectId: string, bid: Bid): void {
   );
 }
 
-/** PROJECTS merged with any locally-submitted bids */
+/** All projects (static + local) merged with any vendor-submitted bids */
 export function getAugmentedProjects(): Project[] {
   const entries = getSubmittedBidEntries();
-  return PROJECTS.map((project) => {
+  return getAllProjects().map((project) => {
     const extra = entries
       .filter((e) => e.projectId === project.id)
       .map((e) => e.bid);
@@ -100,12 +174,12 @@ export function getAugmentedProjects(): Project[] {
   });
 }
 
-/** All projects where a given vendor has a bid (static or submitted) */
+/** All projects where a given vendor has a bid (static, local, or submitted) */
 export function getVendorBidProjects(vendorId: string): Array<{ project: Project; bid: Bid }> {
   const results: Array<{ project: Project; bid: Bid }> = [];
 
-  // Static bids
-  for (const project of PROJECTS) {
+  // Static + local projects with embedded bids
+  for (const project of getAllProjects()) {
     const bid = project.bids.find((b) => b.vendorName === vendorId);
     if (bid) results.push({ project, bid });
   }
@@ -230,4 +304,165 @@ export function getVendorUnreadCount(vendorId: string): number {
     total += unread;
   }
   return total;
+}
+
+// ── Accepted-bid detector ─────────────────────────────────────────────────────
+
+/** True if the vendor's bid has been accepted/booked by the owner */
+export function isBidAccepted(project: Project, bid: Bid): boolean {
+  if (project.chosenBidId === bid.id) return true;
+  try {
+    const raw = localStorage.getItem(`booking_${project.id}`);
+    if (raw) {
+      const booking = JSON.parse(raw);
+      if (booking.bidId === bid.id) return true;
+    }
+  } catch {}
+  return false;
+}
+
+// ── Quote proposal helpers ────────────────────────────────────────────────────
+
+function nowTimestamp(): string {
+  const now = new Date();
+  return (
+    now.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
+    ", " +
+    now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+  );
+}
+
+/** Vendor sends a quote proposal into a bid's thread */
+export function sendVendorQuote(
+  bidId: string,
+  quoteId: string,
+  title: string,
+  price: number,
+  description: string
+): void {
+  const msg: BidMessage = {
+    from: "vendor",
+    text: `Quote: ${title} — $${price.toLocaleString()}`,
+    time: nowTimestamp(),
+    type: "quote",
+    quoteId,
+    quoteTitle: title,
+    quotePrice: price,
+    quoteDescription: description,
+  };
+  const existing = JSON.parse(localStorage.getItem(`vendor_msgs_${bidId}`) ?? "[]") as BidMessage[];
+  localStorage.setItem(`vendor_msgs_${bidId}`, JSON.stringify([...existing, msg]));
+}
+
+/** Get the status of a quote: "accepted" | "rejected" | null */
+export function getQuoteStatus(quoteId: string): "accepted" | "rejected" | null {
+  return (localStorage.getItem(`quote_status_${quoteId}`) as "accepted" | "rejected") ?? null;
+}
+
+/** Owner accepts a quote → marks it and creates a new project */
+export function acceptQuote(
+  quoteId: string,
+  vendorName: string,
+  vendorInitials: string,
+  title: string,
+  price: number,
+  description: string,
+  boat?: ProjectBoat
+): void {
+  localStorage.setItem(`quote_status_${quoteId}`, "accepted");
+
+  const bidId = `qbid_${quoteId}`;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+  const vendorBid: Bid = {
+    id: bidId,
+    vendorName,
+    vendorInitials,
+    rating: 0,
+    reviewCount: 0,
+    message: description,
+    price,
+    submittedDate: dateStr,
+    expiryDate: "",
+    thread: [],
+  };
+
+  const newProject: Project = {
+    id: `local_${quoteId}`,
+    title,
+    description,
+    status: "in-progress",
+    date: dateStr,
+    boat,
+    bids: [vendorBid],
+    chosenBidId: bidId,
+  };
+
+  saveLocalProject(newProject);
+  localStorage.setItem(`booking_${newProject.id}`, JSON.stringify({ bidId }));
+  localStorage.setItem(`project_status_${newProject.id}`, "in-progress");
+}
+
+/** Owner rejects a quote */
+export function rejectQuote(quoteId: string): void {
+  localStorage.setItem(`quote_status_${quoteId}`, "rejected");
+}
+
+// ── Bid adjustment helpers ────────────────────────────────────────────────────
+
+export interface BidAdjustment {
+  price: number;
+  message: string;
+}
+
+/** Get any price/message revision the vendor made to their bid */
+export function getBidAdjustment(bidId: string): BidAdjustment | null {
+  try {
+    const raw = localStorage.getItem(`bid_adjustment_${bidId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Save a vendor's revised bid price and message */
+export function saveBidAdjustment(bidId: string, price: number, message: string): void {
+  localStorage.setItem(`bid_adjustment_${bidId}`, JSON.stringify({ price, message }));
+}
+
+// ── Effective project status ──────────────────────────────────────────────────
+
+/**
+ * Returns the runtime status of a project, factoring in:
+ *  1. An explicit `project_status_${id}` override stored by the owner's UI
+ *  2. A confirmed booking (`booking_${id}`) → treat as "in-progress"
+ *  3. Falls back to the project's static status field
+ */
+export function getLocalProjectStatus(projectId: string, fallback: string): string {
+  try {
+    const explicit = localStorage.getItem(`project_status_${projectId}`);
+    if (explicit) return explicit;
+    if (localStorage.getItem(`booking_${projectId}`)) return "in-progress";
+  } catch {}
+  return fallback;
+}
+
+// ── Bid rescission helpers ────────────────────────────────────────────────────
+
+/** IDs of bids the vendor has rescinded/withdrawn */
+export function getRescindedBidIds(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem("rescinded_bids") ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+/** Vendor withdraws their bid */
+export function rescindBid(bidId: string): void {
+  const existing = getRescindedBidIds();
+  if (!existing.includes(bidId)) {
+    localStorage.setItem("rescinded_bids", JSON.stringify([...existing, bidId]));
+  }
 }

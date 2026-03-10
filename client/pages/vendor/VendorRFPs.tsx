@@ -1,8 +1,7 @@
 import { useState } from "react";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
-import { PROJECTS } from "@/data/projectData";
-import { submitBid, vendorHasBid } from "@/data/bidUtils";
+import { submitBid, vendorHasBid, getAllProjects } from "@/data/bidUtils";
 
 interface LineItem {
   description: string;
@@ -34,12 +33,13 @@ export default function VendorRFPs() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<string[]>([]);
 
-  const openProjects = PROJECTS.filter(
+  const allProjects = getAllProjects();
+  const openProjects = allProjects.filter(
     (p) => p.status === "gathering" || p.status === "bidding"
   );
 
   const dialogProject = dialogProjectId
-    ? PROJECTS.find((p) => p.id === dialogProjectId)
+    ? allProjects.find((p) => p.id === dialogProjectId)
     : null;
 
   const total = bidTotal(lineItems);

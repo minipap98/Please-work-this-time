@@ -2,6 +2,12 @@ export interface BidMessage {
   from: "vendor" | "user";
   text: string;
   time: string;
+  // Quote proposal fields (only present when type === "quote")
+  type?: "quote";
+  quoteId?: string;
+  quoteTitle?: string;
+  quotePrice?: number;
+  quoteDescription?: string;
 }
 
 export interface Bid {

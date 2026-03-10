@@ -1,15 +1,29 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
-import { getVendorBidProjects, getAllMessages, sendVendorMessage } from "@/data/bidUtils";
-import { Bid, Project } from "@/data/projectData";
+import {
+  getVendorBidProjects, getAllMessages, sendVendorMessage,
+  isBidAccepted, sendVendorQuote, getBidAdjustment, saveBidAdjustment,
+  getRescindedBidIds, rescindBid,
+} from "@/data/bidUtils";
+import { Bid, BidMessage, Project } from "@/data/projectData";
 
-type BidFilter = "all" | "submitted" | "accepted" | "completed" | "lost" | "expired";
+type BidFilter = "all" | "submitted" | "accepted" | "completed" | "lost" | "expired" | "rescinded";
 
 function getBidFilter(bid: Bid, project: Project): Exclude<BidFilter, "all"> {
+  // Rescinded takes priority — vendor withdrew before any decision
+  if (getRescindedBidIds().includes(bid.id)) return "rescinded";
   if (project.chosenBidId === bid.id) {
     return project.status === "completed" ? "completed" : "accepted";
   }
+  // Also check localStorage booking (for bids accepted via the owner UI)
+  try {
+    const raw = localStorage.getItem(`booking_${project.id}`);
+    if (raw) {
+      const booking = JSON.parse(raw);
+      if (booking.bidId === bid.id) return "accepted";
+    }
+  } catch {}
   if (project.status === "expired") return "expired";
   if (project.status === "completed" || project.status === "in-progress") return "lost";
   return "submitted";
@@ -57,6 +71,12 @@ const FILTER_CONFIG: {
     activeClass: "bg-red-500 text-white",
     badgeClass: "bg-red-50 text-red-500",
   },
+  {
+    key: "rescinded",
+    label: "Withdrawn",
+    activeClass: "bg-zinc-600 text-white",
+    badgeClass: "bg-zinc-100 text-zinc-600",
+  },
 ];
 
 function BidStatusBadge({ bid, project }: { bid: Bid; project: Project }) {
@@ -69,6 +89,79 @@ function BidStatusBadge({ bid, project }: { bid: Bid; project: Project }) {
   );
 }
 
+/** Render a quote proposal as a card (vendor's outgoing quote) */
+function QuoteCard({ msg }: { msg: BidMessage }) {
+  return (
+    <div className="flex justify-end">
+      <div className="max-w-[80%] rounded-2xl rounded-br-sm border border-sky-200 bg-sky-50 px-4 py-3 space-y-1.5">
+        <div className="flex items-center gap-1.5 text-sky-700 text-xs font-semibold">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Quote Proposal Sent
+        </div>
+        <p className="text-sm font-semibold text-foreground">{msg.quoteTitle}</p>
+        <p className="text-base font-bold text-sky-600">${msg.quotePrice?.toLocaleString()}</p>
+        {msg.quoteDescription && (
+          <p className="text-xs text-muted-foreground leading-relaxed">{msg.quoteDescription}</p>
+        )}
+        <p className="text-[10px] text-muted-foreground">{msg.time}</p>
+      </div>
+    </div>
+  );
+}
+
+/** Congratulations overlay — shown once per newly accepted bid */
+function CongratsBanner({
+  projectTitle,
+  price,
+  vendorName,
+  onClose,
+}: {
+  projectTitle: string;
+  price: number;
+  vendorName: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Card */}
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8 text-center animate-in fade-in zoom-in duration-300">
+        {/* Confetti ring */}
+        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mx-auto mb-5 shadow-lg">
+          <span className="text-4xl">🎉</span>
+        </div>
+
+        <h2 className="text-2xl font-bold text-foreground mb-1">Congratulations!</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Your bid was accepted by the boat owner.
+        </p>
+
+        {/* Project info card */}
+        <div className="bg-muted/40 rounded-xl px-5 py-4 mb-6 text-left space-y-1">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Project</p>
+          <p className="text-sm font-semibold text-foreground">{projectTitle}</p>
+          <p className="text-xl font-bold text-green-600">${price.toLocaleString()}</p>
+        </div>
+
+        <p className="text-xs text-muted-foreground mb-6">
+          The owner will be in touch to confirm the service window. Check your messages for details.
+        </p>
+
+        <button
+          onClick={onClose}
+          className="w-full py-2.5 rounded-xl bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
+        >
+          View My Bids
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function VendorMyBids() {
   const { vendorId } = useRole();
   const [selectedBidId, setSelectedBidId] = useState<string | null>(null);
@@ -76,7 +169,37 @@ export default function VendorMyBids() {
   const [filter, setFilter] = useState<BidFilter>("all");
   const [, forceUpdate] = useState(0);
 
+  // ── Congratulations notification ────────────────────────────────────────────
+  const [congratsBid, setCongratssBid] = useState<{ projectTitle: string; price: number; vendorName: string } | null>(null);
+
+  // ── Quote form state ────────────────────────────────────────────────────────
+  const [showQuoteForm, setShowQuoteForm] = useState(false);
+  const [quoteTitle, setQuoteTitle] = useState("");
+  const [quotePrice, setQuotePrice] = useState("");
+  const [quoteDescription, setQuoteDescription] = useState("");
+
+  // ── Adjust bid state ────────────────────────────────────────────────────────
+  const [showAdjustForm, setShowAdjustForm] = useState(false);
+  const [adjustPrice, setAdjustPrice] = useState("");
+  const [adjustMessage, setAdjustMessage] = useState("");
+
+  // ── Rescind bid state ────────────────────────────────────────────────────────
+  const [showRescindConfirm, setShowRescindConfirm] = useState(false);
+
   const myBids = vendorId ? getVendorBidProjects(vendorId) : [];
+
+  // ── Detect newly accepted bids and show congrats once ───────────────────────
+  useEffect(() => {
+    for (const { project, bid } of myBids) {
+      if (!isBidAccepted(project, bid)) continue;
+      const notifiedKey = `bid_accepted_notified_${bid.id}`;
+      if (localStorage.getItem(notifiedKey)) continue;
+      // First time seeing this acceptance — show the pop-up
+      localStorage.setItem(notifiedKey, "1");
+      setCongratssBid({ projectTitle: project.title, price: bid.price, vendorName: bid.vendorName });
+      break; // show one at a time
+    }
+  }, [myBids.length]); // re-check when bid count changes
 
   // Count per filter
   const counts = useMemo(() => {
@@ -87,6 +210,7 @@ export default function VendorMyBids() {
       completed: 0,
       lost: 0,
       expired: 0,
+      rescinded: 0,
     };
     for (const { bid, project } of myBids) {
       result[getBidFilter(bid, project)]++;
@@ -111,6 +235,12 @@ export default function VendorMyBids() {
   const selected = activeId ? filteredBids.find((b) => b.bid.id === activeId) : null;
   const allMessages = selected ? getAllMessages(selected.bid) : [];
 
+  // Derived flags for selected bid
+  const bidAccepted = selected ? isBidAccepted(selected.project, selected.bid) : false;
+  const bidStatus = selected ? getBidFilter(selected.bid, selected.project) : null;
+  const adjustment = selected ? getBidAdjustment(selected.bid.id) : null;
+  const displayPrice = adjustment?.price ?? selected?.bid.price;
+
   function sendReply() {
     if (!replyText.trim() || !selected) return;
     sendVendorMessage(selected.bid.id, replyText.trim());
@@ -120,9 +250,51 @@ export default function VendorMyBids() {
     forceUpdate((n) => n + 1);
   }
 
+  function submitQuote() {
+    if (!quoteTitle.trim() || !quotePrice || !selected) return;
+    const price = parseFloat(quotePrice);
+    if (isNaN(price) || price <= 0) return;
+    const quoteId = `q_${Date.now()}`;
+    sendVendorQuote(selected.bid.id, quoteId, quoteTitle.trim(), price, quoteDescription.trim());
+    setQuoteTitle("");
+    setQuotePrice("");
+    setQuoteDescription("");
+    setShowQuoteForm(false);
+    forceUpdate((n) => n + 1);
+  }
+
+  function saveAdjustment() {
+    if (!adjustPrice || !selected) return;
+    const price = parseFloat(adjustPrice);
+    if (isNaN(price) || price <= 0) return;
+    saveBidAdjustment(selected.bid.id, price, adjustMessage.trim());
+    setShowAdjustForm(false);
+    forceUpdate((n) => n + 1);
+  }
+
+  function openAdjustForm() {
+    if (!selected) return;
+    const adj = getBidAdjustment(selected.bid.id);
+    setAdjustPrice(String(adj?.price ?? selected.bid.price));
+    setAdjustMessage(adj?.message ?? selected.bid.message);
+    setShowAdjustForm(true);
+  }
+
+  function rescindSelectedBid() {
+    if (!selected) return;
+    rescindBid(selected.bid.id);
+    setShowRescindConfirm(false);
+    setShowAdjustForm(false);
+    setShowQuoteForm(false);
+    forceUpdate((n) => n + 1);
+  }
+
   function switchFilter(f: BidFilter) {
     setFilter(f);
-    setSelectedBidId(null); // reset selection so first of new filter auto-selects
+    setSelectedBidId(null);
+    setShowQuoteForm(false);
+    setShowAdjustForm(false);
+    setShowRescindConfirm(false);
   }
 
   if (myBids.length === 0) {
@@ -144,6 +316,16 @@ export default function VendorMyBids() {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Congratulations overlay — shown once per newly accepted bid */}
+      {congratsBid && (
+        <CongratsBanner
+          projectTitle={congratsBid.projectTitle}
+          price={congratsBid.price}
+          vendorName={congratsBid.vendorName}
+          onClose={() => setCongratssBid(null)}
+        />
+      )}
+
       <Header />
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex items-center justify-between mb-5">
@@ -184,7 +366,7 @@ export default function VendorMyBids() {
         </div>
 
         {/* ── Two-panel layout ──────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-border rounded-lg overflow-hidden md:h-[620px]">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-border rounded-lg overflow-hidden md:h-[680px]">
 
           {/* Bid list */}
           <div className="md:col-span-1 border-r border-border overflow-y-auto">
@@ -199,12 +381,17 @@ export default function VendorMyBids() {
                 const isSelected = activeId === bid.id;
                 const msgs = getAllMessages(bid);
                 const lastMsg = msgs[msgs.length - 1];
+                const adj = getBidAdjustment(bid.id);
+                const shownPrice = adj?.price ?? bid.price;
                 return (
                   <button
                     key={bid.id}
                     onClick={() => {
                       setSelectedBidId(bid.id);
                       setReplyText("");
+                      setShowQuoteForm(false);
+                      setShowAdjustForm(false);
+                      setShowRescindConfirm(false);
                       localStorage.setItem(`vendor_msg_read_${bid.id}`, String(msgs.length));
                       forceUpdate((n) => n + 1);
                     }}
@@ -218,7 +405,10 @@ export default function VendorMyBids() {
                       </p>
                       <BidStatusBadge bid={bid} project={project} />
                     </div>
-                    <p className="text-xs text-muted-foreground">{project.date} · ${bid.price.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {project.date} · ${shownPrice.toLocaleString()}
+                      {adj && <span className="ml-1 text-amber-600 font-medium">(revised)</span>}
+                    </p>
                     {project.boat && (
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
                         "{project.boat.name}" · {project.boat.year} {project.boat.make} {project.boat.model}
@@ -258,18 +448,126 @@ export default function VendorMyBids() {
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-sm font-semibold text-foreground">${selected.bid.price.toLocaleString()}</span>
+                    <div className="text-right">
+                      <span className="text-sm font-semibold text-foreground">
+                        ${displayPrice?.toLocaleString()}
+                      </span>
+                      {adjustment && (
+                        <span className="ml-1.5 text-[10px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
+                          Revised
+                        </span>
+                      )}
+                    </div>
                     <BidStatusBadge bid={selected.bid} project={selected.project} />
+                    {/* Adjust + Rescind buttons — only for submitted (not yet decided) bids */}
+                    {bidStatus === "submitted" && (
+                      <>
+                        <button
+                          onClick={() => { setShowAdjustForm((v) => !v); setShowQuoteForm(false); setShowRescindConfirm(false); }}
+                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-2 py-1 transition-colors"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Adjust
+                        </button>
+                        <button
+                          onClick={() => { setShowRescindConfirm((v) => !v); setShowAdjustForm(false); setShowQuoteForm(false); }}
+                          className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 rounded-md px-2 py-1 transition-colors"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Rescind
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
+
+                {/* Adjust bid inline form */}
+                {showAdjustForm && (
+                  <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex-shrink-0 space-y-2">
+                    <p className="text-xs font-semibold text-amber-800">Revise your bid</p>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="text-[10px] text-muted-foreground font-medium block mb-0.5">New price ($)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adjustPrice}
+                          onChange={(e) => setAdjustPrice(e.target.value)}
+                          className="w-full border border-border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground font-medium block mb-0.5">Updated note (optional)</label>
+                      <textarea
+                        value={adjustMessage}
+                        onChange={(e) => setAdjustMessage(e.target.value)}
+                        rows={2}
+                        className="w-full border border-border rounded px-2 py-1.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+                        placeholder="Explain the revision…"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => setShowAdjustForm(false)}
+                        className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={saveAdjustment}
+                        disabled={!adjustPrice}
+                        className="px-3 py-1.5 text-xs font-semibold bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors disabled:opacity-40"
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Rescind confirmation banner */}
+                {showRescindConfirm && (
+                  <div className="px-4 py-3 bg-red-50 border-b border-red-200 flex-shrink-0">
+                    <p className="text-xs font-semibold text-red-800 mb-1">Withdraw this bid?</p>
+                    <p className="text-xs text-red-600 mb-3">
+                      This will remove your bid from the owner's view. This action cannot be undone.
+                    </p>
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => setShowRescindConfirm(false)}
+                        className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={rescindSelectedBid}
+                        className="px-3 py-1.5 text-xs font-semibold bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                      >
+                        Yes, Withdraw Bid
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Bid summary */}
                 {(selected.bid.message || selected.bid.lineItems?.length) && (
                   <div className="px-4 py-3 bg-muted/30 border-b border-border flex-shrink-0 space-y-2.5">
-                    {selected.bid.message && (
+                    {(adjustment?.message || selected.bid.message) && (
                       <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-0.5">Your bid message</p>
-                        <p className="text-xs text-foreground leading-relaxed line-clamp-2">{selected.bid.message}</p>
+                        <p className="text-xs font-medium text-muted-foreground mb-0.5">
+                          Your bid message
+                          {adjustment?.message && adjustment.message !== selected.bid.message && (
+                            <span className="ml-1.5 text-amber-600">(revised)</span>
+                          )}
+                        </p>
+                        <p className="text-xs text-foreground leading-relaxed line-clamp-2">
+                          {adjustment?.message || selected.bid.message}
+                        </p>
                       </div>
                     )}
                     {selected.bid.lineItems && selected.bid.lineItems.length > 0 && (
@@ -297,7 +595,9 @@ export default function VendorMyBids() {
                           <tfoot>
                             <tr className="border-t border-border">
                               <td colSpan={3} className="pt-1.5 text-right font-semibold text-foreground">Total</td>
-                              <td className="pt-1.5 text-right font-bold text-foreground">${selected.bid.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                              <td className="pt-1.5 text-right font-bold text-foreground">
+                                ${(adjustment?.price ?? selected.bid.price).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                              </td>
                             </tr>
                           </tfoot>
                         </table>
@@ -313,46 +613,138 @@ export default function VendorMyBids() {
                       <p className="text-sm text-muted-foreground">No messages yet. Send the owner a note below.</p>
                     </div>
                   ) : (
-                    allMessages.map((msg, i) => (
-                      <div
-                        key={i}
-                        className={`flex ${msg.from === "vendor" ? "justify-end" : "justify-start"}`}
-                      >
+                    allMessages.map((msg, i) => {
+                      // Quote proposal — render as card
+                      if (msg.type === "quote") {
+                        return <QuoteCard key={i} msg={msg} />;
+                      }
+                      return (
                         <div
-                          className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
-                            msg.from === "vendor"
-                              ? "bg-sky-500 text-white rounded-br-sm"
-                              : "bg-muted text-foreground rounded-bl-sm"
-                          }`}
+                          key={i}
+                          className={`flex ${msg.from === "vendor" ? "justify-end" : "justify-start"}`}
                         >
-                          <p className="text-sm leading-relaxed">{msg.text}</p>
-                          <p className={`text-[10px] mt-1 ${msg.from === "vendor" ? "text-white/70" : "text-muted-foreground"}`}>
-                            {msg.time}
-                          </p>
+                          <div
+                            className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
+                              msg.from === "vendor"
+                                ? "bg-sky-500 text-white rounded-br-sm"
+                                : "bg-muted text-foreground rounded-bl-sm"
+                            }`}
+                          >
+                            <p className="text-sm leading-relaxed">{msg.text}</p>
+                            <p className={`text-[10px] mt-1 ${msg.from === "vendor" ? "text-white/70" : "text-muted-foreground"}`}>
+                              {msg.time}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
 
-                {/* Reply box */}
-                <div className="px-4 py-3 border-t border-border flex gap-2 flex-shrink-0">
-                  <input
-                    type="text"
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && sendReply()}
-                    placeholder="Message the boat owner…"
-                    className="flex-1 border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-sky-400/50"
-                  />
-                  <button
-                    onClick={sendReply}
-                    disabled={!replyText.trim()}
-                    className="px-4 py-2 rounded-md bg-sky-500 text-white text-sm font-semibold hover:bg-sky-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Send
-                  </button>
-                </div>
+                {/* Withdrawn notice — replaces reply box for rescinded bids */}
+                {bidStatus === "rescinded" && (
+                  <div className="px-4 py-4 border-t border-border flex-shrink-0 bg-zinc-50 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-700">You withdrew this bid</p>
+                      <p className="text-xs text-zinc-500">This bid is no longer visible to the boat owner.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Quote form (appears above reply box for accepted bids) */}
+                {bidAccepted && showQuoteForm && (
+                  <div className="px-4 py-3 bg-sky-50 border-t border-sky-200 flex-shrink-0 space-y-2">
+                    <p className="text-xs font-semibold text-sky-800">New quote proposal</p>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="text-[10px] text-muted-foreground font-medium block mb-0.5">Service title</label>
+                        <input
+                          type="text"
+                          value={quoteTitle}
+                          onChange={(e) => setQuoteTitle(e.target.value)}
+                          className="w-full border border-border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+                          placeholder="e.g. Bottom Paint Job"
+                        />
+                      </div>
+                      <div className="w-28">
+                        <label className="text-[10px] text-muted-foreground font-medium block mb-0.5">Price ($)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={quotePrice}
+                          onChange={(e) => setQuotePrice(e.target.value)}
+                          className="w-full border border-border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground font-medium block mb-0.5">Description (optional)</label>
+                      <textarea
+                        value={quoteDescription}
+                        onChange={(e) => setQuoteDescription(e.target.value)}
+                        rows={2}
+                        className="w-full border border-border rounded px-2 py-1.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+                        placeholder="Briefly describe the service…"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => setShowQuoteForm(false)}
+                        className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={submitQuote}
+                        disabled={!quoteTitle.trim() || !quotePrice}
+                        className="px-3 py-1.5 text-xs font-semibold bg-sky-500 text-white rounded-md hover:bg-sky-600 transition-colors disabled:opacity-40"
+                      >
+                        Send Quote →
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Reply box — hidden for rescinded bids */}
+                {bidStatus !== "rescinded" && (
+                  <div className="px-4 py-3 border-t border-border flex-shrink-0 space-y-2">
+                    {/* Submit Quote pill — only for accepted/completed bids */}
+                    {bidAccepted && !showQuoteForm && (
+                      <button
+                        onClick={() => { setShowQuoteForm(true); setShowAdjustForm(false); }}
+                        className="flex items-center gap-1.5 text-xs text-sky-600 font-medium border border-sky-200 bg-sky-50 hover:bg-sky-100 rounded-full px-3 py-1 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Propose a new service quote
+                      </button>
+                    )}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && sendReply()}
+                        placeholder="Message the boat owner…"
+                        className="flex-1 border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+                      />
+                      <button
+                        onClick={sendReply}
+                        disabled={!replyText.trim()}
+                        className="px-4 py-2 rounded-md bg-sky-500 text-white text-sm font-semibold hover:bg-sky-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Send
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center">

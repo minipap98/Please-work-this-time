@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { VENDOR_PROFILES } from "@/data/vendorData";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
+import { useRole } from "@/context/RoleContext";
 
 const STAR_PATH =
   "M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z";
@@ -9,9 +10,11 @@ const STAR_PATH =
 export default function VendorProfile() {
   const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
+  const { role, vendorId } = useRole();
   const decodedName = decodeURIComponent(name ?? "");
   const vendor = VENDOR_PROFILES[decodedName];
   const pastWork = VENDOR_PAST_PROJECTS[decodedName] ?? [];
+  const isOwnProfile = role === "vendor" && vendorId === decodedName;
 
   if (!vendor) {
     return (
@@ -182,12 +185,19 @@ export default function VendorProfile() {
               <p className="text-xs text-muted-foreground leading-relaxed">{vendor.serviceArea}</p>
             </section>
 
-            <button
-              onClick={() => navigate("/")}
-              className="w-full px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
-            >
-              Post a Project
-            </button>
+            {isOwnProfile ? (
+              <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 text-center">
+                <p className="text-xs font-semibold text-amber-700 mb-0.5">This is your public profile</p>
+                <p className="text-xs text-amber-600">This is how boat owners see you on Bosun.</p>
+              </div>
+            ) : (
+              <button
+                onClick={() => navigate("/")}
+                className="w-full px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+              >
+                Post a Project
+              </button>
+            )}
           </div>
         </div>
       </main>

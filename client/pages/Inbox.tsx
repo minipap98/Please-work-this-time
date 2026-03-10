@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { PROJECTS } from "@/data/projectData";
+import { getAllMessages } from "@/data/bidUtils";
 
 export default function Inbox() {
   const navigate = useNavigate();
@@ -9,10 +10,10 @@ export default function Inbox() {
   const [replyText, setReplyText] = useState("");
   const [, forceUpdate] = useState(0);
 
-  // Gather all threads that have at least one message
+  // Gather all threads that have at least one message (including vendor-sent messages)
   const threads = PROJECTS.flatMap((project) =>
     project.bids
-      .filter((bid) => bid.thread.length > 0)
+      .filter((bid) => getAllMessages(bid).length > 0)
       .map((bid) => ({ project, bid }))
   );
 
@@ -26,9 +27,7 @@ export default function Inbox() {
     try { return JSON.parse(localStorage.getItem(`local_msgs_${bidId}`) ?? "[]"); } catch { return []; }
   }
 
-  const allMessages = selected
-    ? [...selected.bid.thread, ...getLocalMessages(selected.bid.id)]
-    : [];
+  const allMessages = selected ? getAllMessages(selected.bid) : [];
 
   function sendReply() {
     if (!replyText.trim() || !selected) return;
@@ -66,8 +65,7 @@ export default function Inbox() {
                 const isSelected =
                   selectedThread?.projectId === project.id &&
                   selectedThread?.bidId === bid.id;
-                const localMsgs = getLocalMessages(bid.id);
-                const allMsgs = [...bid.thread, ...localMsgs];
+                const allMsgs = getAllMessages(bid);
                 const lastMsg = allMsgs[allMsgs.length - 1];
                 return (
                   <button

@@ -1,16 +1,23 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { PROJECTS } from "@/data/projectData";
+import { VENDOR_PROFILES } from "@/data/vendorData";
+import { useRole } from "@/context/RoleContext";
+import { getVendorUnreadCount } from "@/data/bidUtils";
 
-const MENU_ITEMS = [
+const OWNER_MENU_ITEMS = [
   { label: "My Boats", to: "/my-boats" },
   { label: "Maintenance Log", to: "/maintenance" },
   { label: "Settings", to: "/settings" },
-  { label: "Sign Out", to: null },
 ];
 
-// Count unread messages across all projects
-function getUnreadCount() {
+const VENDOR_MENU_ITEMS = [
+  { label: "Dashboard", to: "/vendor-dashboard" },
+  { label: "Payment History", to: "/vendor-revenue" },
+];
+
+// Count unread messages across all projects (owner view)
+function getOwnerUnreadCount() {
   return PROJECTS.reduce((total, project) => {
     return total + project.bids.reduce((bidTotal, bid) => {
       const lastRead = parseInt(localStorage.getItem(`msg_read_${bid.id}`) ?? "0");
@@ -22,78 +29,248 @@ function getUnreadCount() {
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const navigate = useNavigate();
-  const unreadCount = getUnreadCount();
+  const { role, vendorId, setVendorMode, setOwnerMode } = useRole();
+
+  const isVendor = role === "vendor";
+  const currentVendor = vendorId ? VENDOR_PROFILES[vendorId] : null;
+
+  const ownerUnread = isVendor ? 0 : getOwnerUnreadCount();
+  const vendorUnread = isVendor && vendorId ? getVendorUnreadCount(vendorId) : 0;
+  const unreadCount = isVendor ? vendorUnread : ownerUnread;
+
+  function handleSwitchToVendor() {
+    setMenuOpen(false);
+    setPickerOpen(true);
+  }
+
+  function handleSwitchToOwner() {
+    setMenuOpen(false);
+    setOwnerMode();
+    navigate("/");
+  }
+
+  function handlePickVendor(name: string) {
+    setVendorMode(name);
+    setPickerOpen(false);
+    navigate("/vendor-dashboard");
+  }
 
   return (
-    <header className="border-b border-border bg-white sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        {/* Logo */}
-        <Link to="/" className="hover:opacity-70 transition-opacity">
-          <span className="text-lg font-bold tracking-tight text-foreground">Bosun</span>
-        </Link>
+    <>
+      {/* Amber stripe for vendor mode */}
+      {isVendor && <div className="h-[3px] bg-sky-400 fixed top-0 left-0 right-0 z-50" />}
 
-        {/* Inbox + Profile */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center">
-            <Link
-              to="/inbox"
-              className="relative flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-foreground hover:opacity-70 transition-opacity"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-              </svg>
-              Inbox
-              {unreadCount > 0 && (
-                <span className="absolute -top-0.5 right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
-                  {unreadCount}
-                </span>
-              )}
+      <header
+        className={`border-b border-border bg-white sticky z-40 ${isVendor ? "top-[3px]" : "top-0"}`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+
+          {/* Logo / Nav */}
+          {isVendor ? (
+            <div className="flex items-center gap-3 sm:gap-6">
+              <Link to="/vendor-dashboard" className="hover:opacity-70 transition-opacity flex items-center gap-1.5">
+                <span className="text-lg font-bold tracking-tight text-foreground">Bosun</span>
+                <span className="text-xs font-semibold text-sky-600 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5">Vendor</span>
+              </Link>
+              <nav className="flex items-center gap-1">
+                <Link
+                  to="/vendor-my-bids"
+                  className="relative px-3 py-1.5 text-sm font-medium text-foreground hover:opacity-70 transition-opacity"
+                >
+                  My Bids
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Link>
+              </nav>
+            </div>
+          ) : (
+            <Link to="/" className="hover:opacity-70 transition-opacity">
+              <span className="text-lg font-bold tracking-tight text-foreground">Bosun</span>
             </Link>
-          </div>
+          )}
 
-          {/* Profile */}
-          <div className="relative ml-2">
-            <button
-              onClick={() => setMenuOpen((v) => !v)}
-              className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full border border-border hover:border-primary hover:bg-primary/5 transition-colors"
-            >
-              <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-bold text-primary-foreground">D</span>
+          {/* Right side */}
+          <div className="flex items-center gap-2">
+            {/* Owner: Inbox link */}
+            {!isVendor && (
+              <div className="flex items-center">
+                <Link
+                  to="/inbox"
+                  className="relative flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-foreground hover:opacity-70 transition-opacity"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                  </svg>
+                  Inbox
+                  {ownerUnread > 0 && (
+                    <span className="absolute -top-0.5 right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                      {ownerUnread}
+                    </span>
+                  )}
+                </Link>
               </div>
-              <span className="text-sm font-medium text-foreground">Dean</span>
-              <svg
-                className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${menuOpen ? "rotate-180" : ""}`}
-                fill="none" stroke="currentColor" viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-
-            {menuOpen && (
-              <>
-                {/* Backdrop */}
-                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                {/* Dropdown */}
-                <div className="absolute right-0 mt-2 w-44 bg-white border border-border rounded-md shadow-lg z-20 py-1">
-                  {MENU_ITEMS.map((item) => (
-                    <button
-                      key={item.label}
-                      onClick={() => {
-                        setMenuOpen(false);
-                        if (item.to) navigate(item.to);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              </>
             )}
+
+            {/* Profile dropdown */}
+            <div className="relative ml-2">
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                className={`flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full border transition-colors ${
+                  isVendor
+                    ? "border-sky-300 hover:border-sky-400 hover:bg-sky-50/60"
+                    : "border-border hover:border-primary hover:bg-primary/5"
+                }`}
+              >
+                <div
+                  className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    isVendor ? "bg-sky-400" : "bg-primary"
+                  }`}
+                >
+                  <span className={`text-xs font-bold ${isVendor ? "text-white" : "text-primary-foreground"}`}>
+                    {isVendor ? (currentVendor?.initials ?? "V") : "D"}
+                  </span>
+                </div>
+                <span className="text-sm font-medium text-foreground">
+                  {isVendor ? (currentVendor?.name.split(" ")[0] ?? "Vendor") : "Dean"}
+                </span>
+                <svg
+                  className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${menuOpen ? "rotate-180" : ""}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {menuOpen && (
+                <>
+                  {/* Backdrop */}
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                  {/* Dropdown */}
+                  <div className="absolute right-0 mt-2 w-52 bg-white border border-border rounded-md shadow-lg z-20 py-1">
+                    {isVendor ? (
+                      <>
+                        {VENDOR_MENU_ITEMS.map((item) => (
+                          <button
+                            key={item.label}
+                            onClick={() => { setMenuOpen(false); navigate(item.to); }}
+                            className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                        {vendorId && (
+                          <button
+                            onClick={() => { setMenuOpen(false); navigate(`/vendor/${encodeURIComponent(vendorId)}`); }}
+                            className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                          >
+                            My Profile
+                          </button>
+                        )}
+                        <div className="border-t border-border my-1" />
+                        <button
+                          onClick={handleSwitchToOwner}
+                          className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                        >
+                          Switch to Owner View
+                        </button>
+                        <button
+                          onClick={() => setMenuOpen(false)}
+                          className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
+                        >
+                          Sign Out
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {OWNER_MENU_ITEMS.map((item) => (
+                          <button
+                            key={item.label}
+                            onClick={() => { setMenuOpen(false); navigate(item.to); }}
+                            className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                        <div className="border-t border-border my-1" />
+                        <button
+                          onClick={handleSwitchToVendor}
+                          className="w-full text-left px-4 py-2 text-sm text-sky-700 font-medium hover:bg-sky-50 transition-colors"
+                        >
+                          Switch to Vendor View
+                        </button>
+                        <button
+                          onClick={() => setMenuOpen(false)}
+                          className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
+                        >
+                          Sign Out
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* Vendor picker modal */}
+      {pickerOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 z-50"
+            onClick={() => setPickerOpen(false)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+              <div className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
+                <h2 className="text-lg font-semibold text-foreground">Switch to Vendor View</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">Select a vendor profile to simulate their experience</p>
+              </div>
+
+              <div className="overflow-y-auto flex-1 py-2">
+                {Object.values(VENDOR_PROFILES).map((vendor) => (
+                  <button
+                    key={vendor.name}
+                    onClick={() => handlePickVendor(vendor.name)}
+                    className="w-full text-left px-5 py-3.5 hover:bg-sky-50 transition-colors flex items-center gap-3 border-b border-border/40 last:border-0"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-sky-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-bold text-sky-700">{vendor.initials}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-foreground truncate">{vendor.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {vendor.specialties[0]} · {vendor.serviceArea.split(" · ")[0]}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <svg className="w-3.5 h-3.5 text-sky-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                      <span className="text-xs text-muted-foreground">{vendor.rating}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="px-6 py-4 border-t border-border flex-shrink-0">
+                <button
+                  onClick={() => setPickerOpen(false)}
+                  className="w-full py-2 rounded-md border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </>
   );
 }

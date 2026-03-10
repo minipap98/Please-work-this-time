@@ -395,6 +395,39 @@ export default function ProjectDetail() {
                     {bid.message}
                   </p>
 
+                  {/* Itemized estimate */}
+                  {bid.lineItems && bid.lineItems.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-border/50">
+                      <p className="text-xs font-semibold text-foreground mb-2">Itemized Estimate</p>
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-xs font-medium text-muted-foreground border-b border-border/50">
+                            <th className="text-left pb-1.5">Description</th>
+                            <th className="text-center pb-1.5 w-10">Qty</th>
+                            <th className="text-right pb-1.5 w-24">Unit Price</th>
+                            <th className="text-right pb-1.5 w-24">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bid.lineItems.map((item, i) => (
+                            <tr key={i} className="border-b border-border/30 last:border-0">
+                              <td className="py-1.5 text-foreground">{item.description}</td>
+                              <td className="py-1.5 text-center text-muted-foreground">{item.quantity}</td>
+                              <td className="py-1.5 text-right text-muted-foreground">${item.unitPrice.toFixed(2)}</td>
+                              <td className="py-1.5 text-right font-medium text-foreground">${(item.quantity * item.unitPrice).toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 border-border">
+                            <td colSpan={3} className="pt-2 text-right text-sm font-semibold text-foreground">Total</td>
+                            <td className="pt-2 text-right font-bold text-foreground">${bid.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+
                   {/* Past work toggle */}
                   {VENDOR_PAST_PROJECTS[bid.vendorName] && (
                     <div className="mt-3 pt-3 border-t border-border/50">

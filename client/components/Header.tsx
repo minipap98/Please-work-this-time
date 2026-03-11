@@ -14,6 +14,7 @@ const OWNER_MENU_ITEMS = [
 
 const VENDOR_MENU_ITEMS = [
   { label: "Dashboard", to: "/vendor-dashboard" },
+  { label: "Business Hub", to: "/vendor-business" },
   { label: "Payment History", to: "/vendor-revenue" },
 ];
 
@@ -101,6 +102,12 @@ export default function Header() {
                       {unreadCount}
                     </span>
                   )}
+                </Link>
+                <Link
+                  to="/vendor-business"
+                  className="hidden sm:inline-flex px-3 py-1.5 text-sm font-medium text-foreground hover:opacity-70 transition-opacity"
+                >
+                  Business Hub
                 </Link>
               </nav>
             </div>

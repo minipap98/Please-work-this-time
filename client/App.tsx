@@ -21,6 +21,7 @@ import VendorDashboard from "./pages/vendor/VendorDashboard";
 import VendorRFPs from "./pages/vendor/VendorRFPs";
 import VendorMyBids from "./pages/vendor/VendorMyBids";
 import VendorRevenue from "./pages/vendor/VendorRevenue";
+import VendorBusinessHub from "./pages/vendor/VendorBusinessHub";
 import AuthPage from "./pages/AuthPage";
 import { RoleProvider } from "./context/RoleContext";
 import { getCurrentUser } from "./data/authUtils";
@@ -62,6 +63,7 @@ const App = () => (
               <Route path="/vendor-rfps" element={<VendorRFPs />} />
               <Route path="/vendor-my-bids" element={<VendorMyBids />} />
               <Route path="/vendor-revenue" element={<VendorRevenue />} />
+              <Route path="/vendor-business" element={<VendorBusinessHub />} />
             </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

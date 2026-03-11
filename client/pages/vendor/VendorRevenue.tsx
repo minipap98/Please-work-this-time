@@ -4,12 +4,14 @@ import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
 import { VENDOR_PROFILES } from "@/data/vendorData";
 import {
-  getVendorRevenue,
   getVendorBidProjects,
-  BOSUN_FEE_RATE,
-  VendorTransaction,
 } from "@/data/bidUtils";
 import { Bid } from "@/data/projectData";
+import {
+  getVendorRevenueWithTiers,
+  getEscrowStatus,
+  TieredTransaction,
+} from "@/data/vendorRetentionUtils";
 
 function fmt(n: number) {
   return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -45,8 +47,9 @@ function StatusBadge({ status }: { status: VendorTransaction["status"] }) {
   );
 }
 
-function LineItemsDetail({ bid, boatName, boatLabel }: { bid: Bid; boatName?: string; boatLabel?: string }) {
+function LineItemsDetail({ bid, boatName, boatLabel, feeRate }: { bid: Bid; boatName?: string; boatLabel?: string; feeRate: number }) {
   const hasItems = bid.lineItems && bid.lineItems.length > 0;
+  const feePercent = Math.round(feeRate * 100);
 
   return (
     <div className="px-4 sm:px-5 pb-4 pt-3 bg-muted/20 border-t border-border/40">
@@ -111,13 +114,13 @@ function LineItemsDetail({ bid, boatName, boatLabel }: { bid: Bid; boatName?: st
                 </tr>
                 <tr>
                   <td colSpan={2} className="pt-0.5 text-right text-xs text-red-600 sm:hidden">
-                    Bosun fee ({Math.round(BOSUN_FEE_RATE * 100)}%)
+                    Bosun fee ({feePercent}%)
                   </td>
                   <td colSpan={3} className="pt-0.5 text-right text-xs text-red-600 hidden sm:table-cell">
-                    Bosun fee ({Math.round(BOSUN_FEE_RATE * 100)}%)
+                    Bosun fee ({feePercent}%)
                   </td>
                   <td className="pt-0.5 text-right text-xs text-red-600">
-                    −${fmt(bid.price * BOSUN_FEE_RATE)}
+                    −${fmt(bid.price * feeRate)}
                   </td>
                 </tr>
                 <tr>
@@ -128,7 +131,7 @@ function LineItemsDetail({ bid, boatName, boatLabel }: { bid: Bid; boatName?: st
                     Net payout
                   </td>
                   <td className="pt-0.5 text-right text-sm font-bold text-green-700">
-                    ${fmt(bid.price * (1 - BOSUN_FEE_RATE))}
+                    ${fmt(bid.price * (1 - feeRate))}
                   </td>
                 </tr>
               </tfoot>
@@ -160,13 +163,13 @@ function getMonthKey(dateStr: string): { key: string; label: string } {
 interface MonthGroup {
   key: string;
   label: string;
-  transactions: VendorTransaction[];
+  transactions: TieredTransaction[];
   gross: number;
   fee: number;
   net: number;
 }
 
-function groupByMonth(transactions: VendorTransaction[]): MonthGroup[] {
+function groupByMonth(transactions: TieredTransaction[]): MonthGroup[] {
   const map = new Map<string, MonthGroup>();
   for (const tx of transactions) {
     const { key, label } = getMonthKey(tx.projectDate);
@@ -176,8 +179,8 @@ function groupByMonth(transactions: VendorTransaction[]): MonthGroup[] {
     const group = map.get(key)!;
     group.transactions.push(tx);
     group.gross += tx.gross;
-    group.fee += tx.fee;
-    group.net += tx.net;
+    group.fee += tx.effectiveFee;
+    group.net += tx.effectiveNet;
   }
   // Sort most recent first
   return Array.from(map.values()).sort((a, b) => b.key.localeCompare(a.key));
@@ -188,7 +191,7 @@ export default function VendorRevenue() {
   const navigate = useNavigate();
 
   const vendor = vendorId ? VENDOR_PROFILES[vendorId] : null;
-  const revenue = vendorId ? getVendorRevenue(vendorId) : null;
+  const revenue = vendorId ? getVendorRevenueWithTiers(vendorId) : null;
 
   const bidMap: Record<string, Bid> = {};
   if (vendorId) {
@@ -217,7 +220,9 @@ export default function VendorRevenue() {
   }
 
   const hasActivity = revenue.transactions.length > 0;
-  const feePercent = Math.round(BOSUN_FEE_RATE * 100);
+  const feePercent = Math.round(revenue.effectiveFeeRate * 100);
+  const tier = revenue.currentTier;
+  const tierProgress = revenue.tierProgress;
 
   const paidTransactions = paidTxInit;
   const pendingTransactions = revenue.transactions.filter((tx) => tx.status !== "paid");
@@ -236,7 +241,7 @@ export default function VendorRevenue() {
     });
   }
 
-  function TransactionRow({ tx }: { tx: VendorTransaction }) {
+  function TransactionRow({ tx }: { tx: TieredTransaction }) {
     const bid = bidMap[tx.bidId];
     const isExpanded = expandedBidId === tx.bidId;
 
@@ -266,9 +271,9 @@ export default function VendorRevenue() {
             </div>
             <p className="text-xs text-muted-foreground mt-1 mb-2">{tx.projectDate}</p>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-              <span className="text-base font-bold text-green-700 whitespace-nowrap">${fmt(tx.net)} net</span>
+              <span className="text-base font-bold text-green-700 whitespace-nowrap">${fmt(tx.effectiveNet)} net</span>
               <span className="text-xs text-muted-foreground whitespace-nowrap">${fmt(tx.gross)} gross</span>
-              <span className="text-xs text-red-500 whitespace-nowrap">−${fmt(tx.fee)} fee</span>
+              <span className="text-xs text-red-500 whitespace-nowrap">−${fmt(tx.effectiveFee)} fee</span>
             </div>
           </div>
 
@@ -280,8 +285,8 @@ export default function VendorRevenue() {
             <p className="text-sm font-medium text-foreground truncate pr-2">{tx.projectTitle}</p>
             <p className="text-xs text-muted-foreground text-right whitespace-nowrap">{tx.projectDate}</p>
             <p className="text-sm text-foreground text-right">${fmt(tx.gross)}</p>
-            <p className="text-sm text-red-600 text-right">−${fmt(tx.fee)}</p>
-            <p className="text-sm font-semibold text-green-700 text-right">${fmt(tx.net)}</p>
+            <p className="text-sm text-red-600 text-right">−${fmt(tx.effectiveFee)}</p>
+            <p className="text-sm font-semibold text-green-700 text-right">${fmt(tx.effectiveNet)}</p>
             <div className="flex justify-end"><StatusBadge status={tx.status} /></div>
             <div className="flex justify-end">
               <svg
@@ -295,7 +300,7 @@ export default function VendorRevenue() {
         </button>
 
         {isExpanded && bid && (
-          <LineItemsDetail bid={bid} boatName={tx.boatName} boatLabel={tx.boatLabel} />
+          <LineItemsDetail bid={bid} boatName={tx.boatName} boatLabel={tx.boatLabel} feeRate={revenue.effectiveFeeRate} />
         )}
       </div>
     );
@@ -315,7 +320,7 @@ export default function VendorRevenue() {
         </div>
 
         {/* Summary cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           <div className="border border-border rounded-lg p-3 sm:p-4">
             <p className="text-xs text-muted-foreground mb-1">Gross Earned</p>
             <p className="text-xl sm:text-2xl font-bold text-foreground">${fmt(revenue.paidGross)}</p>
@@ -323,18 +328,54 @@ export default function VendorRevenue() {
           </div>
           <div className="border border-red-100 bg-red-50/40 rounded-lg p-3 sm:p-4">
             <p className="text-xs text-muted-foreground mb-1">Fee ({feePercent}%)</p>
-            <p className="text-xl sm:text-2xl font-bold text-red-600">−${fmt(revenue.paidFees)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Platform fee</p>
+            <p className="text-xl sm:text-2xl font-bold text-red-600">−${fmt(revenue.tieredPaidFees)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{tier.name} tier rate</p>
           </div>
           <div className="border border-green-200 bg-green-50/40 rounded-lg p-3 sm:p-4">
             <p className="text-xs text-muted-foreground mb-1">Net Payout</p>
-            <p className="text-xl sm:text-2xl font-bold text-green-700">${fmt(revenue.paidNet)}</p>
+            <p className="text-xl sm:text-2xl font-bold text-green-700">${fmt(revenue.tieredPaidNet)}</p>
             <p className="text-xs text-muted-foreground mt-1">After fees</p>
           </div>
           <div className="border border-sky-200 bg-sky-50/40 rounded-lg p-3 sm:p-4">
             <p className="text-xs text-muted-foreground mb-1">Pending</p>
-            <p className="text-xl sm:text-2xl font-bold text-sky-700">${fmt(revenue.pendingNet)}</p>
+            <p className="text-xl sm:text-2xl font-bold text-sky-700">${fmt(revenue.tieredPendingNet)}</p>
             <p className="text-xs text-muted-foreground mt-1">Active jobs (est.)</p>
+          </div>
+        </div>
+
+        {/* Tier progress card */}
+        <div className={`border rounded-lg p-4 sm:p-5 mb-8 ${tier.bgColor} border-border`}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border ${tier.badgeColor}`}>
+                {tier.name === "Gold" ? "🥇" : tier.name === "Silver" ? "🥈" : "🥉"}
+                {tier.name} Tier
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{feePercent}% platform fee</p>
+                {revenue.flatFeeSavings > 0 && (
+                  <p className="text-xs text-emerald-600 font-medium">
+                    You've saved ${fmt(revenue.flatFeeSavings)} vs. standard 10%
+                  </p>
+                )}
+              </div>
+            </div>
+            {tierProgress.next && (
+              <div className="sm:text-right">
+                <p className="text-xs text-muted-foreground mb-1.5">
+                  ${fmt(tierProgress.remaining)} to {tierProgress.next.name} ({Math.round(tierProgress.next.feeRate * 100)}%)
+                </p>
+                <div className="w-full sm:w-48 h-2 bg-white/70 rounded-full overflow-hidden border border-border/50">
+                  <div
+                    className="h-full bg-sky-500 rounded-full transition-all"
+                    style={{ width: `${Math.round(tierProgress.progress * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            {!tierProgress.next && (
+              <p className="text-xs text-emerald-600 font-medium">🎉 Highest tier achieved!</p>
+            )}
           </div>
         </div>
 
@@ -363,7 +404,15 @@ export default function VendorRevenue() {
               {pendingTransactions.length > 0 && (
                 <div>
                   <div className="bg-sky-50/60 px-4 sm:px-5 py-2.5 border-b border-border flex items-center justify-between">
-                    <span className="text-xs font-semibold text-sky-700 uppercase tracking-wide">Active Jobs</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-sky-700 uppercase tracking-wide">Active Jobs</span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        Escrow Protected
+                      </span>
+                    </div>
                     <span className="text-xs text-sky-600">{pendingTransactions.length} job{pendingTransactions.length !== 1 ? "s" : ""} · est. {fmtShort(pendingTransactions.reduce((s, t) => s + t.net, 0))} net</span>
                   </div>
                   <div className="divide-y divide-border">
@@ -467,16 +516,16 @@ export default function VendorRevenue() {
                 <div className="sm:hidden space-y-1">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-semibold text-foreground">All-time total</span>
-                    <span className="text-sm font-bold text-green-700">${fmt(revenue.paidNet)} net</span>
+                    <span className="text-sm font-bold text-green-700">${fmt(revenue.tieredPaidNet)} net</span>
                   </div>
                   <div className="flex gap-3 text-xs text-muted-foreground">
                     <span>${fmt(revenue.paidGross)} gross</span>
-                    <span className="text-red-600">−${fmt(revenue.paidFees)} fee</span>
+                    <span className="text-red-600">−${fmt(revenue.tieredPaidFees)} fee</span>
                   </div>
                   {revenue.pendingGross > 0 && (
                     <div className="flex justify-between items-center pt-1 border-t border-border/40">
                       <span className="text-xs text-muted-foreground">Active jobs (est.)</span>
-                      <span className="text-xs font-medium text-sky-700">${fmt(revenue.pendingNet)} net</span>
+                      <span className="text-xs font-medium text-sky-700">${fmt(revenue.tieredPendingNet)} net</span>
                     </div>
                   )}
                 </div>
@@ -490,8 +539,8 @@ export default function VendorRevenue() {
                     <span className="text-sm font-semibold text-foreground">All-time total</span>
                     <span />
                     <span className="text-sm font-bold text-foreground text-right">${fmt(revenue.paidGross)}</span>
-                    <span className="text-sm font-bold text-red-600 text-right">−${fmt(revenue.paidFees)}</span>
-                    <span className="text-sm font-bold text-green-700 text-right">${fmt(revenue.paidNet)}</span>
+                    <span className="text-sm font-bold text-red-600 text-right">−${fmt(revenue.tieredPaidFees)}</span>
+                    <span className="text-sm font-bold text-green-700 text-right">${fmt(revenue.tieredPaidNet)}</span>
                     <span /><span />
                   </div>
                   {revenue.pendingGross > 0 && (
@@ -502,8 +551,8 @@ export default function VendorRevenue() {
                       <span className="text-xs text-muted-foreground">Active jobs (est.)</span>
                       <span />
                       <span className="text-xs text-muted-foreground text-right">${fmt(revenue.pendingGross)}</span>
-                      <span className="text-xs text-muted-foreground text-right">−${fmt(revenue.pendingGross * BOSUN_FEE_RATE)}</span>
-                      <span className="text-xs text-sky-700 font-medium text-right">${fmt(revenue.pendingNet)}</span>
+                      <span className="text-xs text-muted-foreground text-right">−${fmt(revenue.pendingGross * revenue.effectiveFeeRate)}</span>
+                      <span className="text-xs text-sky-700 font-medium text-right">${fmt(revenue.tieredPendingNet)}</span>
                       <span /><span />
                     </div>
                   )}
@@ -519,9 +568,9 @@ export default function VendorRevenue() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <div>
-            <p className="text-sm font-medium text-foreground">About Bosun's {feePercent}% platform fee</p>
+            <p className="text-sm font-medium text-foreground">Bosun's Loyalty Fee Tiers</p>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              Bosun retains a {feePercent}% fee on all jobs completed through the platform. Net payouts are processed within 3–5 business days of project completion. Pending amounts are estimates based on accepted bids and may change if a project is modified or cancelled.
+              Your fee rate decreases as you earn more on Bosun. <strong>Bronze</strong> (0–$5k): 10% · <strong>Silver</strong> ($5k–$20k): 7% · <strong>Gold</strong> ($20k+): 5%. You're currently on the <strong>{tier.name}</strong> tier at <strong>{feePercent}%</strong>. Net payouts are processed within 3–5 business days of project completion. All active jobs are protected by Bosun's escrow system — funds are secured before work begins and released on completion.
             </p>
           </div>
         </div>

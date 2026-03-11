@@ -1,0 +1,884 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Header from "@/components/Header";
+import { useRole } from "@/context/RoleContext";
+import { VENDOR_PROFILES } from "@/data/vendorData";
+import {
+  getVendorClients,
+  getVendorBoatHistory,
+  getMaintenanceReminders,
+  generateQuickInvoice,
+  getVendorRevenueWithTiers,
+  VendorClient,
+  VendorClientBoat,
+  MaintenanceReminder,
+  QuickInvoice,
+} from "@/data/vendorRetentionUtils";
+
+type Tab = "clients" | "history" | "invoices" | "reminders";
+
+const TABS: { key: Tab; label: string; icon: string }[] = [
+  { key: "clients", label: "Clients", icon: "👤" },
+  { key: "history", label: "Service History", icon: "🔧" },
+  { key: "invoices", label: "Invoices", icon: "📄" },
+  { key: "reminders", label: "Reminders", icon: "🔔" },
+];
+
+function fmt(n: number) {
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+export default function VendorBusinessHub() {
+  const { vendorId } = useRole();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<Tab>("clients");
+  const [expandedBoats, setExpandedBoats] = useState<Set<string>>(new Set());
+  const [selectedInvoice, setSelectedInvoice] = useState<QuickInvoice | null>(null);
+  const [search, setSearch] = useState("");
+
+  const vendor = vendorId ? VENDOR_PROFILES[vendorId] : null;
+
+  if (!vendor || !vendorId) {
+    return (
+      <>
+        <Header />
+        <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+          <p className="text-muted-foreground">Switch to vendor mode to access the Business Hub.</p>
+        </main>
+      </>
+    );
+  }
+
+  const clients = getVendorClients(vendorId);
+  const boatHistory = getVendorBoatHistory(vendorId);
+  const reminders = getMaintenanceReminders(vendorId);
+  const revenue = getVendorRevenueWithTiers(vendorId);
+
+  const q = search.toLowerCase().trim();
+
+  const filteredClients = q
+    ? clients.filter(
+        (c) =>
+          c.ownerName.toLowerCase().includes(q) ||
+          c.boats.some(
+            (b) =>
+              b.name.toLowerCase().includes(q) ||
+              b.label.toLowerCase().includes(q) ||
+              b.services.some((s) => s.title.toLowerCase().includes(q))
+          )
+      )
+    : clients;
+
+  const filteredBoatHistory = q
+    ? boatHistory.filter(
+        (b) =>
+          b.name.toLowerCase().includes(q) ||
+          b.label.toLowerCase().includes(q) ||
+          b.services.some(
+            (s) =>
+              s.title.toLowerCase().includes(q) ||
+              (s.category?.toLowerCase().includes(q) ?? false)
+          )
+      )
+    : boatHistory;
+
+  const filteredReminders = q
+    ? reminders.filter(
+        (r) =>
+          r.boatName.toLowerCase().includes(q) ||
+          r.boatLabel.toLowerCase().includes(q) ||
+          r.lastService.toLowerCase().includes(q) ||
+          r.suggestedFollowUp.toLowerCase().includes(q) ||
+          (r.category?.toLowerCase().includes(q) ?? false)
+      )
+    : reminders;
+
+  function handleTabChange(tab: Tab) {
+    setActiveTab(tab);
+    setSearch("");
+  }
+
+  function toggleBoat(boatName: string) {
+    setExpandedBoats((prev) => {
+      const next = new Set(prev);
+      if (next.has(boatName)) next.delete(boatName);
+      else next.add(boatName);
+      return next;
+    });
+  }
+
+  return (
+    <>
+      <Header />
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Page header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-foreground">Business Hub</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage your clients, service history, invoices, and maintenance reminders
+          </p>
+        </div>
+
+        {/* Tab nav */}
+        <div className="flex gap-1 border-b border-border mb-5 overflow-x-auto">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => handleTabChange(tab.key)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                activeTab === tab.key
+                  ? "border-sky-500 text-sky-700"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+              }`}
+            >
+              <span>{tab.icon}</span>
+              {tab.label}
+              {tab.key === "reminders" && reminders.filter((r) => r.urgency !== "ok").length > 0 && (
+                <span className="ml-1 min-w-[18px] h-[18px] bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                  {reminders.filter((r) => r.urgency !== "ok").length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Search bar */}
+        <div className="relative mb-5">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={
+              activeTab === "clients" ? "Search clients, boats, or services…" :
+              activeTab === "history" ? "Search boats or services…" :
+              activeTab === "invoices" ? "Search invoices…" :
+              "Search reminders…"
+            }
+            className="w-full pl-9 pr-9 py-2.5 text-sm border border-border rounded-lg bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400 transition-colors"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Tab content */}
+        {activeTab === "clients" && (
+          <ClientsTab clients={filteredClients} expandedBoats={expandedBoats} toggleBoat={toggleBoat} search={q} />
+        )}
+        {activeTab === "history" && (
+          <HistoryTab boats={filteredBoatHistory} expandedBoats={expandedBoats} toggleBoat={toggleBoat} search={q} />
+        )}
+        {activeTab === "invoices" && (
+          <InvoicesTab
+            transactions={revenue.transactions}
+            vendorId={vendorId}
+            selectedInvoice={selectedInvoice}
+            onSelect={setSelectedInvoice}
+            search={q}
+          />
+        )}
+        {activeTab === "reminders" && <RemindersTab reminders={filteredReminders} search={q} />}
+      </main>
+    </>
+  );
+}
+
+// ── Clients Tab ─────────────────────────────────────────────────────────────
+
+function ClientsTab({
+  clients,
+  expandedBoats,
+  toggleBoat,
+  search,
+}: {
+  clients: VendorClient[];
+  expandedBoats: Set<string>;
+  toggleBoat: (name: string) => void;
+  search: string;
+}) {
+  if (clients.length === 0) {
+    return search
+      ? <EmptyState message={`No clients or services match "${search}".`} />
+      : <EmptyState message="No clients yet. Complete your first job to see clients here." />;
+  }
+
+  return (
+    <div className="space-y-4">
+      {clients.map((client) => (
+        <div key={client.ownerName} className="border border-border rounded-lg overflow-hidden">
+          {/* Client header */}
+          <div className="px-5 py-4 bg-slate-50/50 border-b border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                  <span className="text-sm font-bold text-primary-foreground">
+                    {client.ownerName.charAt(0)}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">{client.ownerName}</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {client.totalJobs} {client.totalJobs === 1 ? "job" : "jobs"} · {client.boats.length} boat{client.boats.length !== 1 ? "s" : ""} · Since {client.firstJobDate}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-semibold text-foreground">{fmt(client.totalRevenue)}</p>
+                <p className="text-xs text-muted-foreground">lifetime revenue</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Boats */}
+          <div className="divide-y divide-border">
+            {client.boats.map((boat) => {
+              const isOpen = search ? true : expandedBoats.has(boat.name);
+              return (
+                <div key={boat.name}>
+                  <button
+                    onClick={() => toggleBoat(boat.name)}
+                    className="w-full text-left px-5 py-3 hover:bg-muted/40 transition-colors flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-base">⛵</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{boat.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{boat.label} · {boat.propulsion}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="text-xs text-muted-foreground">{boat.services.length} {boat.services.length === 1 ? "job" : "jobs"}</span>
+                      <svg
+                        className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </button>
+
+                  {isOpen && (
+                    <div className="px-5 pb-3 space-y-1.5">
+                      {boat.services.map((svc, idx) => (
+                        <div
+                          key={idx}
+                          className={`flex items-center justify-between py-1.5 px-3 rounded text-sm ${
+                            svc.isOtherVendor
+                              ? "bg-slate-50 border border-dashed border-border/60"
+                              : "bg-muted/30"
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <span className={svc.isOtherVendor ? "text-muted-foreground" : "text-foreground"}>{svc.title}</span>
+                            <span className="text-muted-foreground ml-2 text-xs">{svc.date}</span>
+                            {svc.isOtherVendor && (
+                              <span className="ml-2 text-[10px] text-muted-foreground/70 bg-slate-100 px-1.5 py-0.5 rounded">other vendor</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className={`font-medium ${svc.isOtherVendor ? "text-muted-foreground" : ""}`}>{fmt(svc.price)}</span>
+                            <StatusBadge status={svc.status} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Service History Tab ─────────────────────────────────────────────────────
+
+function HistoryTab({
+  boats,
+  expandedBoats,
+  toggleBoat,
+  search,
+}: {
+  boats: VendorClientBoat[];
+  expandedBoats: Set<string>;
+  toggleBoat: (name: string) => void;
+  search: string;
+}) {
+  if (boats.length === 0) {
+    return search
+      ? <EmptyState message={`No boats or services match "${search}".`} />
+      : <EmptyState message="No service history yet." />;
+  }
+
+  return (
+    <div className="space-y-3">
+      {boats.map((boat) => {
+        const isOpen = search ? true : expandedBoats.has(boat.name);
+        return (
+          <div key={boat.name} className="border border-border rounded-lg overflow-hidden">
+            <button
+              onClick={() => toggleBoat(boat.name)}
+              className="w-full text-left px-5 py-3.5 hover:bg-muted/40 transition-colors flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-lg">⛵</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{boat.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{boat.label} · {boat.propulsion}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 flex-shrink-0">
+                <div className="text-right">
+                  <p className="text-sm font-medium">{boat.services.length} services</p>
+                  <p className="text-xs text-muted-foreground">{fmt(boat.totalRevenue)} total</p>
+                </div>
+                <svg
+                  className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
+
+            {isOpen && (
+              <div className="border-t border-border">
+                {/* Column header */}
+                <div className="hidden sm:grid grid-cols-[1fr_100px_80px_60px] gap-2 px-5 py-2 text-xs text-muted-foreground font-medium bg-muted/20">
+                  <span>Service</span>
+                  <span className="text-right">Date</span>
+                  <span className="text-right">Amount</span>
+                  <span className="text-right">Status</span>
+                </div>
+                <div className="divide-y divide-border/50">
+                  {boat.services.map((svc, idx) => (
+                    <div key={idx} className={`sm:grid grid-cols-[1fr_100px_80px_60px] gap-2 px-5 py-2.5 text-sm items-center ${svc.isOtherVendor ? "bg-slate-50/50" : ""}`}>
+                      <div className="flex items-center gap-2">
+                        {svc.category && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 hidden sm:inline">
+                            {svc.category}
+                          </span>
+                        )}
+                        <span className={svc.isOtherVendor ? "text-muted-foreground" : "text-foreground"}>{svc.title}</span>
+                        {svc.isOtherVendor && (
+                          <span className="text-[10px] text-muted-foreground/70 bg-slate-100 px-1.5 py-0.5 rounded">other vendor</span>
+                        )}
+                      </div>
+                      <span className="text-muted-foreground text-xs sm:text-sm sm:text-right">{svc.date}</span>
+                      <span className={`font-medium sm:text-right ${svc.isOtherVendor ? "text-muted-foreground" : ""}`}>{fmt(svc.price)}</span>
+                      <div className="sm:text-right">
+                        <StatusBadge status={svc.status} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Invoices Tab ────────────────────────────────────────────────────────────
+
+function InvoicesTab({
+  transactions,
+  vendorId,
+  selectedInvoice,
+  onSelect,
+  search,
+}: {
+  transactions: { projectId: string; bidId: string; projectTitle: string; projectDate: string; gross: number; status: string; boatName?: string }[];
+  vendorId: string;
+  selectedInvoice: QuickInvoice | null;
+  onSelect: (inv: QuickInvoice | null) => void;
+  search: string;
+}) {
+  const completedTx = transactions
+    .filter((tx) => tx.status === "paid")
+    .filter(
+      (tx) =>
+        !search ||
+        tx.projectTitle.toLowerCase().includes(search) ||
+        (tx.boatName?.toLowerCase().includes(search) ?? false) ||
+        tx.projectDate.toLowerCase().includes(search)
+    );
+
+  if (completedTx.length === 0) {
+    return search
+      ? <EmptyState message={`No invoices match "${search}".`} />
+      : <EmptyState message="No completed jobs yet. Invoices will appear here after you finish your first project." />;
+  }
+
+  return (
+    <>
+      <div className="space-y-2">
+        {completedTx.map((tx) => (
+          <button
+            key={tx.bidId}
+            onClick={() => {
+              const inv = generateQuickInvoice(vendorId, tx.projectId, tx.bidId);
+              onSelect(inv);
+            }}
+            className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+              selectedInvoice?.projectTitle === tx.projectTitle
+                ? "border-sky-300 bg-sky-50/50"
+                : "border-border hover:border-sky-200 hover:bg-muted/30"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{tx.projectTitle}</p>
+                <p className="text-xs text-muted-foreground">
+                  {tx.boatName && `${tx.boatName} · `}{tx.projectDate}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="text-sm font-semibold">{fmt(tx.gross)}</span>
+                <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Invoice modal overlay */}
+      {selectedInvoice && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-50" onClick={() => onSelect(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto">
+              <InvoicePreview invoice={selectedInvoice} onClose={() => onSelect(null)} />
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+function generateInvoicePDF(invoice: QuickInvoice): Promise<Blob> {
+  return import("jspdf").then(({ jsPDF }) => {
+    const doc = new jsPDF({ unit: "pt", format: "letter" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 50;
+    const colRight = pageW - margin;
+    let y = 50;
+
+    // Header
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("INVOICE", margin, y);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120);
+    doc.text(invoice.invoiceNumber, margin, y + 16);
+
+    // Vendor name top-right
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0);
+    doc.text(invoice.vendorName, colRight, y, { align: "right" });
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120);
+    doc.text(invoice.vendorServiceArea, colRight, y + 14, { align: "right" });
+
+    y += 50;
+    doc.setDrawColor(220);
+    doc.line(margin, y, colRight, y);
+    y += 20;
+
+    // From / Bill To
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text("FROM", margin, y);
+    doc.text("BILL TO", pageW / 2 + 20, y);
+    y += 14;
+    doc.setFontSize(10);
+    doc.setTextColor(0);
+    doc.setFont("helvetica", "bold");
+    doc.text(invoice.vendorName, margin, y);
+    doc.text(invoice.ownerName, pageW / 2 + 20, y);
+    y += 14;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(80);
+    doc.text(invoice.vendorServiceArea, margin, y);
+    if (invoice.boatName) {
+      doc.text(`${invoice.boatLabel} — "${invoice.boatName}"`, pageW / 2 + 20, y);
+    }
+
+    y += 28;
+    doc.setFontSize(9);
+    doc.setTextColor(120);
+    doc.text(`Service date: ${invoice.projectDate}`, margin, y);
+    y += 24;
+
+    // Line items table header
+    const col1 = margin;
+    const col2 = colRight - 170;
+    const col3 = colRight - 110;
+    const col4 = colRight;
+
+    doc.setFillColor(245, 245, 245);
+    doc.rect(margin - 8, y - 10, colRight - margin + 16, 20, "F");
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(100);
+    doc.text("Description", col1, y);
+    doc.text("Qty", col2, y, { align: "right" });
+    doc.text("Rate", col3, y, { align: "right" });
+    doc.text("Amount", col4, y, { align: "right" });
+    y += 18;
+
+    // Line items
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    for (const item of invoice.items) {
+      doc.setTextColor(30);
+      doc.text(item.description, col1, y);
+      doc.setTextColor(100);
+      doc.text(String(item.quantity), col2, y, { align: "right" });
+      doc.text(fmt(item.unitPrice), col3, y, { align: "right" });
+      doc.setTextColor(30);
+      doc.setFont("helvetica", "bold");
+      doc.text(fmt(item.quantity * item.unitPrice), col4, y, { align: "right" });
+      doc.setFont("helvetica", "normal");
+      y += 18;
+      doc.setDrawColor(235);
+      doc.line(margin - 8, y - 6, colRight + 8, y - 6);
+    }
+
+    y += 10;
+    doc.setDrawColor(200);
+    doc.line(col3 - 60, y, colRight, y);
+    y += 22;
+
+    // Total (owner-facing — no Bosun fee shown)
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30);
+    doc.text("Total", col3 - 60, y);
+    doc.text(fmt(invoice.subtotal), col4, y, { align: "right" });
+
+    // Footer
+    y = doc.internal.pageSize.getHeight() - 40;
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(170);
+    doc.text("Generated by Bosun — Your Boating Partner", pageW / 2, y, { align: "center" });
+
+    return doc.output("blob");
+  });
+}
+
+function InvoicePreview({ invoice, onClose }: { invoice: QuickInvoice; onClose: () => void }) {
+  const [sendMenuOpen, setSendMenuOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState<"email" | "text" | null>(null);
+
+  async function handleSend(method: "email" | "text") {
+    setSending(true);
+    setSendMenuOpen(false);
+    try {
+      const blob = await generateInvoicePDF(invoice);
+      const filename = `${invoice.invoiceNumber}.pdf`;
+
+      if (method === "email") {
+        // Create a mailto link with subject & body; download the PDF so they can attach it
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        const subject = encodeURIComponent(`Invoice ${invoice.invoiceNumber} — ${invoice.projectTitle}`);
+        const body = encodeURIComponent(
+          `Hi ${invoice.ownerName},\n\nPlease find attached the invoice for "${invoice.projectTitle}" completed on ${invoice.projectDate}.\n\nAmount due: ${fmt(invoice.subtotal)}\n\nThank you for your business!\n\n${invoice.vendorName}`
+        );
+        window.open(`mailto:?subject=${subject}&body=${body}`, "_blank");
+      } else {
+        // Download the PDF and open SMS with a message
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        const smsBody = encodeURIComponent(
+          `Hi ${invoice.ownerName} — here's your invoice for "${invoice.projectTitle}" (${fmt(invoice.subtotal)}). PDF is attached. Thanks! — ${invoice.vendorName}`
+        );
+        window.open(`sms:?body=${smsBody}`, "_blank");
+      }
+
+      setSent(method);
+      setTimeout(() => setSent(null), 3000);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="border border-border rounded-lg bg-white shadow-xl">
+      {/* Invoice header */}
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+        <div>
+          <p className="text-xs text-muted-foreground font-mono">{invoice.invoiceNumber}</p>
+          <p className="text-sm font-semibold text-foreground mt-0.5">{invoice.projectTitle}</p>
+        </div>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="px-5 py-4 space-y-4">
+        {/* Vendor & client info */}
+        <div className="grid grid-cols-2 gap-4 text-xs">
+          <div>
+            <p className="text-muted-foreground mb-1">From</p>
+            <p className="font-medium text-foreground">{invoice.vendorName}</p>
+            <p className="text-muted-foreground">{invoice.vendorServiceArea}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground mb-1">Bill To</p>
+            <p className="font-medium text-foreground">{invoice.ownerName}</p>
+            {invoice.boatName && <p className="text-muted-foreground">{invoice.boatLabel} — "{invoice.boatName}"</p>}
+          </div>
+        </div>
+
+        <div className="text-xs text-muted-foreground">
+          Service date: {invoice.projectDate}
+        </div>
+
+        {/* Line items */}
+        <div className="border border-border rounded-md overflow-hidden">
+          <div className="grid grid-cols-[1fr_50px_70px_70px] gap-2 px-3 py-2 bg-muted/30 text-xs font-medium text-muted-foreground">
+            <span>Description</span>
+            <span className="text-center">Qty</span>
+            <span className="text-right">Rate</span>
+            <span className="text-right">Amount</span>
+          </div>
+          {invoice.items.map((item, i) => (
+            <div key={i} className="grid grid-cols-[1fr_50px_70px_70px] gap-2 px-3 py-2 text-xs border-t border-border/50">
+              <span className="text-foreground">{item.description}</span>
+              <span className="text-center text-muted-foreground">{item.quantity}</span>
+              <span className="text-right text-muted-foreground">{fmt(item.unitPrice)}</span>
+              <span className="text-right font-medium">{fmt(item.quantity * item.unitPrice)}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Totals */}
+        <div className="space-y-1.5 pt-2 border-t border-border">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span className="font-medium">{fmt(invoice.subtotal)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Bosun Fee ({Math.round(invoice.feeRate * 100)}%)</span>
+            <span className="text-red-600">−{fmt(invoice.bosunFee)}</span>
+          </div>
+          <div className="flex justify-between text-sm font-semibold pt-1.5 border-t border-border">
+            <span>Net Payout</span>
+            <span className="text-emerald-700">{fmt(invoice.netPayout)}</span>
+          </div>
+        </div>
+
+        {/* Send button */}
+        <div className="pt-2 relative">
+          {sent ? (
+            <div className="w-full py-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-sm font-medium text-emerald-700 text-center flex items-center justify-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              PDF downloaded — {sent === "email" ? "email" : "message"} opened
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={() => setSendMenuOpen((v) => !v)}
+                disabled={sending}
+                className="w-full py-2.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {sending ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Generating PDF...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    Send Invoice
+                  </>
+                )}
+              </button>
+
+              {sendMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setSendMenuOpen(false)} />
+                  <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-border rounded-lg shadow-lg z-20 overflow-hidden">
+                    <button
+                      onClick={() => handleSend("email")}
+                      className="w-full text-left px-4 py-3 text-sm hover:bg-muted/50 transition-colors flex items-center gap-3"
+                    >
+                      <svg className="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      <div>
+                        <p className="font-medium text-foreground">Send via Email</p>
+                        <p className="text-xs text-muted-foreground">Download PDF & open email with pre-filled message</p>
+                      </div>
+                    </button>
+                    <div className="border-t border-border" />
+                    <button
+                      onClick={() => handleSend("text")}
+                      className="w-full text-left px-4 py-3 text-sm hover:bg-muted/50 transition-colors flex items-center gap-3"
+                    >
+                      <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      <div>
+                        <p className="font-medium text-foreground">Send via Text</p>
+                        <p className="text-xs text-muted-foreground">Download PDF & open messaging with pre-filled text</p>
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Reminders Tab ───────────────────────────────────────────────────────────
+
+function RemindersTab({ reminders, search }: { reminders: MaintenanceReminder[]; search: string }) {
+  const [sentReminders, setSentReminders] = useState<Set<string>>(new Set());
+
+  if (reminders.length === 0) {
+    return search
+      ? <EmptyState message={`No reminders match "${search}".`} />
+      : <EmptyState message="No maintenance reminders yet. Complete more jobs to generate follow-up suggestions." />;
+  }
+
+  const urgencyConfig = {
+    overdue: { bg: "bg-red-50", border: "border-red-200", badge: "bg-red-100 text-red-700", label: "Overdue" },
+    upcoming: { bg: "bg-amber-50", border: "border-amber-200", badge: "bg-amber-100 text-amber-700", label: "Upcoming" },
+    ok: { bg: "bg-emerald-50", border: "border-emerald-200", badge: "bg-emerald-100 text-emerald-700", label: "On Track" },
+  };
+
+  function handleSendReminder(reminder: MaintenanceReminder) {
+    const key = `${reminder.boatName}-${reminder.category}`;
+    setSentReminders((prev) => new Set([...prev, key]));
+  }
+
+  return (
+    <div className="space-y-3">
+      {reminders.map((reminder, idx) => {
+        const config = urgencyConfig[reminder.urgency];
+        const key = `${reminder.boatName}-${reminder.category}`;
+        const isSent = sentReminders.has(key);
+
+        return (
+          <div key={idx} className={`rounded-lg border ${config.border} ${config.bg} p-4`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${config.badge}`}>
+                    {config.label}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{reminder.category}</span>
+                </div>
+                <p className="text-sm font-semibold text-foreground">{reminder.suggestedFollowUp}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  <span className="font-medium">{reminder.boatName}</span> · {reminder.boatLabel}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Last: {reminder.lastService} — {reminder.lastServiceDate} ({reminder.monthsSince}mo ago)
+                </p>
+              </div>
+              <div className="flex-shrink-0">
+                {isSent ? (
+                  <span className="text-xs text-emerald-600 font-medium px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-md">
+                    Sent ✓
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => handleSendReminder(reminder)}
+                    className="text-xs font-medium px-3 py-1.5 rounded-md bg-white border border-border hover:border-sky-300 hover:bg-sky-50 transition-colors"
+                  >
+                    Send Reminder
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Shared components ───────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: string }) {
+  const config = {
+    paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    "in-progress": "bg-sky-50 text-sky-700 border-sky-200",
+    pending: "bg-amber-50 text-amber-700 border-amber-200",
+  }[status] ?? "bg-gray-50 text-gray-600 border-gray-200";
+
+  const label = {
+    paid: "Paid",
+    "in-progress": "Active",
+    pending: "Pending",
+  }[status] ?? status;
+
+  return (
+    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${config}`}>
+      {label}
+    </span>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="text-center py-16">
+      <p className="text-muted-foreground text-sm">{message}</p>
+    </div>
+  );
+}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { PROJECTS } from "@/data/projectData";
 import { VENDOR_PROFILES } from "@/data/vendorData";
 import { useRole } from "@/context/RoleContext";
@@ -33,6 +33,7 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { role, vendorId, setVendorMode, setOwnerMode } = useRole();
 
   const currentUser = getCurrentUser();
@@ -91,7 +92,7 @@ export default function Header() {
                 <span className="text-lg font-bold tracking-tight text-foreground">Bosun</span>
                 <span className="text-xs font-semibold text-sky-600 bg-sky-50 border border-sky-200 rounded px-1.5 py-0.5 whitespace-nowrap">Vendor</span>
               </Link>
-              <nav className="flex items-center gap-1">
+              <nav className="hidden md:flex items-center gap-1">
                 <Link
                   to="/vendor-my-bids"
                   className="relative px-3 py-1.5 text-sm font-medium text-foreground hover:opacity-70 transition-opacity"
@@ -105,7 +106,7 @@ export default function Header() {
                 </Link>
                 <Link
                   to="/vendor-business"
-                  className="hidden sm:inline-flex px-3 py-1.5 text-sm font-medium text-foreground hover:opacity-70 transition-opacity"
+                  className="px-3 py-1.5 text-sm font-medium text-foreground hover:opacity-70 transition-opacity"
                 >
                   Business Hub
                 </Link>
@@ -293,6 +294,79 @@ export default function Header() {
             </div>
           </div>
         </>
+      )}
+
+      {/* ── Mobile bottom navigation (vendor only) ─────────────────── */}
+      {isVendor && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border pb-[env(safe-area-inset-bottom)]">
+          <div className="grid grid-cols-4 h-14">
+            {([
+              {
+                to: "/vendor-dashboard",
+                label: "Projects",
+                icon: (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                ),
+              },
+              {
+                to: "/vendor-my-bids",
+                label: "My Bids",
+                badge: unreadCount,
+                icon: (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                ),
+              },
+              {
+                to: "/vendor-business",
+                label: "Hub",
+                icon: (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                ),
+              },
+              {
+                to: "/vendor-revenue",
+                label: "Revenue",
+                icon: (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ),
+              },
+            ] as const).map((item) => {
+              const active = location.pathname === item.to;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={`relative flex flex-col items-center justify-center gap-0.5 transition-colors ${
+                    active ? "text-sky-600" : "text-muted-foreground"
+                  }`}
+                >
+                  {active && (
+                    <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-sky-500 rounded-full" />
+                  )}
+                  <span className="relative">
+                    {item.icon}
+                    {"badge" in item && (item as any).badge > 0 && (
+                      <span className="absolute -top-1 -right-2 min-w-[14px] h-3.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5">
+                        {(item as any).badge}
+                      </span>
+                    )}
+                  </span>
+                  <span className={`text-[10px] leading-none ${active ? "font-semibold" : "font-medium"}`}>
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
       )}
     </>
   );

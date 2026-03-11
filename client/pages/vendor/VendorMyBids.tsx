@@ -166,6 +166,7 @@ function CongratsBanner({
 export default function VendorMyBids() {
   const { vendorId } = useRole();
   const [selectedBidId, setSelectedBidId] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
   const [replyText, setReplyText] = useState("");
   const [filter, setFilter] = useState<BidFilter>("all");
   const [, forceUpdate] = useState(0);
@@ -293,6 +294,7 @@ export default function VendorMyBids() {
   function switchFilter(f: BidFilter) {
     setFilter(f);
     setSelectedBidId(null);
+    setMobileView("list");
     setShowQuoteForm(false);
     setShowAdjustForm(false);
     setShowRescindConfirm(false);
@@ -316,7 +318,7 @@ export default function VendorMyBids() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white pb-16 md:pb-0">
       {/* Congratulations overlay — shown once per newly accepted bid */}
       {congratsBid && (
         <CongratsBanner
@@ -369,8 +371,8 @@ export default function VendorMyBids() {
         {/* ── Two-panel layout ──────────────────────────────── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-border rounded-lg overflow-hidden md:h-[680px]">
 
-          {/* Bid list */}
-          <div className="md:col-span-1 border-r border-border overflow-y-auto">
+          {/* Bid list — hidden on mobile when viewing a bid detail */}
+          <div className={`md:col-span-1 border-r border-border overflow-y-auto ${mobileView === "detail" ? "hidden md:block" : "block"}`}>
             {filteredBids.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center px-4 py-10">
                 <p className="text-sm text-muted-foreground">
@@ -389,6 +391,7 @@ export default function VendorMyBids() {
                     key={bid.id}
                     onClick={() => {
                       setSelectedBidId(bid.id);
+                      setMobileView("detail");
                       setReplyText("");
                       setShowQuoteForm(false);
                       setShowAdjustForm(false);
@@ -426,71 +429,88 @@ export default function VendorMyBids() {
             )}
           </div>
 
-          {/* Chat panel */}
-          <div className="md:col-span-2 flex flex-col">
+          {/* Chat panel — full-screen overlay on mobile when a bid is selected */}
+          <div className={`md:col-span-2 flex flex-col ${
+            mobileView === "list"
+              ? "hidden md:flex"
+              : "fixed inset-0 z-40 bg-white md:static md:inset-auto md:z-auto"
+          }`}>
+            {/* Mobile back navigation bar */}
+            <button
+              onClick={() => setMobileView("list")}
+              className="md:hidden flex items-center gap-2 px-4 py-3.5 text-sm font-semibold text-muted-foreground hover:text-foreground border-b border-border bg-slate-50/80 flex-shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+              </svg>
+              All Bids
+            </button>
+
             {selected ? (
               <>
                 {/* Chat header */}
-                <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{selected.project.title}</p>
-                    {selected.project.boat ? (
-                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5 text-xs text-muted-foreground">
-                        <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 17h18M5 17V9l7-5 7 5v8M9 17v-4h6v4" />
-                        </svg>
-                        <span className="font-medium text-foreground">"{selected.project.boat.name}"</span>
-                        <span>·</span>
-                        <span>{selected.project.boat.year} {selected.project.boat.make} {selected.project.boat.model}</span>
-                        <span className="hidden sm:inline">· {selected.project.boat.propulsion}</span>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">{selected.project.description.slice(0, 80)}…</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <div className="text-right">
-                      <span className="text-sm font-semibold text-foreground">
-                        ${displayPrice?.toLocaleString()}
-                      </span>
-                      {adjustment && (
-                        <span className="ml-1.5 text-[10px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
-                          Revised
-                        </span>
+                <div className="px-4 py-3 border-b border-border flex-shrink-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-foreground leading-snug">{selected.project.title}</p>
+                      {selected.project.boat ? (
+                        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5 text-xs text-muted-foreground">
+                          <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 17h18M5 17V9l7-5 7 5v8M9 17v-4h6v4" />
+                          </svg>
+                          <span className="font-medium text-foreground">"{selected.project.boat.name}"</span>
+                          <span>·</span>
+                          <span>{selected.project.boat.year} {selected.project.boat.make} {selected.project.boat.model}</span>
+                          <span className="hidden sm:inline">· {selected.project.boat.propulsion}</span>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">{selected.project.description.slice(0, 80)}…</p>
                       )}
                     </div>
-                    <BidStatusBadge bid={selected.bid} project={selected.project} />
-                    {bidAccepted && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                        Escrow
-                      </span>
-                    )}
-                    {/* Adjust + Rescind buttons — only for submitted (not yet decided) bids */}
-                    {bidStatus === "submitted" && (
-                      <>
-                        <button
-                          onClick={() => { setShowAdjustForm((v) => !v); setShowQuoteForm(false); setShowRescindConfirm(false); }}
-                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-2 py-1 transition-colors"
-                        >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                          Adjust
-                        </button>
-                        <button
-                          onClick={() => { setShowRescindConfirm((v) => !v); setShowAdjustForm(false); setShowQuoteForm(false); }}
-                          className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 rounded-md px-2 py-1 transition-colors"
-                        >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                          Rescind
-                        </button>
-                      </>
-                    )}
+                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        <span className="text-sm font-semibold text-foreground">
+                          ${displayPrice?.toLocaleString()}
+                        </span>
+                        {adjustment && (
+                          <span className="text-[10px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded px-1 py-0.5">
+                            Revised
+                          </span>
+                        )}
+                        <BidStatusBadge bid={selected.bid} project={selected.project} />
+                        {bidAccepted && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            Escrow
+                          </span>
+                        )}
+                      </div>
+                      {/* Adjust + Rescind buttons — only for submitted bids */}
+                      {bidStatus === "submitted" && (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => { setShowAdjustForm((v) => !v); setShowQuoteForm(false); setShowRescindConfirm(false); }}
+                            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-2 py-1 transition-colors"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Adjust
+                          </button>
+                          <button
+                            onClick={() => { setShowRescindConfirm((v) => !v); setShowAdjustForm(false); setShowQuoteForm(false); }}
+                            className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 rounded-md px-2 py-1 transition-colors"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Rescind
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 

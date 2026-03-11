@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
-import { VENDOR_PROFILES } from "@/data/vendorData";
+import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import {
   getVendorClients,
   getVendorBoatHistory,
@@ -37,7 +37,7 @@ export default function VendorBusinessHub() {
   const [selectedInvoice, setSelectedInvoice] = useState<QuickInvoice | null>(null);
   const [search, setSearch] = useState("");
 
-  const vendor = vendorId ? VENDOR_PROFILES[vendorId] : null;
+  const vendor = vendorId ? getAllVendorProfiles()[vendorId] : null;
 
   if (!vendor || !vendorId) {
     return (

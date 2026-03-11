@@ -6,6 +6,7 @@ export interface User {
   role: "owner" | "vendor";
   password: string;
   vendorId?: string; // vendor accounts: corresponds to VENDOR_PROFILES key (or name)
+  onboardingComplete?: boolean;
 }
 
 const KEYS = {
@@ -22,6 +23,7 @@ const SEED_USERS: User[] = [
     initials: "D",
     role: "owner",
     password: "password",
+    onboardingComplete: true,
   },
   {
     id: "user_vendor_1",
@@ -31,6 +33,7 @@ const SEED_USERS: User[] = [
     role: "vendor",
     password: "password",
     vendorId: "MarineMax Service Center",
+    onboardingComplete: true,
   },
 ];
 
@@ -112,4 +115,25 @@ export function signup(
     localStorage.removeItem("bosun_vendor_id");
   }
   return user;
+}
+
+export function markOnboardingComplete(): void {
+  const user = getCurrentUser();
+  if (!user) return;
+  user.onboardingComplete = true;
+  localStorage.setItem(KEYS.currentUser, JSON.stringify(user));
+  const users = getUsers();
+  const updated = users.map((u) => (u.id === user.id ? { ...u, onboardingComplete: true } : u));
+  localStorage.setItem(KEYS.users, JSON.stringify(updated));
+}
+
+/** Update the current user's fields in both session and user list */
+export function updateCurrentUser(patch: Partial<User>): void {
+  const user = getCurrentUser();
+  if (!user) return;
+  const updated = { ...user, ...patch };
+  localStorage.setItem(KEYS.currentUser, JSON.stringify(updated));
+  const users = getUsers();
+  const list = users.map((u) => (u.id === user.id ? { ...u, ...patch } : u));
+  localStorage.setItem(KEYS.users, JSON.stringify(list));
 }

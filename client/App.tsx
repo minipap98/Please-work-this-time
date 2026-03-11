@@ -23,13 +23,27 @@ import VendorMyBids from "./pages/vendor/VendorMyBids";
 import VendorRevenue from "./pages/vendor/VendorRevenue";
 import VendorBusinessHub from "./pages/vendor/VendorBusinessHub";
 import AuthPage from "./pages/AuthPage";
+import Onboarding from "./pages/Onboarding";
 import { RoleProvider } from "./context/RoleContext";
 import { getCurrentUser } from "./data/authUtils";
 
-// Redirects unauthenticated users to /login
+// Redirects unauthenticated users to /login; incomplete onboarding to /onboarding
 function AuthGuard() {
   const user = getCurrentUser();
   if (!user) return <Navigate to="/login" replace />;
+  if (!user.onboardingComplete) return <Navigate to="/onboarding" replace />;
+  return <Outlet />;
+}
+
+// Requires login but NOT completed onboarding (for the onboarding page itself)
+function OnboardingGuard() {
+  const user = getCurrentUser();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.onboardingComplete) {
+    return user.role === "vendor"
+      ? <Navigate to="/vendor-dashboard" replace />
+      : <Navigate to="/" replace />;
+  }
   return <Outlet />;
 }
 
@@ -46,7 +60,12 @@ const App = () => (
             {/* Public */}
             <Route path="/login" element={<AuthPage />} />
 
-            {/* Protected — require login */}
+            {/* Onboarding — requires login, blocks if already completed */}
+            <Route element={<OnboardingGuard />}>
+              <Route path="/onboarding" element={<Onboarding />} />
+            </Route>
+
+            {/* Protected — require login + completed onboarding */}
             <Route element={<AuthGuard />}>
               <Route path="/" element={<Index />} />
               <Route path="/inbox" element={<Inbox />} />

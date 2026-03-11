@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
-import { VENDOR_PROFILES } from "@/data/vendorData";
+import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 
 const STAR_PATH =
   "M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z";
 
 const SPECIALTIES_ALL = Array.from(
-  new Set(Object.values(VENDOR_PROFILES).flatMap((v) => v.specialties))
+  new Set(Object.values(getAllVendorProfiles()).flatMap((v) => v.specialties))
 ).sort();
 
 export default function BrowseVendors() {
@@ -16,7 +16,7 @@ export default function BrowseVendors() {
   const [search, setSearch] = useState("");
   const [filterSpecialty, setFilterSpecialty] = useState("All");
 
-  const vendors = Object.values(VENDOR_PROFILES).filter((v) => {
+  const vendors = Object.values(getAllVendorProfiles()).filter((v) => {
     const matchesSearch =
       v.name.toLowerCase().includes(search.toLowerCase()) ||
       v.specialties.some((s) => s.toLowerCase().includes(search.toLowerCase()));

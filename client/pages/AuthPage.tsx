@@ -33,13 +33,17 @@ export default function AuthPage() {
     setMode(next);
   }
 
-  function handleSuccess(userRole: "owner" | "vendor", vendorId?: string) {
+  function handleSuccess(userRole: "owner" | "vendor", vendorId?: string, isNewSignup = false) {
     if (userRole === "vendor" && vendorId) {
       setVendorMode(vendorId);
-      navigate("/vendor-dashboard");
     } else {
       setOwnerMode();
-      navigate("/");
+    }
+
+    if (isNewSignup) {
+      navigate("/onboarding");
+    } else {
+      navigate(userRole === "vendor" ? "/vendor-dashboard" : "/");
     }
   }
 
@@ -53,7 +57,7 @@ export default function AuthPage() {
       if ("error" in result) {
         setError(result.error);
       } else {
-        handleSuccess(result.role, result.vendorId);
+        handleSuccess(result.role, result.vendorId, false);
       }
     } else {
       if (!name.trim()) {
@@ -70,7 +74,7 @@ export default function AuthPage() {
       if ("error" in result) {
         setError(result.error);
       } else {
-        handleSuccess(result.role, result.vendorId);
+        handleSuccess(result.role, result.vendorId, true);
       }
     }
 

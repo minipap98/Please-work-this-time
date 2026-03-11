@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
-import { VENDOR_PROFILES } from "@/data/vendorData";
+import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 import { useRole } from "@/context/RoleContext";
 
@@ -12,7 +12,7 @@ export default function VendorProfile() {
   const navigate = useNavigate();
   const { role, vendorId } = useRole();
   const decodedName = decodeURIComponent(name ?? "");
-  const vendor = VENDOR_PROFILES[decodedName];
+  const vendor = getAllVendorProfiles()[decodedName];
   const pastWork = VENDOR_PAST_PROJECTS[decodedName] ?? [];
   const isOwnProfile = role === "vendor" && vendorId === decodedName;
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { PROJECTS } from "@/data/projectData";
 import { VENDOR_PROFILES } from "@/data/vendorData";
+import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { useRole } from "@/context/RoleContext";
 import { getVendorUnreadCount } from "@/data/bidUtils";
 import { getCurrentUser, logout } from "@/data/authUtils";
@@ -38,7 +39,7 @@ export default function Header() {
 
   const currentUser = getCurrentUser();
   const isVendor = role === "vendor";
-  const currentVendor = vendorId ? VENDOR_PROFILES[vendorId] : null;
+  const currentVendor = vendorId ? getAllVendorProfiles()[vendorId] : null;
 
   // Display name/initials: prefer auth user data, fall back to vendor profile
   const displayName = isVendor

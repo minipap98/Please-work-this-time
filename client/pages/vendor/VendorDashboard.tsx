@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
-import { VENDOR_PROFILES } from "@/data/vendorData";
+import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { submitBid, vendorHasBid, getAllProjects, getLocalProjectStatus } from "@/data/bidUtils";
 
 interface LineItem {
@@ -59,7 +59,7 @@ export default function VendorDashboard() {
     });
   }
 
-  const vendor = vendorId ? VENDOR_PROFILES[vendorId] : null;
+  const vendor = vendorId ? getAllVendorProfiles()[vendorId] : null;
   const openRFPs = getAllProjects().filter((p) => {
     const effective = getLocalProjectStatus(p.id, p.status);
     return effective === "gathering" || effective === "bidding";

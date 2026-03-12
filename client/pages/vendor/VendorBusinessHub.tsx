@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
@@ -12,16 +12,17 @@ import {
   getVendorScorecard,
   VendorClient,
   VendorClientBoat,
+  VendorBoatService,
   MaintenanceReminder,
   QuickInvoice,
 } from "@/data/vendorRetentionUtils";
+import { resizePhoto, getProjectPhotos, addProjectPhoto, removeProjectPhoto } from "@/lib/photoUtils";
 
-type Tab = "clients" | "history" | "invoices" | "reminders";
+type Tab = "clients" | "history" | "reminders";
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: "clients", label: "Clients", icon: "👤" },
   { key: "history", label: "Service History", icon: "🔧" },
-  { key: "invoices", label: "Invoices", icon: "📄" },
   { key: "reminders", label: "Reminders", icon: "🔔" },
 ];
 
@@ -34,7 +35,6 @@ export default function VendorBusinessHub() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("clients");
   const [expandedBoats, setExpandedBoats] = useState<Set<string>>(new Set());
-  const [selectedInvoice, setSelectedInvoice] = useState<QuickInvoice | null>(null);
   const [search, setSearch] = useState("");
 
   const vendor = vendorId ? getAllVendorProfiles()[vendorId] : null;
@@ -53,7 +53,6 @@ export default function VendorBusinessHub() {
   const clients = getVendorClients(vendorId);
   const boatHistory = getVendorBoatHistory(vendorId);
   const reminders = getMaintenanceReminders(vendorId);
-  const revenue = getVendorRevenueWithTiers(vendorId);
 
   const q = search.toLowerCase().trim();
 
@@ -70,18 +69,31 @@ export default function VendorBusinessHub() {
       )
     : clients;
 
-  const filteredBoatHistory = q
-    ? boatHistory.filter(
-        (b) =>
-          b.name.toLowerCase().includes(q) ||
-          b.label.toLowerCase().includes(q) ||
-          b.services.some(
-            (s) =>
-              s.title.toLowerCase().includes(q) ||
-              (s.category?.toLowerCase().includes(q) ?? false)
-          )
+  // Flatten all services from all boats into a chronological list for the history tab
+  const allServices: (VendorBoatService & { boatName: string; boatLabel: string })[] = [];
+  for (const boat of boatHistory) {
+    for (const svc of boat.services) {
+      if (!svc.isOtherVendor) {
+        allServices.push({ ...svc, boatName: boat.name, boatLabel: boat.label });
+      }
+    }
+  }
+  allServices.sort((a, b) => {
+    try {
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    } catch {
+      return 0;
+    }
+  });
+
+  const filteredServices = q
+    ? allServices.filter(
+        (s) =>
+          s.title.toLowerCase().includes(q) ||
+          s.boatName.toLowerCase().includes(q) ||
+          (s.category?.toLowerCase().includes(q) ?? false)
       )
-    : boatHistory;
+    : allServices;
 
   const filteredReminders = q
     ? reminders.filter(
@@ -180,7 +192,7 @@ export default function VendorBusinessHub() {
         <div className="mb-5">
           <h2 className="text-xl font-bold text-foreground">Business Hub</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Manage your clients, service history, invoices, and maintenance reminders
+            Manage your clients, service history, and maintenance reminders
           </p>
         </div>
 
@@ -221,8 +233,7 @@ export default function VendorBusinessHub() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder={
               activeTab === "clients" ? "Search clients, boats, or services…" :
-              activeTab === "history" ? "Search boats or services…" :
-              activeTab === "invoices" ? "Search invoices…" :
+              activeTab === "history" ? "Search services or boats…" :
               "Search reminders…"
             }
             className="w-full pl-9 pr-9 py-2.5 text-sm border border-border rounded-lg bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400 transition-colors"
@@ -241,19 +252,10 @@ export default function VendorBusinessHub() {
 
         {/* Tab content */}
         {activeTab === "clients" && (
-          <ClientsTab clients={filteredClients} expandedBoats={expandedBoats} toggleBoat={toggleBoat} search={q} />
+          <ClientsTab clients={filteredClients} expandedBoats={expandedBoats} toggleBoat={toggleBoat} search={q} vendorId={vendorId} />
         )}
         {activeTab === "history" && (
-          <HistoryTab boats={filteredBoatHistory} expandedBoats={expandedBoats} toggleBoat={toggleBoat} search={q} />
-        )}
-        {activeTab === "invoices" && (
-          <InvoicesTab
-            transactions={revenue.transactions}
-            vendorId={vendorId}
-            selectedInvoice={selectedInvoice}
-            onSelect={setSelectedInvoice}
-            search={q}
-          />
+          <HistoryTab services={filteredServices} search={q} vendorId={vendorId} />
         )}
         {activeTab === "reminders" && <RemindersTab reminders={filteredReminders} search={q} />}
       </main>
@@ -268,271 +270,136 @@ function ClientsTab({
   expandedBoats,
   toggleBoat,
   search,
+  vendorId,
 }: {
   clients: VendorClient[];
   expandedBoats: Set<string>;
   toggleBoat: (name: string) => void;
   search: string;
+  vendorId: string;
 }) {
+  const [selectedInvoice, setSelectedInvoice] = useState<{ invoice: QuickInvoice; projectId: string } | null>(null);
+
   if (clients.length === 0) {
     return search
       ? <EmptyState message={`No clients or services match "${search}".`} />
       : <EmptyState message="No clients yet. Complete your first job to see clients here." />;
   }
 
-  return (
-    <div className="space-y-4">
-      {clients.map((client) => (
-        <div key={client.ownerName} className="border border-border rounded-lg overflow-hidden">
-          {/* Client header */}
-          <div className="px-5 py-4 bg-slate-50/50 border-b border-border">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-                  <span className="text-sm font-bold text-primary-foreground">
-                    {client.ownerName.charAt(0)}
-                  </span>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">{client.ownerName}</h3>
-                  <p className="text-xs text-muted-foreground">
-                    {client.totalJobs} {client.totalJobs === 1 ? "job" : "jobs"} · {client.boats.length} boat{client.boats.length !== 1 ? "s" : ""} · Since {client.firstJobDate}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-semibold text-foreground">{fmt(client.totalRevenue)}</p>
-                <p className="text-xs text-muted-foreground">lifetime revenue</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Boats */}
-          <div className="divide-y divide-border">
-            {client.boats.map((boat) => {
-              const isOpen = search ? true : expandedBoats.has(boat.name);
-              return (
-                <div key={boat.name}>
-                  <button
-                    onClick={() => toggleBoat(boat.name)}
-                    className="w-full text-left px-5 py-3 hover:bg-muted/40 transition-colors flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-base">⛵</span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{boat.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{boat.label} · {boat.propulsion}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className="text-xs text-muted-foreground">{boat.services.length} {boat.services.length === 1 ? "job" : "jobs"}</span>
-                      <svg
-                        className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </button>
-
-                  {isOpen && (
-                    <div className="px-5 pb-3 space-y-1.5">
-                      {boat.services.map((svc, idx) => (
-                        <div
-                          key={idx}
-                          className={`flex items-center justify-between py-1.5 px-3 rounded text-sm ${
-                            svc.isOtherVendor
-                              ? "bg-slate-50 border border-dashed border-border/60"
-                              : "bg-muted/30"
-                          }`}
-                        >
-                          <div className="min-w-0">
-                            <span className={svc.isOtherVendor ? "text-muted-foreground" : "text-foreground"}>{svc.title}</span>
-                            <span className="text-muted-foreground ml-2 text-xs">{svc.date}</span>
-                            {svc.isOtherVendor && (
-                              <span className="ml-2 text-[10px] text-muted-foreground/70 bg-slate-100 px-1.5 py-0.5 rounded">other vendor</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className={`font-medium ${svc.isOtherVendor ? "text-muted-foreground" : ""}`}>{fmt(svc.price)}</span>
-                            <StatusBadge status={svc.status} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Service History Tab ─────────────────────────────────────────────────────
-
-function HistoryTab({
-  boats,
-  expandedBoats,
-  toggleBoat,
-  search,
-}: {
-  boats: VendorClientBoat[];
-  expandedBoats: Set<string>;
-  toggleBoat: (name: string) => void;
-  search: string;
-}) {
-  if (boats.length === 0) {
-    return search
-      ? <EmptyState message={`No boats or services match "${search}".`} />
-      : <EmptyState message="No service history yet." />;
-  }
-
-  return (
-    <div className="space-y-3">
-      {boats.map((boat) => {
-        const isOpen = search ? true : expandedBoats.has(boat.name);
-        return (
-          <div key={boat.name} className="border border-border rounded-lg overflow-hidden">
-            <button
-              onClick={() => toggleBoat(boat.name)}
-              className="w-full text-left px-5 py-3.5 hover:bg-muted/40 transition-colors flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="text-lg">⛵</span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">{boat.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{boat.label} · {boat.propulsion}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 flex-shrink-0">
-                <div className="text-right">
-                  <p className="text-sm font-medium">{boat.services.length} services</p>
-                  <p className="text-xs text-muted-foreground">{fmt(boat.totalRevenue)} total</p>
-                </div>
-                <svg
-                  className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </button>
-
-            {isOpen && (
-              <div className="border-t border-border">
-                {/* Column header */}
-                <div className="hidden sm:grid grid-cols-[1fr_100px_80px_60px] gap-2 px-5 py-2 text-xs text-muted-foreground font-medium bg-muted/20">
-                  <span>Service</span>
-                  <span className="text-right">Date</span>
-                  <span className="text-right">Amount</span>
-                  <span className="text-right">Status</span>
-                </div>
-                <div className="divide-y divide-border/50">
-                  {boat.services.map((svc, idx) => (
-                    <div key={idx} className={`sm:grid grid-cols-[1fr_100px_80px_60px] gap-2 px-5 py-2.5 text-sm items-center ${svc.isOtherVendor ? "bg-slate-50/50" : ""}`}>
-                      <div className="flex items-center gap-2">
-                        {svc.category && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 hidden sm:inline">
-                            {svc.category}
-                          </span>
-                        )}
-                        <span className={svc.isOtherVendor ? "text-muted-foreground" : "text-foreground"}>{svc.title}</span>
-                        {svc.isOtherVendor && (
-                          <span className="text-[10px] text-muted-foreground/70 bg-slate-100 px-1.5 py-0.5 rounded">other vendor</span>
-                        )}
-                      </div>
-                      <span className="text-muted-foreground text-xs sm:text-sm sm:text-right">{svc.date}</span>
-                      <span className={`font-medium sm:text-right ${svc.isOtherVendor ? "text-muted-foreground" : ""}`}>{fmt(svc.price)}</span>
-                      <div className="sm:text-right">
-                        <StatusBadge status={svc.status} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Invoices Tab ────────────────────────────────────────────────────────────
-
-function InvoicesTab({
-  transactions,
-  vendorId,
-  selectedInvoice,
-  onSelect,
-  search,
-}: {
-  transactions: { projectId: string; bidId: string; projectTitle: string; projectDate: string; gross: number; status: string; boatName?: string }[];
-  vendorId: string;
-  selectedInvoice: QuickInvoice | null;
-  onSelect: (inv: QuickInvoice | null) => void;
-  search: string;
-}) {
-  const completedTx = transactions
-    .filter((tx) => tx.status === "paid")
-    .filter(
-      (tx) =>
-        !search ||
-        tx.projectTitle.toLowerCase().includes(search) ||
-        (tx.boatName?.toLowerCase().includes(search) ?? false) ||
-        tx.projectDate.toLowerCase().includes(search)
-    );
-
-  if (completedTx.length === 0) {
-    return search
-      ? <EmptyState message={`No invoices match "${search}".`} />
-      : <EmptyState message="No completed jobs yet. Invoices will appear here after you finish your first project." />;
+  function handleServiceClick(svc: VendorBoatService) {
+    if (svc.isOtherVendor || svc.status !== "paid" || !svc.bidId) return;
+    const inv = generateQuickInvoice(vendorId, svc.projectId, svc.bidId);
+    if (inv) setSelectedInvoice({ invoice: inv, projectId: svc.projectId });
   }
 
   return (
     <>
-      <div className="space-y-2">
-        {completedTx.map((tx) => (
-          <button
-            key={tx.bidId}
-            onClick={() => {
-              const inv = generateQuickInvoice(vendorId, tx.projectId, tx.bidId);
-              onSelect(inv);
-            }}
-            className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
-              selectedInvoice?.projectTitle === tx.projectTitle
-                ? "border-sky-300 bg-sky-50/50"
-                : "border-border hover:border-sky-200 hover:bg-muted/30"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{tx.projectTitle}</p>
-                <p className="text-xs text-muted-foreground">
-                  {tx.boatName && `${tx.boatName} · `}{tx.projectDate}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-sm font-semibold">{fmt(tx.gross)}</span>
-                <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+      <div className="space-y-4">
+        {clients.map((client) => (
+          <div key={client.ownerName} className="border border-border rounded-lg overflow-hidden">
+            {/* Client header */}
+            <div className="px-5 py-4 bg-slate-50/50 border-b border-border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                    <span className="text-sm font-bold text-primary-foreground">
+                      {client.ownerName.charAt(0)}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">{client.ownerName}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {client.totalJobs} {client.totalJobs === 1 ? "job" : "jobs"} · {client.boats.length} boat{client.boats.length !== 1 ? "s" : ""} · Since {client.firstJobDate}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-foreground">{fmt(client.totalRevenue)}</p>
+                  <p className="text-xs text-muted-foreground">lifetime revenue</p>
+                </div>
               </div>
             </div>
-          </button>
+
+            {/* Boats */}
+            <div className="divide-y divide-border">
+              {client.boats.map((boat) => {
+                const isOpen = search ? true : expandedBoats.has(boat.name);
+                return (
+                  <div key={boat.name}>
+                    <button
+                      onClick={() => toggleBoat(boat.name)}
+                      className="w-full text-left px-5 py-3 hover:bg-muted/40 transition-colors flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-base">⛵</span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{boat.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{boat.label} · {boat.propulsion}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className="text-xs text-muted-foreground">{boat.services.length} {boat.services.length === 1 ? "job" : "jobs"}</span>
+                        <svg
+                          className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
+                          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </button>
+
+                    {isOpen && (
+                      <div className="px-5 pb-3 space-y-1.5">
+                        {boat.services.map((svc, idx) => {
+                          const canInvoice = !svc.isOtherVendor && svc.status === "paid" && !!svc.bidId;
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => canInvoice && handleServiceClick(svc)}
+                              className={`flex items-center justify-between py-1.5 px-3 rounded text-sm ${
+                                svc.isOtherVendor
+                                  ? "bg-slate-50 border border-dashed border-border/60"
+                                  : canInvoice
+                                  ? "bg-muted/30 cursor-pointer hover:bg-sky-50 hover:border-sky-200 border border-transparent transition-colors"
+                                  : "bg-muted/30"
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <span className={svc.isOtherVendor ? "text-muted-foreground" : "text-foreground"}>{svc.title}</span>
+                                <span className="text-muted-foreground ml-2 text-xs">{svc.date}</span>
+                                {svc.isOtherVendor && (
+                                  <span className="ml-2 text-[10px] text-muted-foreground/70 bg-slate-100 px-1.5 py-0.5 rounded">other vendor</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <span className={`font-medium ${svc.isOtherVendor ? "text-muted-foreground" : ""}`}>{fmt(svc.price)}</span>
+                                <StatusBadge status={svc.status} />
+                                {canInvoice && (
+                                  <svg className="w-3.5 h-3.5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                  </svg>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         ))}
       </div>
 
       {/* Invoice modal overlay */}
       {selectedInvoice && (
         <>
-          <div className="fixed inset-0 bg-black/40 z-50" onClick={() => onSelect(null)} />
+          <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setSelectedInvoice(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto">
-              <InvoicePreview invoice={selectedInvoice} onClose={() => onSelect(null)} />
+              <InvoicePreview invoice={selectedInvoice.invoice} projectId={selectedInvoice.projectId} onClose={() => setSelectedInvoice(null)} />
             </div>
           </div>
         </>
@@ -540,6 +407,97 @@ function InvoicesTab({
     </>
   );
 }
+
+// ── Service History Tab ─────────────────────────────────────────────────────
+
+function HistoryTab({
+  services,
+  search,
+  vendorId,
+}: {
+  services: (VendorBoatService & { boatName: string; boatLabel: string })[];
+  search: string;
+  vendorId: string;
+}) {
+  const [selectedInvoice, setSelectedInvoice] = useState<{ invoice: QuickInvoice; projectId: string } | null>(null);
+
+  if (services.length === 0) {
+    return search
+      ? <EmptyState message={`No services match "${search}".`} />
+      : <EmptyState message="No service history yet." />;
+  }
+
+  function handleServiceClick(svc: VendorBoatService) {
+    if (svc.status !== "paid" || !svc.bidId) return;
+    const inv = generateQuickInvoice(vendorId, svc.projectId, svc.bidId);
+    if (inv) setSelectedInvoice({ invoice: inv, projectId: svc.projectId });
+  }
+
+  return (
+    <>
+      <div className="border border-border rounded-lg overflow-hidden">
+        {/* Column header */}
+        <div className="hidden sm:grid grid-cols-[1fr_120px_100px_80px_80px] gap-2 px-5 py-2 text-xs text-muted-foreground font-medium bg-muted/20 border-b border-border">
+          <span>Service</span>
+          <span>Boat</span>
+          <span className="text-right">Date</span>
+          <span className="text-right">Amount</span>
+          <span className="text-right">Status</span>
+        </div>
+        <div className="divide-y divide-border/50">
+          {services.map((svc, idx) => {
+            const canInvoice = svc.status === "paid" && !!svc.bidId;
+            return (
+              <div
+                key={idx}
+                onClick={() => canInvoice && handleServiceClick(svc)}
+                className={`sm:grid grid-cols-[1fr_120px_100px_80px_80px] gap-2 px-5 py-3 text-sm items-center transition-colors ${
+                  canInvoice ? "cursor-pointer hover:bg-sky-50" : "hover:bg-muted/20"
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  {svc.category && (
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 hidden sm:inline flex-shrink-0">
+                      {svc.category}
+                    </span>
+                  )}
+                  <span className="text-foreground truncate">{svc.title}</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground truncate sm:text-sm">{svc.boatName}</p>
+                </div>
+                <span className="text-muted-foreground text-xs sm:text-sm sm:text-right">{svc.date}</span>
+                <span className="font-medium sm:text-right">{fmt(svc.price)}</span>
+                <div className="sm:text-right flex items-center justify-end gap-1.5">
+                  <StatusBadge status={svc.status} />
+                  {canInvoice && (
+                    <svg className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Invoice modal overlay */}
+      {selectedInvoice && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setSelectedInvoice(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto">
+              <InvoicePreview invoice={selectedInvoice.invoice} projectId={selectedInvoice.projectId} onClose={() => setSelectedInvoice(null)} />
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+// ── Invoice Preview (reused from former Invoices tab) ───────────────────────
 
 function generateInvoicePDF(invoice: QuickInvoice): Promise<Blob> {
   return import("jspdf").then(({ jsPDF }) => {
@@ -657,10 +615,28 @@ function generateInvoicePDF(invoice: QuickInvoice): Promise<Blob> {
   });
 }
 
-function InvoicePreview({ invoice, onClose }: { invoice: QuickInvoice; onClose: () => void }) {
+function InvoicePreview({ invoice, projectId, onClose }: { invoice: QuickInvoice; projectId: string; onClose: () => void }) {
   const [sendMenuOpen, setSendMenuOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<"email" | "text" | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [photos, setPhotos] = useState<string[]>(() => getProjectPhotos(projectId));
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files) return;
+    for (const file of Array.from(files)) {
+      const dataUrl = await resizePhoto(file);
+      addProjectPhoto(projectId, dataUrl);
+    }
+    setPhotos(getProjectPhotos(projectId));
+    e.target.value = "";
+  }
+
+  function handleRemovePhoto(index: number) {
+    removeProjectPhoto(projectId, index);
+    setPhotos(getProjectPhotos(projectId));
+  }
 
   async function handleSend(method: "email" | "text") {
     setSending(true);
@@ -670,7 +646,6 @@ function InvoicePreview({ invoice, onClose }: { invoice: QuickInvoice; onClose: 
       const filename = `${invoice.invoiceNumber}.pdf`;
 
       if (method === "email") {
-        // Create a mailto link with subject & body; download the PDF so they can attach it
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -684,7 +659,6 @@ function InvoicePreview({ invoice, onClose }: { invoice: QuickInvoice; onClose: 
         );
         window.open(`mailto:?subject=${subject}&body=${body}`, "_blank");
       } else {
-        // Download the PDF and open SMS with a message
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -773,6 +747,48 @@ function InvoicePreview({ invoice, onClose }: { invoice: QuickInvoice; onClose: 
             <span>Net Payout</span>
             <span className="text-emerald-700">{fmt(invoice.netPayout)}</span>
           </div>
+        </div>
+
+        {/* Job Photos */}
+        <div className="pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-muted-foreground">Job Photos</p>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="text-xs font-medium text-sky-600 hover:text-sky-700 transition-colors"
+            >
+              + Add Photos
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handlePhotoUpload}
+            />
+          </div>
+          {photos.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {photos.map((photo, i) => (
+                <div key={i} className="relative group">
+                  <img
+                    src={photo}
+                    alt={`Job photo ${i + 1}`}
+                    className="w-20 h-20 object-cover rounded-lg border border-border"
+                  />
+                  <button
+                    onClick={() => handleRemovePhoto(i)}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground/60 italic">No photos yet — add before/after shots of your work</p>
+          )}
         </div>
 
         {/* Send button */}

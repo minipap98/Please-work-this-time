@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 import { getAugmentedProjects, getRejectedBidIds, rejectBid, unrejectBid, getBidAdjustment, getRescindedBidIds } from "@/data/bidUtils";
 import { VENDOR_PROFILES } from "@/data/vendorData";
+import { getProjectPhotos } from "@/lib/photoUtils";
 import {
   Dialog,
   DialogContent,
@@ -187,6 +188,7 @@ export default function ProjectDetail() {
   const [ratingComment, setRatingComment] = useState<string>(savedRating?.comment ?? "");
   const [hoverStar, setHoverStar] = useState(0);
   const [ratingSubmitted, setRatingSubmitted] = useState(!!savedRating);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   // Payment/deposit state
   const depositKey = `deposit_${id}`;
@@ -218,6 +220,8 @@ export default function ProjectDetail() {
     localStorage.setItem(ratingKey, JSON.stringify({ stars: ratingValue, comment: ratingComment }));
     setRatingSubmitted(true);
   }
+
+  const allPhotos = useMemo(() => [...(project.photos ?? []), ...getProjectPhotos(project.id)], [project]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -807,6 +811,24 @@ export default function ProjectDetail() {
             </div>
           </section>
         )}
+
+        {/* Job Photos — completed projects only */}
+        {project.status === "completed" && allPhotos.length > 0 && (
+          <section className="mt-12">
+            <h3 className="text-sm font-semibold text-foreground mb-3">Job Photos</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {allPhotos.map((photo, i) => (
+                <img
+                  key={i}
+                  src={photo}
+                  alt={`Job photo ${i + 1}`}
+                  className="rounded-lg object-cover aspect-square w-full border border-border cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => setLightboxIndex(i)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
       </main>
 
       {/* Booking confirmed banner */}
@@ -921,6 +943,40 @@ export default function ProjectDetail() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Photo lightbox */}
+      {lightboxIndex !== null && allPhotos.length > 0 && (
+        <>
+          <div className="fixed inset-0 bg-black/80 z-50" onClick={() => setLightboxIndex(null)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="relative max-w-3xl w-full">
+              <img src={allPhotos[lightboxIndex]} className="w-full rounded-lg" alt="" />
+              <button
+                onClick={() => setLightboxIndex(null)}
+                className="absolute top-3 right-3 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70"
+              >
+                ×
+              </button>
+              {allPhotos.length > 1 && (
+                <>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex - 1 + allPhotos.length) % allPhotos.length); }}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 text-lg"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex + 1) % allPhotos.length); }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 text-lg"
+                  >
+                    ›
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

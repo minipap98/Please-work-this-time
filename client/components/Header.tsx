@@ -16,7 +16,7 @@ const OWNER_MENU_ITEMS = [
 const VENDOR_MENU_ITEMS = [
   { label: "Dashboard", to: "/vendor-dashboard" },
   { label: "Business Hub", to: "/vendor-business" },
-  { label: "Payment History", to: "/vendor-revenue" },
+  { label: "Analytics", to: "/vendor-revenue" },
 ];
 
 // Count unread messages across all projects (owner view)

@@ -5,12 +5,14 @@ import { useRole } from "@/context/RoleContext";
 import { VENDOR_PROFILES } from "@/data/vendorData";
 import {
   getVendorBidProjects,
+  VendorTransaction,
 } from "@/data/bidUtils";
 import { Bid } from "@/data/projectData";
 import {
   getVendorRevenueWithTiers,
-  getEscrowStatus,
   TieredTransaction,
+  getVendorAnalytics,
+  getVendorScorecard,
 } from "@/data/vendorRetentionUtils";
 
 function fmt(n: number) {
@@ -192,6 +194,8 @@ export default function VendorRevenue() {
 
   const vendor = vendorId ? VENDOR_PROFILES[vendorId] : null;
   const revenue = vendorId ? getVendorRevenueWithTiers(vendorId) : null;
+  const analytics = vendorId ? getVendorAnalytics(vendorId) : null;
+  const scorecard = vendorId ? getVendorScorecard(vendorId) : null;
 
   const bidMap: Record<string, Bid> = {};
   if (vendorId) {
@@ -207,6 +211,7 @@ export default function VendorRevenue() {
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(
     () => new Set(monthGroupsInit.map((g) => g.key))
   );
+  const [activeTab, setActiveTab] = useState<"analytics" | "payments">("analytics");
 
   if (!vendor || !revenue) {
     return (
@@ -224,9 +229,10 @@ export default function VendorRevenue() {
   const tier = revenue.currentTier;
   const tierProgress = revenue.tierProgress;
 
-  const paidTransactions = paidTxInit;
   const pendingTransactions = revenue.transactions.filter((tx) => tx.status !== "paid");
   const monthGroups = monthGroupsInit;
+
+  const maxDemand = analytics ? Math.max(...analytics.monthlyDemand.map((m) => m.rfpCount), 1) : 1;
 
   function toggleRow(bidId: string) {
     setExpandedBidId((prev) => (prev === bidId ? null : bidId));
@@ -300,7 +306,7 @@ export default function VendorRevenue() {
         </button>
 
         {isExpanded && bid && (
-          <LineItemsDetail bid={bid} boatName={tx.boatName} boatLabel={tx.boatLabel} feeRate={revenue.effectiveFeeRate} />
+          <LineItemsDetail bid={bid} boatName={tx.boatName} boatLabel={tx.boatLabel} feeRate={revenue!.effectiveFeeRate} />
         )}
       </div>
     );
@@ -313,9 +319,9 @@ export default function VendorRevenue() {
 
         {/* Page header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-foreground">Revenue</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Analytics & Revenue</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Bosun retains a {feePercent}% platform fee on all completed jobs.
+            Performance insights and financial data for your business.
           </p>
         </div>
 
@@ -379,7 +385,224 @@ export default function VendorRevenue() {
           </div>
         </div>
 
-        {/* Payment History */}
+        {/* Tab navigation */}
+        <div className="flex gap-1 mb-6 border-b border-border">
+          <button
+            onClick={() => setActiveTab("analytics")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              activeTab === "analytics"
+                ? "border-sky-500 text-sky-700"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Performance Analytics
+          </button>
+          <button
+            onClick={() => setActiveTab("payments")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              activeTab === "payments"
+                ? "border-sky-500 text-sky-700"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Payment History
+          </button>
+        </div>
+
+        {/* ── Analytics Tab ─────────────────────────────────────── */}
+        {activeTab === "analytics" && analytics && scorecard && (
+          <div className="space-y-6">
+
+            {/* Win rate by service type */}
+            <div className="border border-border rounded-lg p-4 sm:p-5">
+              <h3 className="text-sm font-semibold text-foreground mb-1">Win Rate by Service Type</h3>
+              <p className="text-xs text-muted-foreground mb-4">How often your bids are accepted, broken down by category.</p>
+              {analytics.winRateByCategory.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic py-4 text-center">No bid data available yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {analytics.winRateByCategory.map((cat) => (
+                    <div key={cat.category}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-foreground">{cat.category}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">{cat.wonBids}/{cat.totalBids} won</span>
+                          <span className={`text-sm font-bold ${cat.winRate >= 50 ? "text-green-700" : cat.winRate >= 25 ? "text-amber-700" : "text-red-600"}`}>
+                            {cat.winRate}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${cat.winRate >= 50 ? "bg-green-500" : cat.winRate >= 25 ? "bg-amber-500" : "bg-red-400"}`}
+                          style={{ width: `${Math.max(cat.winRate, 3)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Bid pricing comparison */}
+            <div className="border border-border rounded-lg p-4 sm:p-5">
+              <h3 className="text-sm font-semibold text-foreground mb-1">Your Bids vs. Winning Bids</h3>
+              <p className="text-xs text-muted-foreground mb-4">Compare your average bid price to the winning bid per category.</p>
+              {analytics.bidComparisons.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic py-4 text-center">Not enough data yet — keep bidding.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-xs font-medium text-muted-foreground border-b border-border">
+                        <th className="text-left pb-2">Category</th>
+                        <th className="text-right pb-2">Your Avg Bid</th>
+                        <th className="text-right pb-2">Avg Winning Bid</th>
+                        <th className="text-right pb-2">Difference</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analytics.bidComparisons.map((comp) => (
+                        <tr key={comp.category} className="border-b border-border/40 last:border-0">
+                          <td className="py-2.5 font-medium text-foreground">{comp.category}</td>
+                          <td className="py-2.5 text-right text-muted-foreground">${comp.avgVendorBid.toLocaleString()}</td>
+                          <td className="py-2.5 text-right text-muted-foreground">${comp.avgWinningBid.toLocaleString()}</td>
+                          <td className={`py-2.5 text-right font-semibold ${comp.delta > 0 ? "text-red-600" : comp.delta < 0 ? "text-green-700" : "text-muted-foreground"}`}>
+                            {comp.delta > 0 ? "+" : ""}{comp.delta === 0 ? "—" : `$${comp.delta.toLocaleString()}`}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="text-[10px] text-muted-foreground mt-2">
+                    {analytics.bidComparisons.some((c) => c.delta > 0)
+                      ? "Red = your bids are higher than the winning average. Consider adjusting pricing in those categories."
+                      : "Your pricing is competitive across all categories."}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Seasonal demand + Response time (side by side) */}
+            <div className="grid sm:grid-cols-2 gap-4">
+              {/* Seasonal demand */}
+              <div className="border border-border rounded-lg p-4 sm:p-5">
+                <h3 className="text-sm font-semibold text-foreground mb-1">Seasonal Demand</h3>
+                <p className="text-xs text-muted-foreground mb-3">RFP volume by month across all projects in your area.</p>
+                <div className="flex items-end gap-1 h-24">
+                  {analytics.monthlyDemand.map((m) => (
+                    <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
+                      <div
+                        className="w-full rounded-sm bg-sky-400/80 transition-all min-h-[2px]"
+                        style={{ height: `${Math.max((m.rfpCount / maxDemand) * 100, 3)}%` }}
+                      />
+                      <span className="text-[9px] text-muted-foreground">{m.month}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2">
+                  Peak months: {analytics.monthlyDemand
+                    .filter((m) => m.rfpCount >= maxDemand * 0.7)
+                    .map((m) => m.month)
+                    .join(", ") || "Evenly distributed"}
+                </p>
+              </div>
+
+              {/* Response time impact */}
+              <div className="border border-border rounded-lg p-4 sm:p-5">
+                <h3 className="text-sm font-semibold text-foreground mb-1">Response Time Impact</h3>
+                <p className="text-xs text-muted-foreground mb-3">How response speed affects bid win rate across the platform.</p>
+                <div className="space-y-2.5">
+                  {analytics.responseTimeImpact.map((rt) => {
+                    const isVendorBracket = (
+                      (rt.bracket === "< 2 hours" && (analytics.avgResponseTimeHours ?? 2) < 2) ||
+                      (rt.bracket === "2–6 hours" && (analytics.avgResponseTimeHours ?? 2) >= 2 && (analytics.avgResponseTimeHours ?? 2) < 6) ||
+                      (rt.bracket === "6–24 hours" && (analytics.avgResponseTimeHours ?? 2) >= 6 && (analytics.avgResponseTimeHours ?? 2) < 24) ||
+                      (rt.bracket === "> 24 hours" && (analytics.avgResponseTimeHours ?? 2) >= 24)
+                    );
+                    return (
+                      <div key={rt.bracket} className="flex items-center gap-3">
+                        <span className={`text-xs w-20 flex-shrink-0 ${isVendorBracket ? "font-bold text-sky-700" : "text-muted-foreground"}`}>
+                          {rt.bracket}
+                          {isVendorBracket && <span className="ml-1 text-[9px]">(you)</span>}
+                        </span>
+                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${isVendorBracket ? "bg-sky-500" : "bg-slate-300"}`}
+                            style={{ width: `${rt.winRate}%` }}
+                          />
+                        </div>
+                        <span className={`text-xs font-semibold w-10 text-right ${isVendorBracket ? "text-sky-700" : "text-foreground"}`}>
+                          {rt.winRate}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Revenue by boat class */}
+            <div className="border border-border rounded-lg p-4 sm:p-5">
+              <h3 className="text-sm font-semibold text-foreground mb-1">Revenue by Boat Class</h3>
+              <p className="text-xs text-muted-foreground mb-4">Which boat types generate the most revenue for your business.</p>
+              {analytics.revenueByBoatClass.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic py-4 text-center">No completed jobs yet.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {analytics.revenueByBoatClass.map((bc) => {
+                    const maxRevenue = Math.max(...analytics.revenueByBoatClass.map((b) => b.revenue), 1);
+                    return (
+                      <div key={bc.boatClass} className="flex items-center gap-3">
+                        <span className="text-sm text-foreground w-40 flex-shrink-0 truncate font-medium">{bc.boatClass}</span>
+                        <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-teal-500"
+                            style={{ width: `${(bc.revenue / maxRevenue) * 100}%` }}
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-sm font-bold text-foreground">${bc.revenue.toLocaleString()}</span>
+                          <span className="text-xs text-muted-foreground">{bc.jobCount} job{bc.jobCount !== 1 ? "s" : ""}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Key insights callout */}
+            <div className="border border-sky-200 bg-sky-50/50 rounded-lg p-4 flex gap-3">
+              <svg className="w-5 h-5 text-sky-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              <div>
+                <p className="text-sm font-semibold text-foreground mb-1">Key Insights</p>
+                <ul className="text-xs text-foreground/80 space-y-1 leading-relaxed">
+                  {scorecard && scorecard.bidWinRate >= 40 && (
+                    <li>Your {Math.round(scorecard.bidWinRate)}% win rate is above the platform average of 32%.</li>
+                  )}
+                  {scorecard && scorecard.bidWinRate < 40 && (
+                    <li>Your win rate of {Math.round(scorecard.bidWinRate)}% is below the platform average of 32%. Review your pricing and response times.</li>
+                  )}
+                  {analytics.repeatClientRate > 0 && (
+                    <li>{analytics.repeatClientRate}% of your clients are repeat customers — strong retention.</li>
+                  )}
+                  {analytics.bidComparisons.some((c) => c.delta > 500) && (
+                    <li>You may be overpricing in some categories. Check the bid comparison table above.</li>
+                  )}
+                  {(analytics.avgResponseTimeHours ?? 2) <= 2 && (
+                    <li>Your fast response time puts you in the top 15% of vendors — keep it up.</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Payments Tab ──────────────────────────────────────── */}
+        {activeTab === "payments" && (
         <div>
           <h2 className="text-base font-semibold text-foreground mb-4">Payment History</h2>
 
@@ -560,20 +783,21 @@ export default function VendorRevenue() {
               </div>
             </div>
           )}
-        </div>
 
-        {/* Fee info callout */}
-        <div className="mt-8 border border-border rounded-lg p-4 flex gap-3">
-          <svg className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div>
-            <p className="text-sm font-medium text-foreground">Bosun's Loyalty Fee Tiers</p>
-            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              Your fee rate decreases as you earn more on Bosun. <strong>Bronze</strong> (0–$5k): 10% · <strong>Silver</strong> ($5k–$20k): 7% · <strong>Gold</strong> ($20k+): 5%. You're currently on the <strong>{tier.name}</strong> tier at <strong>{feePercent}%</strong>. Net payouts are processed within 3–5 business days of project completion. All active jobs are protected by Bosun's escrow system — funds are secured before work begins and released on completion.
-            </p>
+          {/* Fee info callout */}
+          <div className="mt-8 border border-border rounded-lg p-4 flex gap-3">
+            <svg className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <p className="text-sm font-medium text-foreground">Bosun's Loyalty Fee Tiers</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                Your fee rate decreases as you earn more on Bosun. <strong>Bronze</strong> (0–$5k): 10% · <strong>Silver</strong> ($5k–$20k): 7% · <strong>Gold</strong> ($20k+): 5%. You're currently on the <strong>{tier.name}</strong> tier at <strong>{feePercent}%</strong>. Net payouts are processed within 3–5 business days of project completion. All active jobs are protected by Bosun's escrow system — funds are secured before work begins and released on completion.
+              </p>
+            </div>
           </div>
         </div>
+        )}
 
       </main>
     </div>

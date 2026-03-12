@@ -5,8 +5,8 @@ import {
   VendorRevenueSummary,
   VendorTransaction,
 } from "./bidUtils";
-import { VENDOR_PROFILES, VendorProfile } from "./vendorData";
-import { Project, Bid, PROJECTS } from "./projectData";
+import { VENDOR_PROFILES } from "./vendorData";
+import { PROJECTS } from "./projectData";
 
 // ── Fee Tier System ─────────────────────────────────────────────────────────
 
@@ -220,6 +220,7 @@ export function getVendorScorecard(vendorId: string): VendorScorecard {
 
 export interface VendorBoatService {
   projectId: string;
+  bidId?: string;
   title: string;
   date: string;
   price: number;
@@ -283,6 +284,7 @@ export function getVendorClients(vendorId: string): VendorClient[] {
     const entry = boatMap.get(boatKey)!;
     entry.services.push({
       projectId: tx.projectId,
+      bidId: tx.bidId,
       title: tx.projectTitle,
       date: tx.projectDate,
       price: tx.gross,
@@ -371,7 +373,7 @@ export function getVendorBoatHistory(vendorId: string): VendorClientBoat[] {
 // ── Maintenance Reminders ───────────────────────────────────────────────────
 
 /** Category → recommended service interval in months */
-const SERVICE_INTERVALS: Record<string, { months: number; followUp: string }> = {
+export const SERVICE_INTERVALS: Record<string, { months: number; followUp: string }> = {
   "Engine Service":   { months: 12, followUp: "Annual engine service due" },
   "Bottom Work":      { months: 12, followUp: "Bottom paint refresh recommended" },
   "Bottom Paint":     { months: 12, followUp: "Bottom paint refresh recommended" },
@@ -625,5 +627,171 @@ export function getEscrowStatus(projectId: string, bidId: string, bidAmount: num
       { step: "Work begins", status: "upcoming" },
       { step: "Released on completion", status: "upcoming" },
     ],
+  };
+}
+
+// ── Advanced Analytics ──────────────────────────────────────────────────────
+
+export interface WinRateByCategory {
+  category: string;
+  totalBids: number;
+  wonBids: number;
+  winRate: number;
+}
+
+export interface BidComparison {
+  category: string;
+  avgVendorBid: number;
+  avgWinningBid: number;
+  delta: number; // positive = vendor bids higher, negative = vendor bids lower
+}
+
+export interface MonthlyDemand {
+  month: string; // "Jan", "Feb", etc.
+  monthIndex: number;
+  rfpCount: number;
+}
+
+export interface RevenueByBoatClass {
+  boatClass: string;
+  revenue: number;
+  jobCount: number;
+}
+
+export interface CertificationImpact {
+  certification: string;
+  rfpsReceived: number;
+  bidWinRate: number;
+}
+
+export interface ResponseTimeImpact {
+  bracket: string;
+  winRate: number;
+  avgResponseHours: number;
+}
+
+export interface VendorAnalytics {
+  winRateByCategory: WinRateByCategory[];
+  bidComparisons: BidComparison[];
+  monthlyDemand: MonthlyDemand[];
+  revenueByBoatClass: RevenueByBoatClass[];
+  responseTimeImpact: ResponseTimeImpact[];
+  avgResponseTimeHours: number;
+  repeatClientRate: number;
+  repeatClients: number;
+  uniqueClients: number;
+}
+
+/** Compute advanced analytics for a vendor's business performance */
+export function getVendorAnalytics(vendorId: string): VendorAnalytics {
+  const bidProjects = getVendorBidProjects(vendorId);
+  const profile = VENDOR_PROFILES[vendorId];
+  const allProjects = PROJECTS;
+
+  // ── Win rate by category ──────────────────────────────────────────────
+  const catStats = new Map<string, { total: number; won: number }>();
+  for (const { project, bid } of bidProjects) {
+    const cat = project.category ?? "Other";
+    if (!catStats.has(cat)) catStats.set(cat, { total: 0, won: 0 });
+    const entry = catStats.get(cat)!;
+    entry.total++;
+    if (isBidAccepted(project, bid)) entry.won++;
+  }
+  const winRateByCategory: WinRateByCategory[] = Array.from(catStats.entries())
+    .map(([category, { total, won }]) => ({
+      category,
+      totalBids: total,
+      wonBids: won,
+      winRate: total > 0 ? Math.round((won / total) * 100) : 0,
+    }))
+    .sort((a, b) => b.totalBids - a.totalBids);
+
+  // ── Bid comparisons (avg vendor bid vs avg winning bid per category) ──
+  const bidCompMap = new Map<string, { vendorBids: number[]; winningBids: number[] }>();
+  for (const { project, bid } of bidProjects) {
+    const cat = project.category ?? "Other";
+    if (!bidCompMap.has(cat)) bidCompMap.set(cat, { vendorBids: [], winningBids: [] });
+    const entry = bidCompMap.get(cat)!;
+    entry.vendorBids.push(bid.price);
+    if (project.chosenBidId) {
+      const winBid = project.bids.find((b) => b.id === project.chosenBidId);
+      if (winBid) entry.winningBids.push(winBid.price);
+    }
+  }
+  const bidComparisons: BidComparison[] = Array.from(bidCompMap.entries())
+    .filter(([, v]) => v.winningBids.length > 0)
+    .map(([category, { vendorBids, winningBids }]) => {
+      const avgV = vendorBids.reduce((a, b) => a + b, 0) / vendorBids.length;
+      const avgW = winningBids.reduce((a, b) => a + b, 0) / winningBids.length;
+      return { category, avgVendorBid: Math.round(avgV), avgWinningBid: Math.round(avgW), delta: Math.round(avgV - avgW) };
+    });
+
+  // ── Monthly demand (RFP count per month across all projects) ──────────
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const monthCounts = new Array(12).fill(0);
+  for (const project of allProjects) {
+    try {
+      const d = new Date(project.date);
+      if (!isNaN(d.getTime())) monthCounts[d.getMonth()]++;
+    } catch { /* skip */ }
+  }
+  const monthlyDemand: MonthlyDemand[] = monthNames.map((month, i) => ({
+    month,
+    monthIndex: i,
+    rfpCount: monthCounts[i],
+  }));
+
+  // ── Revenue by boat class ─────────────────────────────────────────────
+  const boatClassMap = new Map<string, { revenue: number; jobs: number }>();
+  for (const { project, bid } of bidProjects) {
+    if (!isBidAccepted(project, bid)) continue;
+    const boat = project.boat;
+    const cls = boat ? `${boat.make} ${boat.model}` : "Unknown";
+    if (!boatClassMap.has(cls)) boatClassMap.set(cls, { revenue: 0, jobs: 0 });
+    const entry = boatClassMap.get(cls)!;
+    entry.revenue += bid.price;
+    entry.jobs++;
+  }
+  const revenueByBoatClass: RevenueByBoatClass[] = Array.from(boatClassMap.entries())
+    .map(([boatClass, { revenue, jobs }]) => ({ boatClass, revenue: Math.round(revenue), jobCount: jobs }))
+    .sort((a, b) => b.revenue - a.revenue);
+
+  // ── Response time impact (simulated brackets) ─────────────────────────
+  const responseTimeImpact: ResponseTimeImpact[] = [
+    { bracket: "< 2 hours", winRate: 68, avgResponseHours: 1.2 },
+    { bracket: "2–6 hours", winRate: 45, avgResponseHours: 3.8 },
+    { bracket: "6–24 hours", winRate: 28, avgResponseHours: 14 },
+    { bracket: "> 24 hours", winRate: 12, avgResponseHours: 38 },
+  ];
+
+  // ── Repeat clients ────────────────────────────────────────────────────
+  const boatJobCount = new Map<string, number>();
+  for (const { project, bid } of bidProjects) {
+    if (project.status === "completed" && project.chosenBidId === bid.id) {
+      const boatKey = project.boat?.name ?? "Unknown";
+      boatJobCount.set(boatKey, (boatJobCount.get(boatKey) ?? 0) + 1);
+    }
+  }
+  const uniqueClients = boatJobCount.size;
+  const repeatClients = Array.from(boatJobCount.values()).filter((c) => c >= 2).length;
+  const repeatClientRate = uniqueClients > 0 ? Math.round((repeatClients / uniqueClients) * 100) : 0;
+
+  // ── Average response time (simulated from profile) ────────────────────
+  const responseStr = profile?.responseTime ?? "< 2 hours";
+  let avgResponseTimeHours = 1.5;
+  if (responseStr.includes("4")) avgResponseTimeHours = 4;
+  else if (responseStr.includes("6")) avgResponseTimeHours = 5;
+  else if (responseStr.includes("24") || responseStr.includes("day")) avgResponseTimeHours = 18;
+
+  return {
+    winRateByCategory,
+    bidComparisons,
+    monthlyDemand,
+    revenueByBoatClass,
+    responseTimeImpact,
+    avgResponseTimeHours,
+    repeatClientRate,
+    repeatClients,
+    uniqueClients,
   };
 }

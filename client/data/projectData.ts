@@ -285,7 +285,7 @@ export const PROJECTS: Project[] = [
     date: "Mar 9, 2026",
     location: "Fort Lauderdale",
     category: "Captain / Charter",
-    boat: { name: "Sea Escape", make: "Sea Ray", model: "SLX 280", year: "2022", propulsion: "Twin Mercury V8 300hp Outboard" },
+    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
     bids: [
       {
         id: "c1",
@@ -342,7 +342,7 @@ export const PROJECTS: Project[] = [
     date: "Feb 19, 2026",
     location: "Fort Lauderdale",
     category: "Engine Service",
-    boat: { name: "Sea Escape", make: "Sea Ray", model: "SLX 280", year: "2022", propulsion: "Twin Mercury V8 300hp Outboard" },
+    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
     bids: [
       {
         id: "b1",
@@ -399,7 +399,7 @@ export const PROJECTS: Project[] = [
     date: "Feb 17, 2026",
     location: "Fort Lauderdale",
     category: "Detailing",
-    boat: { name: "Sea Escape", make: "Sea Ray", model: "SLX 280", year: "2022", propulsion: "Twin Mercury V8 300hp Outboard" },
+    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
     bids: [
       {
         id: "b4",
@@ -478,7 +478,7 @@ export const PROJECTS: Project[] = [
     date: "Dec 3, 2025",
     location: "Fort Lauderdale",
     category: "Detailing",
-    boat: { name: "Sea Escape", make: "Sea Ray", model: "SLX 280", year: "2022", propulsion: "Twin Mercury V8 300hp Outboard" },
+    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
     bids: [
       {
         id: "b11",
@@ -514,7 +514,7 @@ export const PROJECTS: Project[] = [
     date: "Jan 14, 2026",
     location: "Fort Lauderdale",
     category: "Electronics",
-    boat: { name: "Sea Escape", make: "Sea Ray", model: "SLX 280", year: "2022", propulsion: "Twin Mercury V8 300hp Outboard" },
+    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
     chosenBidId: "b9",
     bids: [
       {
@@ -1387,7 +1387,7 @@ export const PROJECTS: Project[] = [
     location: "Fort Lauderdale",
     category: "Engine Service",
     owner: "Mike Johnson",
-    boat: { name: "Blue Meridian", make: "Riviera", model: "48 Sports Motor Yacht", year: "2022", propulsion: "Twin Volvo Penta D6-435 Diesel" },
+    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
     chosenBidId: "mj-1-b1",
     bids: [
       {
@@ -1421,7 +1421,7 @@ export const PROJECTS: Project[] = [
     location: "Dania Beach",
     category: "Bottom Work",
     owner: "Mike Johnson",
-    boat: { name: "Blue Meridian", make: "Riviera", model: "48 Sports Motor Yacht", year: "2022", propulsion: "Twin Volvo Penta D6-435 Diesel" },
+    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
     chosenBidId: "mj-2-b1",
     bids: [
       {
@@ -1457,7 +1457,7 @@ export const PROJECTS: Project[] = [
     location: "Fort Lauderdale",
     category: "Mechanical",
     owner: "Mike Johnson",
-    boat: { name: "Blue Meridian", make: "Riviera", model: "48 Sports Motor Yacht", year: "2022", propulsion: "Twin Volvo Penta D6-435 Diesel" },
+    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
     chosenBidId: "mj-3-b1",
     bids: [
       {
@@ -1491,7 +1491,7 @@ export const PROJECTS: Project[] = [
     location: "Fort Lauderdale",
     category: "Electronics",
     owner: "Mike Johnson",
-    boat: { name: "Blue Meridian", make: "Riviera", model: "48 Sports Motor Yacht", year: "2022", propulsion: "Twin Volvo Penta D6-435 Diesel" },
+    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
     chosenBidId: "mj-4-b1",
     bids: [
       {
@@ -1529,7 +1529,7 @@ export const PROJECTS: Project[] = [
     location: "Pompano Beach",
     category: "Detailing",
     owner: "Sarah Williams",
-    boat: { name: "Sundowner", make: "Sea Ray", model: "Sundancer 350", year: "2019", propulsion: "Twin MerCruiser 6.2L MPI I/O" },
+    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
     chosenBidId: "sw-1-b1",
     bids: [
       {
@@ -1564,7 +1564,7 @@ export const PROJECTS: Project[] = [
     location: "Pompano Beach",
     category: "Mechanical",
     owner: "Sarah Williams",
-    boat: { name: "Sundowner", make: "Sea Ray", model: "Sundancer 350", year: "2019", propulsion: "Twin MerCruiser 6.2L MPI I/O" },
+    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
     chosenBidId: "sw-2-b1",
     bids: [
       {
@@ -1600,7 +1600,7 @@ export const PROJECTS: Project[] = [
     location: "Pompano Beach",
     category: "Canvas & Upholstery",
     owner: "Sarah Williams",
-    boat: { name: "Sundowner", make: "Sea Ray", model: "Sundancer 350", year: "2019", propulsion: "Twin MerCruiser 6.2L MPI I/O" },
+    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
     chosenBidId: "sw-3-b1",
     bids: [
       {
@@ -1635,7 +1635,7 @@ export const PROJECTS: Project[] = [
     location: "Pompano Beach",
     category: "Engine Service",
     owner: "Sarah Williams",
-    boat: { name: "Sundowner", make: "Sea Ray", model: "Sundancer 350", year: "2019", propulsion: "Twin MerCruiser 6.2L MPI I/O" },
+    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
     chosenBidId: "sw-4-b1",
     bids: [
       {
@@ -2668,7 +2668,7 @@ export const PROJECTS: Project[] = [
     location: "Fort Lauderdale",
     category: "Detailing",
     owner: "Mike Johnson",
-    boat: { name: "Blue Meridian", make: "Riviera", model: "48 Sports Motor Yacht", year: "2022", propulsion: "Twin Volvo Penta D6-435 Diesel" },
+    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
     chosenBidId: "ov-mj-d-b1",
     bids: [
       {
@@ -2866,7 +2866,7 @@ export const PROJECTS: Project[] = [
     location: "Pompano Beach",
     category: "Engine Service",
     owner: "Sarah Williams",
-    boat: { name: "Sundowner", make: "Sea Ray", model: "Sundancer 350", year: "2019", propulsion: "Twin MerCruiser 6.2L MPI I/O" },
+    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
     chosenBidId: "ov-sw-e-b1",
     bids: [
       {

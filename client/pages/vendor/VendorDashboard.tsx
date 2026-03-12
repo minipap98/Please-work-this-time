@@ -1,8 +1,10 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
 import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
-import { submitBid, vendorHasBid, getAllProjects, getLocalProjectStatus } from "@/data/bidUtils";
+import { submitBid, vendorHasBid, getAllProjects, getLocalProjectStatus, getVendorBidProjects, isBidAccepted } from "@/data/bidUtils";
+import { getVendorRevenueWithTiers, getVendorScorecard, getVendorAnalytics, getMaintenanceReminders } from "@/data/vendorRetentionUtils";
 
 interface LineItem {
   description: string;
@@ -20,8 +22,18 @@ function bidTotal(items: LineItem[]): number {
   return items.reduce((sum, item) => sum + lineTotal(item), 0);
 }
 
+function fmt(n: number) {
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtShort(n: number) {
+  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`;
+  return `$${Math.round(n)}`;
+}
+
 export default function VendorDashboard() {
   const { vendorId } = useRole();
+  const navigate = useNavigate();
   const [, forceUpdate] = useState(0);
 
   // Detail panel state
@@ -37,7 +49,7 @@ export default function VendorDashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<string[]>([]);
 
-  // Filter state — empty Set means "All"
+  // Filter state
   const [categoryFilters, setCategoryFilters] = useState<Set<string>>(new Set());
   const [locationFilters, setLocationFilters] = useState<Set<string>>(new Set());
 
@@ -60,7 +72,22 @@ export default function VendorDashboard() {
   }
 
   const vendor = vendorId ? getAllVendorProfiles()[vendorId] : null;
-  const openRFPs = getAllProjects().filter((p) => {
+  const revenue = vendorId ? getVendorRevenueWithTiers(vendorId) : null;
+  const scorecard = vendorId ? getVendorScorecard(vendorId) : null;
+  const analytics = vendorId ? getVendorAnalytics(vendorId) : null;
+  const reminders = vendorId ? getMaintenanceReminders(vendorId) : [];
+  const overdueReminders = reminders.filter((r) => r.urgency === "overdue" || r.urgency === "upcoming");
+
+  const allProjects = getAllProjects();
+  const bidProjects = vendorId ? getVendorBidProjects(vendorId) : [];
+
+  // Active jobs = accepted bids on in-progress projects
+  const activeJobs = bidProjects.filter(({ project, bid }) => {
+    const effective = getLocalProjectStatus(project.id, project.status);
+    return (effective === "in-progress" || isBidAccepted(project, bid)) && effective !== "completed";
+  });
+
+  const openRFPs = allProjects.filter((p) => {
     const effective = getLocalProjectStatus(p.id, p.status);
     return effective === "gathering" || effective === "bidding";
   });
@@ -84,8 +111,6 @@ export default function VendorDashboard() {
       return true;
     });
   }, [openRFPs, locationFilters, categoryFilters]);
-
-  const allProjects = getAllProjects();
 
   const detailProject = detailProjectId
     ? allProjects.find((p) => p.id === detailProjectId)
@@ -211,30 +236,169 @@ export default function VendorDashboard() {
     <div className="min-h-screen bg-[#fafaf9] pb-16 md:pb-0">
       <Header />
 
-      {/* ── Hero banner ────────────────────────────────────────── */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-sky-400 via-sky-500 to-sky-600">
-        <div className="absolute -top-16 -right-16 w-72 h-72 rounded-full bg-white/5 pointer-events-none" />
-        <div className="absolute -bottom-10 -right-4 w-48 h-48 rounded-full bg-white/5 pointer-events-none" />
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 relative">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="w-2 h-2 rounded-full bg-white animate-pulse flex-shrink-0" />
-            <span className="text-white/80 text-xs font-semibold uppercase tracking-widest">Live now</span>
+      {/* ── Compact Metrics Strip ─────────────────────────────── */}
+      <div className="bg-white border-b border-border">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          {/* Greeting + quick stats row */}
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h1 className="text-lg font-semibold text-foreground">
+                Welcome back, {vendor.name.split(" ")[0]}
+              </h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {openRFPs.length} open RFP{openRFPs.length !== 1 ? "s" : ""} in your area
+                {activeJobs.length > 0 && ` · ${activeJobs.length} active job${activeJobs.length !== 1 ? "s" : ""}`}
+              </p>
+            </div>
+            {revenue && (
+              <div className="hidden sm:flex items-center gap-1.5">
+                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${revenue.currentTier.badgeColor}`}>
+                  {revenue.currentTier.name === "Gold" ? "🥇" : revenue.currentTier.name === "Silver" ? "🥈" : "🥉"}
+                  {revenue.currentTier.name}
+                </span>
+              </div>
+            )}
           </div>
-          <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-5xl sm:text-6xl font-black text-white leading-none">{openRFPs.length}</span>
-            <span className="text-xl sm:text-2xl font-bold text-white/90">
-              open project{openRFPs.length !== 1 ? "s" : ""}
-            </span>
+
+          {/* KPI cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <button
+              onClick={() => navigate("/vendor-revenue")}
+              className="text-left border border-border rounded-lg px-3 py-2.5 hover:border-sky-200 hover:bg-sky-50/30 transition-colors group"
+            >
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Net Earnings</p>
+              <p className="text-lg font-bold text-foreground mt-0.5">{fmtShort(revenue?.tieredPaidNet ?? 0)}</p>
+              {(revenue?.tieredPendingNet ?? 0) > 0 && (
+                <p className="text-[10px] text-sky-600 font-medium mt-0.5">+{fmtShort(revenue!.tieredPendingNet)} pending</p>
+              )}
+            </button>
+
+            <button
+              onClick={() => navigate("/vendor-my-bids")}
+              className="text-left border border-border rounded-lg px-3 py-2.5 hover:border-sky-200 hover:bg-sky-50/30 transition-colors group"
+            >
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Win Rate</p>
+              <p className="text-lg font-bold text-foreground mt-0.5">{Math.round(scorecard?.bidWinRate ?? 0)}%</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{scorecard?.acceptedBids ?? 0} of {scorecard?.totalBids ?? 0} bids</p>
+            </button>
+
+            <div className="border border-border rounded-lg px-3 py-2.5">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Response Time</p>
+              <p className="text-lg font-bold text-foreground mt-0.5">{vendor.responseTime}</p>
+              <p className="text-[10px] text-green-600 font-medium mt-0.5">
+                {(analytics?.avgResponseTimeHours ?? 2) <= 2 ? "Top 15% of vendors" : "Faster = more wins"}
+              </p>
+            </div>
+
+            <div className="border border-border rounded-lg px-3 py-2.5">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Repeat Clients</p>
+              <p className="text-lg font-bold text-foreground mt-0.5">{analytics?.repeatClientRate ?? 0}%</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{analytics?.repeatClients ?? 0} of {analytics?.uniqueClients ?? 0} clients</p>
+            </div>
           </div>
-          <p className="text-white/70 text-sm">actively seeking vendors — bid before they fill up</p>
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
 
-        {/* ── Filters ────────────────────────────────────────────── */}
-        <div className="mb-4 space-y-1.5">
-          {/* Service type */}
+        {/* ── Active Jobs ──────────────────────────────────────── */}
+        {activeJobs.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2.5">
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                Active Jobs
+              </h2>
+              <button
+                onClick={() => navigate("/vendor-my-bids")}
+                className="text-xs text-sky-600 hover:text-sky-700 font-medium"
+              >
+                View all bids
+              </button>
+            </div>
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {activeJobs.slice(0, 4).map(({ project, bid }) => (
+                <div
+                  key={project.id}
+                  className="bg-white border border-border rounded-xl p-4 hover:border-sky-200 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-1">{project.title}</h3>
+                    <span className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 text-[10px] font-semibold whitespace-nowrap">
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                      In Progress
+                    </span>
+                  </div>
+                  {project.boat && (
+                    <p className="text-xs text-muted-foreground mb-1.5">
+                      {project.boat.name} · {project.boat.year} {project.boat.make} {project.boat.model}
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-foreground">${fmt(bid.price)}</span>
+                    {project.location && (
+                      <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        {project.location}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Follow-up Opportunities ─────────────────────────── */}
+        {overdueReminders.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2.5">
+              <h2 className="text-sm font-semibold text-foreground">Follow-up Opportunities</h2>
+              <button
+                onClick={() => navigate("/vendor-business")}
+                className="text-xs text-sky-600 hover:text-sky-700 font-medium"
+              >
+                Business Hub
+              </button>
+            </div>
+            <div className="bg-white border border-amber-200 rounded-xl overflow-hidden">
+              {overdueReminders.slice(0, 3).map((r, i) => (
+                <div
+                  key={`${r.boatName}-${r.category}`}
+                  className={`px-4 py-3 flex items-center justify-between gap-3 ${i > 0 ? "border-t border-border/50" : ""}`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground truncate">{r.suggestedFollowUp}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {r.boatName} · Last serviced {r.monthsSince} mo. ago
+                    </p>
+                  </div>
+                  <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                    r.urgency === "overdue"
+                      ? "bg-red-50 text-red-700"
+                      : "bg-amber-50 text-amber-700"
+                  }`}>
+                    {r.urgency === "overdue" ? "Overdue" : "Upcoming"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Open RFPs ────────────────────────────────────────── */}
+        <div className="flex items-center justify-between mb-2.5">
+          <h2 className="text-sm font-semibold text-foreground">Open RFPs</h2>
+          <span className="text-xs text-muted-foreground">
+            {filteredRFPs.length}{filteredRFPs.length !== openRFPs.length ? ` of ${openRFPs.length}` : ""} project{filteredRFPs.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+
+        {/* Filters */}
+        <div className="mb-3 space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-muted-foreground w-14 flex-shrink-0">Service</span>
             <div className="flex-1 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none] [-ms-overflow-style:none]">
@@ -259,8 +423,6 @@ export default function VendorDashboard() {
               </div>
             </div>
           </div>
-
-          {/* Location */}
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-muted-foreground w-14 flex-shrink-0">Location</span>
             <div className="flex-1 overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none] [-ms-overflow-style:none]">
@@ -287,15 +449,7 @@ export default function VendorDashboard() {
           </div>
         </div>
 
-        {/* ── Results header ─────────────────────────────────────── */}
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-foreground">Open RFPs</h2>
-          <span className="text-xs text-muted-foreground">
-            {filteredRFPs.length}{filteredRFPs.length !== openRFPs.length ? ` of ${openRFPs.length}` : ""} project{filteredRFPs.length !== 1 ? "s" : ""}
-          </span>
-        </div>
-
-        {/* ── RFP cards ──────────────────────────────────────────── */}
+        {/* RFP cards */}
         {filteredRFPs.length === 0 ? (
           <div className="border border-dashed border-border rounded-xl py-16 text-center">
             <p className="text-sm text-muted-foreground">No projects match the selected filters.</p>
@@ -307,7 +461,7 @@ export default function VendorDashboard() {
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {filteredRFPs.map((project) => {
               const alreadyBid =
                 submitted.includes(project.id) ||
@@ -322,7 +476,6 @@ export default function VendorDashboard() {
                       : "border-border hover:border-sky-300 hover:shadow-sm"
                   }`}
                 >
-                  {/* Title + CTA row */}
                   <div className="flex items-start justify-between gap-3 mb-1">
                     <div className="min-w-0 flex-1">
                       <h3 className="text-sm font-semibold text-foreground leading-snug mb-1">{project.title}</h3>
@@ -341,7 +494,6 @@ export default function VendorDashboard() {
                         )}
                       </div>
                     </div>
-                    {/* CTA */}
                     <div className="flex-shrink-0">
                       {alreadyBid ? (
                         <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-50 text-green-700 text-xs font-semibold border border-green-200 whitespace-nowrap">
@@ -365,7 +517,6 @@ export default function VendorDashboard() {
                     </div>
                   </div>
 
-                  {/* Date + location */}
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mb-1.5">
                     <span>{project.date}</span>
                     {project.location && (
@@ -383,7 +534,6 @@ export default function VendorDashboard() {
                     {project.description}
                   </p>
 
-                  {/* Boat info */}
                   {project.boat && (
                     <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
                       <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -447,7 +597,6 @@ export default function VendorDashboard() {
                 {/* Scrollable body */}
                 <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
 
-                  {/* Meta */}
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -472,13 +621,11 @@ export default function VendorDashboard() {
                     </span>
                   </div>
 
-                  {/* Description */}
                   <div>
                     <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Project Description</h3>
                     <p className="text-sm text-foreground leading-relaxed">{detailProject.description}</p>
                   </div>
 
-                  {/* Boat info */}
                   {detailProject.boat && (
                     <div className="bg-muted/40 rounded-lg px-4 py-3">
                       <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Vessel</h3>
@@ -495,7 +642,6 @@ export default function VendorDashboard() {
                     </div>
                   )}
 
-                  {/* Photos */}
                   {detailProject.photos && detailProject.photos.length > 0 && (
                     <div>
                       <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Photos</h3>
@@ -507,7 +653,6 @@ export default function VendorDashboard() {
                     </div>
                   )}
 
-                  {/* Ask a question */}
                   <div className="border-t border-border pt-4">
                     <h3 className="text-sm font-semibold text-foreground mb-1">Ask the owner a question</h3>
                     <p className="text-xs text-muted-foreground mb-2">Need more info before bidding? Send a message — they'll reply in the thread.</p>
@@ -582,7 +727,6 @@ export default function VendorDashboard() {
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
             <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full sm:max-w-2xl max-h-[92vh] flex flex-col">
 
-              {/* Dialog header */}
               <div className="px-5 pt-5 pb-4 border-b border-border flex-shrink-0">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -608,10 +752,7 @@ export default function VendorDashboard() {
                 </div>
               </div>
 
-              {/* Scrollable body */}
               <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
-
-                {/* Cover message */}
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">
                     Cover message <span className="text-red-500">*</span>
@@ -625,7 +766,6 @@ export default function VendorDashboard() {
                   />
                 </div>
 
-                {/* Line items */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-sm font-medium text-foreground">
@@ -715,7 +855,6 @@ export default function VendorDashboard() {
                   </div>
                 </div>
 
-                {/* Expiry */}
                 <div className="max-w-xs">
                   <label className="block text-sm font-medium text-foreground mb-1.5">
                     Bid valid until
@@ -730,7 +869,6 @@ export default function VendorDashboard() {
                 </div>
               </div>
 
-              {/* Footer */}
               <div className="px-5 py-4 border-t border-border flex-shrink-0 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   {total > 0 && (

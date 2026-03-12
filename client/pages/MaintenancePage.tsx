@@ -8,6 +8,7 @@ import {
   type MaintenanceTask,
   type ServiceRecord,
 } from "@/data/maintenanceData";
+import { getOwnerSpendingByBoat } from "@/data/ownerMaintenanceUtils";
 
 // ─── Category Icons ───────────────────────────────────────────
 function CategoryIcon({ category, className = "w-4 h-4" }: { category: MaintenanceCategory; className?: string }) {
@@ -304,6 +305,13 @@ export default function MaintenancePage() {
     dueSoon:  tasks.filter((t) => t.status === "due-soon").length,
     ok:       tasks.filter((t) => t.status === "ok").length,
   }), [tasks]);
+
+  // Spending — all owner's boats (all projects belong to the logged-in owner)
+  const ownerSpending = useMemo(() => getOwnerSpendingByBoat(), []);
+  const [spendingOpen, setSpendingOpen] = useState(false);
+  const [expandedBoats, setExpandedBoats] = useState<Set<string>>(new Set());
+  const [expandedYears, setExpandedYears] = useState<Map<string, Set<number>>>(new Map());
+  const currentYear = TODAY.getFullYear();
 
   // Filter
   const [filter, setFilter] = useState<StatusFilter>("all");
@@ -672,6 +680,109 @@ export default function MaintenancePage() {
             )}
           </div>
         )}
+        {/* ── Spending by boat ── */}
+        {ownerSpending.length > 0 && (() => {
+          const allBoatsTotal = ownerSpending.reduce((s, b) => s + b.grandTotal, 0);
+          return (
+            <div className="mt-6 bg-white rounded-xl border border-border overflow-hidden">
+              <button
+                onClick={() => setSpendingOpen((v) => !v)}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm font-semibold text-foreground">Service Spending</span>
+                  <span className="text-xs text-muted-foreground">${allBoatsTotal.toLocaleString()}</span>
+                </div>
+                <svg className={`w-4 h-4 text-muted-foreground transition-transform ${spendingOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {spendingOpen && (
+                <div className="border-t border-border divide-y divide-border">
+                  {ownerSpending.map((boat) => {
+                    const isExpanded = expandedBoats.has(boat.boatName);
+                    return (
+                      <div key={boat.boatName}>
+                        <button
+                          onClick={() => setExpandedBoats((prev) => {
+                            const next = new Set(prev);
+                            next.has(boat.boatName) ? next.delete(boat.boatName) : next.add(boat.boatName);
+                            return next;
+                          })}
+                          className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors"
+                        >
+                          <div className="text-left">
+                            <p className="text-sm font-medium text-foreground">{boat.boatName}</p>
+                            <p className="text-xs text-muted-foreground">{boat.boatLabel}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-foreground">${boat.grandTotal.toLocaleString()}</span>
+                            <svg className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </button>
+                        {isExpanded && (
+                          <div className="px-4 pb-3">
+                            {boat.years.map((y) => {
+                              const isYtd = y.year === currentYear;
+                              const boatYears = expandedYears.get(boat.boatName);
+                              const isYearExpanded = boatYears?.has(y.year) ?? false;
+                              return (
+                                <div key={y.year}>
+                                  <button
+                                    onClick={() => setExpandedYears((prev) => {
+                                      const next = new Map(prev);
+                                      const years = new Set(next.get(boat.boatName) ?? []);
+                                      years.has(y.year) ? years.delete(y.year) : years.add(y.year);
+                                      next.set(boat.boatName, years);
+                                      return next;
+                                    })}
+                                    className="w-full flex items-center justify-between py-1.5 pl-6 pr-1 border-b border-border last:border-0 hover:bg-muted/20 transition-colors"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <svg className={`w-3 h-3 text-muted-foreground transition-transform ${isYearExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                      </svg>
+                                      <span className={`text-xs font-medium ${isYtd ? "text-blue-600" : "text-foreground"}`}>
+                                        {y.year}{isYtd ? " YTD" : ""}
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground">{y.projectCount} {y.projectCount === 1 ? "project" : "projects"}</span>
+                                    </div>
+                                    <span className={`text-xs font-medium ${isYtd ? "text-blue-600" : "text-foreground"}`}>${y.total.toLocaleString()}</span>
+                                  </button>
+                                  {isYearExpanded && (
+                                    <div className="ml-12 mb-1">
+                                      {y.projects.map((proj, i) => (
+                                        <div key={i} className="flex items-center justify-between py-1.5 border-b border-dashed border-border/50 last:border-0">
+                                          <div className="min-w-0 flex-1 mr-3">
+                                            <p className="text-[11px] font-medium text-foreground truncate">{proj.title}</p>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{proj.category}</span>
+                                              <span className="text-[10px] text-muted-foreground">{proj.vendorName}</span>
+                                            </div>
+                                          </div>
+                                          <span className="text-[11px] font-medium text-foreground flex-shrink-0">${proj.price.toLocaleString()}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── Log Service Modal ── */}

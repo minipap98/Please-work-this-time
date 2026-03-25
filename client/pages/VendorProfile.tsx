@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
+import ReviewsList from "@/components/ReviewsList";
 import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 import { useRole } from "@/context/RoleContext";
@@ -149,6 +150,14 @@ export default function VendorProfile() {
                 </div>
               </section>
             )}
+
+            {/* Reviews from Supabase */}
+            <section>
+              <h2 className="text-base font-semibold text-foreground mb-3">
+                Reviews
+              </h2>
+              <ReviewsList vendorId={decodedName} />
+            </section>
           </div>
 
           {/* Sidebar */}

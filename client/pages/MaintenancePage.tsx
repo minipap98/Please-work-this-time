@@ -9,6 +9,9 @@ import {
   type ServiceRecord,
 } from "@/data/maintenanceData";
 import { getOwnerSpendingByBoat } from "@/data/ownerMaintenanceUtils";
+import WeatherWidget from "@/components/WeatherWidget";
+import CalendarExport from "@/components/CalendarExport";
+import type { CalendarTask } from "@/lib/calendarUtils";
 
 // ─── Category Icons ───────────────────────────────────────────
 function CategoryIcon({ category, className = "w-4 h-4" }: { category: MaintenanceCategory; className?: string }) {
@@ -306,6 +309,19 @@ export default function MaintenancePage() {
     ok:       tasks.filter((t) => t.status === "ok").length,
   }), [tasks]);
 
+  // Calendar export tasks
+  const calendarTasks = useMemo<CalendarTask[]>(
+    () =>
+      tasks.map((t) => ({
+        id: t.id,
+        task: t.task,
+        notes: t.notes,
+        nextDueDate: t.nextDueDate,
+        intervalMonths: t.intervalMonths,
+      })),
+    [tasks],
+  );
+
   // Spending — all owner's boats (all projects belong to the logged-in owner)
   const ownerSpending = useMemo(() => getOwnerSpendingByBoat(), []);
   const [spendingOpen, setSpendingOpen] = useState(false);
@@ -481,6 +497,16 @@ export default function MaintenancePage() {
               </svg>
             </button>
           )}
+        </div>
+
+        {/* ── Weather widget ── */}
+        <div className="mb-4">
+          <WeatherWidget />
+        </div>
+
+        {/* ── Calendar export ── */}
+        <div className="flex justify-end mb-4">
+          <CalendarExport tasks={calendarTasks} />
         </div>
 
         {/* ── Filter tabs ── */}

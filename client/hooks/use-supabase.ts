@@ -395,6 +395,143 @@ export function useSendMessage() {
 }
 
 // ============================================================
+// INBOX THREADS (conversations grouped by bid)
+// ============================================================
+
+/**
+ * Fetches all message threads for the current user.
+ * Groups messages by bid_id, joining with bid/project/vendor data.
+ * Subscribes to realtime inserts so new threads appear instantly.
+ */
+export function useInboxThreads() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["inbox-threads", user?.id],
+    queryFn: async () => {
+      // Get all messages where user is sender or recipient
+      const { data: messages, error } = await supabase
+        .from("messages")
+        .select("*")
+        .or(`sender_id.eq.${user!.id},recipient_id.eq.${user!.id}`)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
+      // Group by bid_id to find unique threads
+      const bidMap = new Map<string, typeof messages>();
+      for (const msg of messages ?? []) {
+        const key = (msg as any).bid_id ?? "direct";
+        if (!bidMap.has(key)) bidMap.set(key, []);
+        bidMap.get(key)!.push(msg);
+      }
+
+      // Get bid details for each thread
+      const bidIds = [...bidMap.keys()].filter((k) => k !== "direct");
+      let bidsData: any[] = [];
+      if (bidIds.length > 0) {
+        const { data } = await supabase
+          .from("bids")
+          .select(`
+            *,
+            vendor:vendor_profiles(*),
+            project:projects(
+              *,
+              boat:boats(*)
+            )
+          `)
+          .in("id", bidIds);
+        bidsData = data ?? [];
+      }
+
+      // Build thread list
+      const threads = bidIds.map((bidId) => {
+        const msgs = bidMap.get(bidId)! as any[];
+        const bid = bidsData.find((b: any) => b.id === bidId);
+        const lastMessage = msgs[0]; // already sorted desc
+        const unreadCount = msgs.filter(
+          (m: any) => m.recipient_id === user!.id && m.status !== "read"
+        ).length;
+        // Determine the "other" participant
+        const otherUserId = lastMessage.sender_id === user!.id
+          ? lastMessage.recipient_id
+          : lastMessage.sender_id;
+
+        return {
+          bidId,
+          bid,
+          project: bid?.project ?? null,
+          vendor: bid?.vendor ?? null,
+          boat: bid?.project?.boat ?? null,
+          lastMessage,
+          unreadCount,
+          otherUserId,
+          messageCount: msgs.length,
+        };
+      });
+
+      // Sort by most recent message
+      threads.sort(
+        (a: any, b: any) =>
+          new Date(b.lastMessage.created_at).getTime() -
+          new Date(a.lastMessage.created_at).getTime()
+      );
+
+      return threads;
+    },
+    enabled: !!user,
+  });
+
+  // Realtime: refresh inbox when any message is inserted for this user
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`inbox:${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => {
+          const msg = payload.new as any;
+          if (msg.sender_id === user.id || msg.recipient_id === user.id) {
+            qc.invalidateQueries({ queryKey: ["inbox-threads", user.id] });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, qc]);
+
+  return query;
+}
+
+/**
+ * Marks all unread messages in a bid thread as "read" for the current user.
+ */
+export function useMarkMessagesRead() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (bidId: string) => {
+      const { error } = await supabase
+        .from("messages")
+        .update({ status: "read" as const })
+        .eq("bid_id", bidId)
+        .eq("recipient_id", user!.id)
+        .neq("status", "read");
+      if (error) throw error;
+    },
+    onSuccess: (_, bidId) => {
+      qc.invalidateQueries({ queryKey: ["messages", bidId] });
+      qc.invalidateQueries({ queryKey: ["inbox-threads"] });
+    },
+  });
+}
+
+// ============================================================
 // REVIEWS
 // ============================================================
 export function useVendorReviews(vendorId: string | undefined) {

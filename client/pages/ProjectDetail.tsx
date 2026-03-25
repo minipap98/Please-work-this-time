@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
+import ReviewForm from "@/components/ReviewForm";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 import { getAugmentedProjects, getRejectedBidIds, rejectBid, unrejectBid, getBidAdjustment, getRescindedBidIds } from "@/data/bidUtils";
 import { VENDOR_PROFILES } from "@/data/vendorData";
@@ -31,47 +32,6 @@ function Stars({ rating, reviewCount }: { rating: number; reviewCount: number })
       <span className="text-xs text-muted-foreground ml-0.5">
         {rating} ({reviewCount.toLocaleString()})
       </span>
-    </div>
-  );
-}
-
-function StarPicker({
-  value,
-  hover,
-  onHover,
-  onLeave,
-  onClick,
-}: {
-  value: number;
-  hover: number;
-  onHover: (n: number) => void;
-  onLeave: () => void;
-  onClick: (n: number) => void;
-}) {
-  const active = hover || value;
-  return (
-    <div className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          onMouseEnter={() => onHover(star)}
-          onMouseLeave={onLeave}
-          onClick={() => onClick(star)}
-          className="focus:outline-none"
-          aria-label={`Rate ${star} star${star !== 1 ? "s" : ""}`}
-        >
-          <svg
-            className={`w-8 h-8 transition-colors ${
-              star <= active ? "text-amber-400" : "text-gray-200"
-            }`}
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path d={STAR_PATH} />
-          </svg>
-        </button>
-      ))}
     </div>
   );
 }
@@ -184,10 +144,6 @@ export default function ProjectDetail() {
     setServiceDialogBidId(null);
   }
 
-  const [ratingValue, setRatingValue] = useState<number>(savedRating?.stars ?? 0);
-  const [ratingComment, setRatingComment] = useState<string>(savedRating?.comment ?? "");
-  const [hoverStar, setHoverStar] = useState(0);
-  const [ratingSubmitted, setRatingSubmitted] = useState(!!savedRating);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   // Payment/deposit state
@@ -215,11 +171,6 @@ export default function ProjectDetail() {
     return diff;
   }
 
-  function submitRating() {
-    if (!ratingValue) return;
-    localStorage.setItem(ratingKey, JSON.stringify({ stars: ratingValue, comment: ratingComment }));
-    setRatingSubmitted(true);
-  }
 
   const allPhotos = useMemo(() => [...(project.photos ?? []), ...getProjectPhotos(project.id)], [project]);
 
@@ -645,92 +596,12 @@ export default function ProjectDetail() {
         {project.status === "completed" && chosenBid && (
           <section className="mt-10">
             <h2 className="text-base font-semibold text-foreground mb-4">Rate Your Experience</h2>
-            <div className="border border-border rounded-lg p-6">
-              {/* Vendor row */}
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold flex-shrink-0">
-                  {chosenBid.vendorInitials}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{chosenBid.vendorName}</p>
-                  <p className="text-xs text-muted-foreground">Chosen vendor for this project</p>
-                </div>
-              </div>
-
-              {ratingSubmitted ? (
-                /* Submitted state */
-                <div className="flex flex-col items-start gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-0.5">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <svg
-                          key={star}
-                          className={`w-6 h-6 ${star <= ratingValue ? "text-amber-400" : "text-gray-200"}`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d={STAR_PATH} />
-                        </svg>
-                      ))}
-                    </div>
-                    <span className="text-sm font-semibold text-foreground">{ratingValue} / 5</span>
-                    <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full">
-                      Submitted
-                    </span>
-                  </div>
-                  {ratingComment && (
-                    <p className="text-sm text-muted-foreground italic">"{ratingComment}"</p>
-                  )}
-                  <button
-                    onClick={() => setRatingSubmitted(false)}
-                    className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
-                  >
-                    Edit rating
-                  </button>
-                </div>
-              ) : (
-                /* Rating form */
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm font-medium text-foreground mb-2">
-                      How would you rate this vendor?
-                    </p>
-                    <StarPicker
-                      value={ratingValue}
-                      hover={hoverStar}
-                      onHover={setHoverStar}
-                      onLeave={() => setHoverStar(0)}
-                      onClick={setRatingValue}
-                    />
-                    {ratingValue > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1.5">
-                        {["", "Poor", "Fair", "Good", "Very good", "Excellent"][ratingValue]}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">
-                      Comments{" "}
-                      <span className="text-muted-foreground font-normal">(optional)</span>
-                    </label>
-                    <textarea
-                      value={ratingComment}
-                      onChange={(e) => setRatingComment(e.target.value)}
-                      placeholder="Share your experience with this vendor…"
-                      rows={3}
-                      className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                    />
-                  </div>
-                  <button
-                    onClick={submitRating}
-                    disabled={!ratingValue}
-                    className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Submit Rating
-                  </button>
-                </div>
-              )}
-            </div>
+            <ReviewForm
+              projectId={project.id}
+              vendorId={chosenBid.vendorName}
+              vendorName={chosenBid.vendorName}
+              vendorInitials={chosenBid.vendorInitials}
+            />
           </section>
         )}
 

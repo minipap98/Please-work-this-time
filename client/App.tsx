@@ -24,23 +24,37 @@ import VendorRevenue from "./pages/vendor/VendorRevenue";
 import VendorBusinessHub from "./pages/vendor/VendorBusinessHub";
 import AuthPage from "./pages/AuthPage";
 import Onboarding from "./pages/Onboarding";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { RoleProvider } from "./context/RoleContext";
-import { getCurrentUser } from "./data/authUtils";
 
 // Redirects unauthenticated users to /login; incomplete onboarding to /onboarding
 function AuthGuard() {
-  const user = getCurrentUser();
+  const { user, profile, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" /></div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (!user.onboardingComplete) return <Navigate to="/onboarding" replace />;
+  if (profile && !profile.onboarding_complete) return <Navigate to="/onboarding" replace />;
   return <Outlet />;
 }
 
 // Requires login but NOT completed onboarding (for the onboarding page itself)
 function OnboardingGuard() {
-  const user = getCurrentUser();
+  const { user, profile, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" /></div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (user.onboardingComplete) {
-    return user.role === "vendor"
+  if (profile?.onboarding_complete) {
+    return profile.role === "vendor"
+      ? <Navigate to="/vendor-dashboard" replace />
+      : <Navigate to="/" replace />;
+  }
+  return <Outlet />;
+}
+
+// Redirect authenticated users away from login
+function PublicOnlyGuard() {
+  const { user, profile, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" /></div>;
+  if (user && profile?.onboarding_complete) {
+    return profile.role === "vendor"
       ? <Navigate to="/vendor-dashboard" replace />
       : <Navigate to="/" replace />;
   }
@@ -54,42 +68,46 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <RoleProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public */}
-            <Route path="/login" element={<AuthPage />} />
+      <AuthProvider>
+        <RoleProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public — redirect if already logged in */}
+              <Route element={<PublicOnlyGuard />}>
+                <Route path="/login" element={<AuthPage />} />
+              </Route>
 
-            {/* Onboarding — requires login, blocks if already completed */}
-            <Route element={<OnboardingGuard />}>
-              <Route path="/onboarding" element={<Onboarding />} />
-            </Route>
+              {/* Onboarding — requires login, blocks if already completed */}
+              <Route element={<OnboardingGuard />}>
+                <Route path="/onboarding" element={<Onboarding />} />
+              </Route>
 
-            {/* Protected — require login + completed onboarding */}
-            <Route element={<AuthGuard />}>
-              <Route path="/" element={<Index />} />
-              <Route path="/inbox" element={<Inbox />} />
-              <Route path="/my-boats" element={<MyBoats />} />
-              <Route path="/project/:id" element={<ProjectDetail />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/vendors" element={<BrowseVendors />} />
-              <Route path="/vendor/:name" element={<VendorProfile />} />
-              <Route path="/maintenance" element={<MaintenancePage />} />
-              <Route path="/find-crew" element={<FindCrew />} />
-              <Route path="/find-crew/:id" element={<CrewProfile />} />
-              {/* Vendor-facing routes */}
-              <Route path="/vendor-dashboard" element={<VendorDashboard />} />
-              <Route path="/vendor-rfps" element={<VendorRFPs />} />
-              <Route path="/vendor-my-bids" element={<VendorMyBids />} />
-              <Route path="/vendor-revenue" element={<VendorRevenue />} />
-              <Route path="/vendor-business" element={<VendorBusinessHub />} />
-            </Route>
+              {/* Protected — require login + completed onboarding */}
+              <Route element={<AuthGuard />}>
+                <Route path="/" element={<Index />} />
+                <Route path="/inbox" element={<Inbox />} />
+                <Route path="/my-boats" element={<MyBoats />} />
+                <Route path="/project/:id" element={<ProjectDetail />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/vendors" element={<BrowseVendors />} />
+                <Route path="/vendor/:name" element={<VendorProfile />} />
+                <Route path="/maintenance" element={<MaintenancePage />} />
+                <Route path="/find-crew" element={<FindCrew />} />
+                <Route path="/find-crew/:id" element={<CrewProfile />} />
+                {/* Vendor-facing routes */}
+                <Route path="/vendor-dashboard" element={<VendorDashboard />} />
+                <Route path="/vendor-rfps" element={<VendorRFPs />} />
+                <Route path="/vendor-my-bids" element={<VendorMyBids />} />
+                <Route path="/vendor-revenue" element={<VendorRevenue />} />
+                <Route path="/vendor-business" element={<VendorBusinessHub />} />
+              </Route>
 
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </RoleProvider>
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </RoleProvider>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from "react";
-import { getCurrentUser } from "@/data/authUtils";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useAuth } from "./AuthContext";
 
 export type AppRole = "owner" | "vendor";
 
@@ -14,25 +14,31 @@ const RoleContext = createContext<RoleContextValue | null>(null);
 
 function loadPersistedRole(): { role: AppRole; vendorId: string | null } {
   try {
-    // Check localStorage first — vendor mode switch persists across page reloads
     const lsRole = localStorage.getItem("bosun_role") as AppRole | null;
     const lsVendorId = localStorage.getItem("bosun_vendor_id");
     if (lsRole === "vendor" && lsVendorId) return { role: "vendor", vendorId: lsVendorId };
-
-    // Fall back to the logged-in user's auth role
-    const user = getCurrentUser();
-    if (user) {
-      if (user.role === "vendor") return { role: "vendor", vendorId: user.vendorId ?? user.name };
-      return { role: "owner", vendorId: null };
-    }
   } catch {}
   return { role: "owner", vendorId: null };
 }
 
 export function RoleProvider({ children }: { children: ReactNode }) {
+  const { profile } = useAuth();
   const persisted = loadPersistedRole();
   const [role, setRole] = useState<AppRole>(persisted.role);
   const [vendorId, setVendorId] = useState<string | null>(persisted.vendorId);
+
+  // Sync role when profile loads
+  useEffect(() => {
+    if (!profile) return;
+    const lsRole = localStorage.getItem("bosun_role") as AppRole | null;
+    if (!lsRole) {
+      // No persisted override — use profile role
+      setRole(profile.role);
+      if (profile.role === "vendor") {
+        localStorage.setItem("bosun_role", "vendor");
+      }
+    }
+  }, [profile]);
 
   function setVendorMode(id: string) {
     setRole("vendor");

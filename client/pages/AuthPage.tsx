@@ -1,6 +1,6 @@
 import { useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { login, signup } from "@/data/authUtils";
+import { useAuth } from "@/context/AuthContext";
 import { useRole } from "@/context/RoleContext";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +9,7 @@ type Mode = "signin" | "signup";
 export default function AuthPage() {
   const navigate = useNavigate();
   const { setVendorMode, setOwnerMode } = useRole();
+  const { signIn, signUp } = useAuth();
 
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -52,30 +53,35 @@ export default function AuthPage() {
     setError("");
     setLoading(true);
 
-    if (mode === "signin") {
-      const result = login(email, password);
-      if ("error" in result) {
-        setError(result.error);
+    try {
+      if (mode === "signin") {
+        const { error: err } = await signIn(email, password);
+        if (err) {
+          setError(err);
+        } else {
+          // Profile will be loaded by AuthContext; read role from metadata
+          handleSuccess(role, undefined, false);
+        }
       } else {
-        handleSuccess(result.role, result.vendorId, false);
+        if (!name.trim()) {
+          setError("Please enter your name.");
+          setLoading(false);
+          return;
+        }
+        if (password.length < 6) {
+          setError("Password must be at least 6 characters.");
+          setLoading(false);
+          return;
+        }
+        const { error: err } = await signUp(email, password, name, role);
+        if (err) {
+          setError(err);
+        } else {
+          handleSuccess(role, undefined, true);
+        }
       }
-    } else {
-      if (!name.trim()) {
-        setError("Please enter your name.");
-        setLoading(false);
-        return;
-      }
-      if (password.length < 6) {
-        setError("Password must be at least 6 characters.");
-        setLoading(false);
-        return;
-      }
-      const result = signup(email, password, name, role);
-      if ("error" in result) {
-        setError(result.error);
-      } else {
-        handleSuccess(result.role, result.vendorId, true);
-      }
+    } catch (err: any) {
+      setError(err.message ?? "Something went wrong");
     }
 
     setLoading(false);

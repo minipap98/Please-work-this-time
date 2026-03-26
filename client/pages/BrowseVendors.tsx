@@ -1,9 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 import type { VendorProfile } from "@/data/vendorData";
+
+const VendorMap = lazy(() => import("@/components/VendorMap"));
 
 const STAR_PATH =
   "M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z";
@@ -45,6 +47,7 @@ export default function BrowseVendors() {
   const [licensedOnly, setLicensedOnly] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("rating");
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
   // All vendor profiles
   const allVendors = useMemo(() => Object.values(getAllVendorProfiles()), []);
@@ -297,13 +300,58 @@ export default function BrowseVendors() {
           </div>
         )}
 
-        {/* Results count */}
+        {/* Results count + view toggle */}
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs text-muted-foreground">
             {vendors.length} vendor{vendors.length !== 1 ? "s" : ""} found
             {search && <span> for &ldquo;{search}&rdquo;</span>}
           </p>
+          <div className="flex items-center bg-muted rounded-lg p-0.5">
+            <button
+              onClick={() => setViewMode("list")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                viewMode === "list" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              List
+            </button>
+            <button
+              onClick={() => setViewMode("map")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                viewMode === "map" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Map
+            </button>
+          </div>
         </div>
+
+        {/* Map view */}
+        {viewMode === "map" && (
+          <div className="mb-4">
+            <Suspense fallback={
+              <div className="flex items-center justify-center bg-muted/30 rounded-xl border border-border h-[450px]">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  Loading map…
+                </div>
+              </div>
+            }>
+              <VendorMap
+                vendors={vendors}
+                onVendorClick={(name) => navigate(`/vendor/${encodeURIComponent(name)}`)}
+                height="450px"
+              />
+            </Suspense>
+          </div>
+        )}
 
         {/* Vendor cards */}
         {vendors.length === 0 ? (
@@ -318,7 +366,7 @@ export default function BrowseVendors() {
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className={viewMode === "map" ? "space-y-2" : "space-y-3"}>
             {vendors.map((vendor) => (
               <VendorCard key={vendor.name} vendor={vendor} navigate={navigate} />
             ))}

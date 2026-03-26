@@ -336,7 +336,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                       className="flex items-center gap-2 text-left p-2.5 rounded-md border border-border hover:border-foreground/30 hover:bg-muted/50 transition-colors group"
                     >
                       <div className="w-7 h-7 rounded flex items-center justify-center bg-muted flex-shrink-0 group-hover:bg-muted">
-                        <SvgIcon d={ICONS[t.icon].d} d2={ICONS[t.icon].d2} className="w-4 h-4 text-foreground/70" />
+                        <SvgIcon d={ICONS[t.icon].d} d2={(ICONS[t.icon] as { d: string; d2?: string }).d2} className="w-4 h-4 text-foreground/70" />
                       </div>
                       <span className="text-xs font-semibold text-foreground leading-tight">
                         {t.label}
@@ -356,7 +356,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                       onClick={() => handleSelectCategory(cat.label)}
                     >
                       <div className="w-8 h-8 rounded flex items-center justify-center bg-muted flex-shrink-0">
-                        <SvgIcon d={ICONS[cat.icon].d} d2={ICONS[cat.icon].d2} className="w-4 h-4 text-foreground/70" />
+                        <SvgIcon d={ICONS[cat.icon].d} d2={(ICONS[cat.icon] as { d: string; d2?: string }).d2} className="w-4 h-4 text-foreground/70" />
                       </div>
                       <div className="min-w-0">
                         <div className="text-sm font-semibold text-foreground">

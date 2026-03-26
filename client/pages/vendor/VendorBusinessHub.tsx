@@ -1,5 +1,4 @@
 import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
 import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
@@ -8,10 +7,8 @@ import {
   getVendorBoatHistory,
   getMaintenanceReminders,
   generateQuickInvoice,
-  getVendorRevenueWithTiers,
   getVendorScorecard,
   VendorClient,
-  VendorClientBoat,
   VendorBoatService,
   MaintenanceReminder,
   QuickInvoice,
@@ -32,7 +29,6 @@ function fmt(n: number) {
 
 export default function VendorBusinessHub() {
   const { vendorId } = useRole();
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("clients");
   const [expandedBoats, setExpandedBoats] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");

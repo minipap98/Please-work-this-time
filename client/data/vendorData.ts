@@ -12,6 +12,8 @@ export interface VendorProfile {
   serviceArea: string;
   bio: string;
   completedJobs: number;
+  lat?: number;
+  lng?: number;
 }
 
 export const VENDOR_PROFILES: Record<string, VendorProfile> = {
@@ -29,6 +31,8 @@ export const VENDOR_PROFILES: Record<string, VendorProfile> = {
     serviceArea: "Miami, FL · Fort Lauderdale · Dania Beach · Pompano Beach",
     bio: "MarineMax Service Center has been serving South Florida boaters for over 14 years. Factory-authorized for Mercury and Yamaha outboards, we specialize in full-service engine maintenance, electronics installation, bottom work, and haul-out services. Our team of ABYC-certified technicians handles everything from routine tune-ups to full helm refits.",
     completedJobs: 1243,
+    lat: 25.7617,
+    lng: -80.1918,
   },
   "Captain's Choice Marine": {
     name: "Captain's Choice Marine",
@@ -44,6 +48,8 @@ export const VENDOR_PROFILES: Record<string, VendorProfile> = {
     serviceArea: "Miami Beach · Key Biscayne · Coral Gables",
     bio: "We've been servicing outboard engines for over 15 years and are factory-trained on Mercury and Yamaha. Our annual package covers everything your motors need, plus a complimentary fuel system inspection.",
     completedJobs: 412,
+    lat: 25.7907,
+    lng: -80.1300,
   },
   "Saltwater Pros LLC": {
     name: "Saltwater Pros LLC",
@@ -59,6 +65,8 @@ export const VENDOR_PROFILES: Record<string, VendorProfile> = {
     serviceArea: "Miami · Fort Lauderdale · Palm Beach · Keys",
     bio: "Saltwater Pros is South Florida's premier outboard service company, factory-certified for Mercury, Yamaha, and Evinrude. Fully insured with a 90-day workmanship warranty on all repairs.",
     completedJobs: 1203,
+    lat: 26.1224,
+    lng: -80.1373,
   },
   "Blue Water Detailing": {
     name: "Blue Water Detailing",
@@ -74,6 +82,8 @@ export const VENDOR_PROFILES: Record<string, VendorProfile> = {
     serviceArea: "Miami · Miami Beach · Aventura",
     bio: "Blue Water Detailing specializes in premium boat detailing, from basic wash-and-wax to full paint correction and ceramic coating. We use only marine-grade products safe for fiberglass, aluminum, and painted surfaces.",
     completedJobs: 334,
+    lat: 25.8103,
+    lng: -80.1864,
   },
   "Dockside Shine": {
     name: "Dockside Shine",
@@ -89,6 +99,8 @@ export const VENDOR_PROFILES: Record<string, VendorProfile> = {
     serviceArea: "Fort Lauderdale · Hollywood · Hallandale",
     bio: "Dockside Shine brings showroom quality to your slip. We handle everything from a quick wash-down to full paint correction, teak restoration, and canvas cleaning.",
     completedJobs: 189,
+    lat: 26.1003,
+    lng: -80.1128,
   },
   "Pro Marine Detail": {
     name: "Pro Marine Detail",
@@ -104,6 +116,8 @@ export const VENDOR_PROFILES: Record<string, VendorProfile> = {
     serviceArea: "Miami · Coconut Grove · Coral Gables",
     bio: "Pro Marine Detail offers full-service detailing and bottom work. We specialize in antifouling paint application and vinyl graphics.",
     completedJobs: 142,
+    lat: 25.7289,
+    lng: -80.2412,
   },
   "Harbor Gloss": {
     name: "Harbor Gloss",
@@ -119,6 +133,8 @@ export const VENDOR_PROFILES: Record<string, VendorProfile> = {
     serviceArea: "Miami · Fort Lauderdale · Boca Raton",
     bio: "Harbor Gloss is a premium marine detailing studio known for flawless paint corrections and long-lasting ceramic coatings. Our work speaks for itself — we guarantee results or we come back.",
     completedJobs: 523,
+    lat: 25.7743,
+    lng: -80.1867,
   },
   "Sea Shine Services": {
     name: "Sea Shine Services",
@@ -134,6 +150,8 @@ export const VENDOR_PROFILES: Record<string, VendorProfile> = {
     serviceArea: "Miami Beach · North Miami",
     bio: "Sea Shine Services provides affordable basic detailing and waxing for boat owners who want their vessel looking sharp without breaking the bank.",
     completedJobs: 67,
+    lat: 25.8527,
+    lng: -80.1419,
   },
   "Marine Electronics Pro": {
     name: "Marine Electronics Pro",
@@ -149,6 +167,8 @@ export const VENDOR_PROFILES: Record<string, VendorProfile> = {
     serviceArea: "Miami · Fort Lauderdale · Palm Beach",
     bio: "Marine Electronics Pro is South Florida's leading marine electronics installer. NMEA-certified with dealership relationships with Garmin, Simrad, and Furuno. We handle everything from basic chartplotter installs to full NMEA 2000 network builds.",
     completedJobs: 689,
+    lat: 25.7489,
+    lng: -80.2256,
   },
   "TechBoat Solutions": {
     name: "TechBoat Solutions",
@@ -164,5 +184,7 @@ export const VENDOR_PROFILES: Record<string, VendorProfile> = {
     serviceArea: "Miami · Doral · Kendall · Homestead",
     bio: "TechBoat Solutions specializes in modern marine electronics and electrical systems. From simple speaker installs to full NMEA 2000 network integrations, we bring your boat into the digital age.",
     completedJobs: 318,
+    lat: 25.8186,
+    lng: -80.3371,
   },
 };

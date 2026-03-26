@@ -25,6 +25,8 @@ export default function FindCrew() {
   const [searchParams] = useSearchParams();
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("All");
   const [availableOnly, setAvailableOnly] = useState(false);
+  const [crewSearch, setCrewSearch] = useState("");
+  const [sortCrew, setSortCrew] = useState<"rating" | "price-low" | "price-high" | "experience">("rating");
 
   // ── RFP Modal state ───────────────────────────────────────
   const [rfpOpen, setRfpOpen] = useState(() => searchParams.get("post") === "1");
@@ -76,12 +78,32 @@ export default function FindCrew() {
 
   // ── Crew list filters ──────────────────────────────────────
   const filtered = useMemo(() => {
-    return CREW_MEMBERS.filter((c) => {
+    const q = crewSearch.toLowerCase();
+    const result = CREW_MEMBERS.filter((c) => {
       if (roleFilter !== "All" && c.role !== roleFilter) return false;
       if (availableOnly && c.availability === "busy") return false;
+      if (q) {
+        const matchesSearch =
+          c.name.toLowerCase().includes(q) ||
+          c.role.toLowerCase().includes(q) ||
+          c.certifications.some((cert) => cert.toLowerCase().includes(q)) ||
+          (c.specialties ?? []).some((s) => s.toLowerCase().includes(q)) ||
+          c.location.toLowerCase().includes(q);
+        if (!matchesSearch) return false;
+      }
       return true;
     });
-  }, [roleFilter, availableOnly]);
+    result.sort((a, b) => {
+      switch (sortCrew) {
+        case "rating": return b.rating - a.rating || b.reviewCount - a.reviewCount;
+        case "price-low": return a.dayRate - b.dayRate;
+        case "price-high": return b.dayRate - a.dayRate;
+        case "experience": return b.yearsExperience - a.yearsExperience;
+        default: return 0;
+      }
+    });
+    return result;
+  }, [roleFilter, availableOnly, crewSearch, sortCrew]);
 
   const roleCounts = useMemo(() => {
     const counts: Record<RoleFilter, number> = { All: CREW_MEMBERS.length } as Record<RoleFilter, number>;
@@ -134,17 +156,41 @@ export default function FindCrew() {
             ))}
           </div>
 
-          {/* Available only toggle */}
-          <div className="flex items-center gap-2 mt-3">
-            <button
-              onClick={() => setAvailableOnly((v) => !v)}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                availableOnly ? "bg-foreground" : "bg-gray-200"
-              }`}
+          {/* Search + sort + available toggle row */}
+          <div className="flex flex-col sm:flex-row gap-3 mt-3">
+            <div className="relative flex-1">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search by name, certification, or location…"
+                value={crewSearch}
+                onChange={(e) => setCrewSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <select
+              value={sortCrew}
+              onChange={(e) => setSortCrew(e.target.value as typeof sortCrew)}
+              className="border border-border rounded-lg px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
-              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${availableOnly ? "translate-x-4" : "translate-x-0.5"}`} />
-            </button>
-            <span className="text-sm text-muted-foreground">Available only</span>
+              <option value="rating">Highest Rated</option>
+              <option value="price-low">Price: Low → High</option>
+              <option value="price-high">Price: High → Low</option>
+              <option value="experience">Most Experience</option>
+            </select>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setAvailableOnly((v) => !v)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  availableOnly ? "bg-foreground" : "bg-gray-200"
+                }`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${availableOnly ? "translate-x-4" : "translate-x-0.5"}`} />
+              </button>
+              <span className="text-sm text-muted-foreground whitespace-nowrap">Available only</span>
+            </div>
           </div>
         </div>
       </div>

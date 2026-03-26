@@ -61,11 +61,6 @@ export default function ProjectDetail() {
     ? project.invoice.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
     : 0;
 
-  // Rating state — persisted to localStorage per project
-  const ratingKey = `vendor_rating_${project.id}`;
-  const savedRating = (() => {
-    try { return JSON.parse(localStorage.getItem(ratingKey) ?? "null"); } catch { return null; }
-  })();
   const [expandedBid, setExpandedBid] = useState<string | null>(null);
   const [rejectedIds, setRejectedIds] = useState<string[]>(() => getRejectedBidIds());
   const [rescindedIds] = useState<string[]>(() => getRescindedBidIds());

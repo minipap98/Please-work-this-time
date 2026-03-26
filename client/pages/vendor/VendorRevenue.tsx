@@ -649,7 +649,7 @@ export default function VendorRevenue() {
               {/* Monthly groups */}
               {monthGroups.map((group, groupIdx) => {
                 const isCollapsed = collapsedMonths.has(group.key);
-                const isLast = groupIdx === monthGroups.length - 1;
+                void groupIdx;
 
                 return (
                   <div key={group.key} className={groupIdx === 0 && pendingTransactions.length > 0 ? "border-t border-border" : groupIdx > 0 ? "border-t border-border" : ""}>

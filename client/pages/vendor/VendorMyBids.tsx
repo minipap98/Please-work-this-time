@@ -116,7 +116,7 @@ function QuoteCard({ msg }: { msg: BidMessage }) {
 function CongratsBanner({
   projectTitle,
   price,
-  vendorName,
+  vendorName: _vendorName,
   onClose,
 }: {
   projectTitle: string;
@@ -272,14 +272,6 @@ export default function VendorMyBids() {
     saveBidAdjustment(selected.bid.id, price, adjustMessage.trim());
     setShowAdjustForm(false);
     forceUpdate((n) => n + 1);
-  }
-
-  function openAdjustForm() {
-    if (!selected) return;
-    const adj = getBidAdjustment(selected.bid.id);
-    setAdjustPrice(String(adj?.price ?? selected.bid.price));
-    setAdjustMessage(adj?.message ?? selected.bid.message);
-    setShowAdjustForm(true);
   }
 
   function rescindSelectedBid() {

@@ -6,6 +6,7 @@ import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { useRole } from "@/context/RoleContext";
 import { getVendorUnreadCount } from "@/data/bidUtils";
 import { getCurrentUser, logout } from "@/data/authUtils";
+import NotificationCenter from "@/components/NotificationCenter";
 
 const OWNER_MENU_ITEMS = [
   { label: "My Boats", to: "/my-boats" },
@@ -121,6 +122,9 @@ export default function Header() {
 
           {/* Right side */}
           <div className="flex items-center gap-2">
+            {/* Notification bell */}
+            <NotificationCenter />
+
             {/* Owner: Inbox link */}
             {!isVendor && (
               <div className="flex items-center">

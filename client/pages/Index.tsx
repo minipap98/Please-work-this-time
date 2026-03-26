@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
+import QuickStats from "@/components/QuickStats";
 import MaintenanceAlert from "@/components/MaintenanceAlert";
 import ProjectCard from "@/components/ProjectCard";
 import { getAugmentedProjects, getCancelledProjectIds, cancelProject, reinstateProject, getLocalProjectStatus } from "@/data/bidUtils";
@@ -97,6 +98,9 @@ export default function Index() {
 
       {/* Full-bleed hero — callback triggers re-render so new projects appear instantly */}
       <HeroSection onProjectPosted={() => forceUpdate((n) => n + 1)} />
+
+      {/* Quick stats dashboard strip */}
+      <QuickStats />
 
       {/* Maintenance alert strip */}
       <MaintenanceAlert />

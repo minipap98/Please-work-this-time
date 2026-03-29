@@ -50,20 +50,13 @@ export default function QuickStats() {
         ? ratedBids.reduce((sum, b) => sum + b.rating, 0) / ratedBids.length
         : 0;
 
-    // Total value of bids on active/in-progress projects (money in play)
-    const totalValue = allProjects
-      .filter((p) => {
-        const effective = getLocalProjectStatus(p.id, p.status);
-        return !cancelledIds.includes(p.id) && (isActiveStatus(effective) || effective === "completed");
-      })
-      .reduce((sum, p) => {
-        // Use the lowest bid price per project as "money saved" proxy
-        if (p.bids.length === 0) return sum;
-        const lowest = Math.min(...p.bids.map((b) => b.price));
-        return sum + lowest;
-      }, 0);
+    // Completed projects count
+    const completedCount = allProjects.filter((p) => {
+      const effective = getLocalProjectStatus(p.id, p.status);
+      return effective === "completed" && !cancelledIds.includes(p.id);
+    }).length;
 
-    return { activeCount, totalBids, avgRating, totalValue };
+    return { activeCount, totalBids, avgRating, completedCount };
   }, []);
 
   return (
@@ -100,12 +93,12 @@ export default function QuickStats() {
           }
         />
         <StatCard
-          label="Best Bid Value"
-          value={stats.totalValue > 0 ? `$${stats.totalValue.toLocaleString()}` : "$0"}
-          sublabel="Lowest bids across projects"
+          label="Completed"
+          value={String(stats.completedCount)}
+          sublabel="Projects finished"
           icon={
             <svg className="h-4 w-4 text-foreground/70" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           }
         />

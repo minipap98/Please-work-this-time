@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { getAugmentedProjects, getCancelledProjectIds, getLocalProjectStatus } from "@/data/bidUtils";
 
+const MAX_STATIC_ACTIVE = 3;
+
 function isActiveStatus(status: string) {
   return status === "active" || status === "bidding" || status === "in-progress" || status === "gathering";
 }
@@ -34,11 +36,16 @@ export default function QuickStats() {
     const allProjects = getAugmentedProjects();
     const cancelledIds = getCancelledProjectIds();
 
-    // Active projects count
-    const activeCount = allProjects.filter((p) => {
-      const effective = getLocalProjectStatus(p.id, p.status);
-      return isActiveStatus(effective) && !cancelledIds.includes(p.id);
-    }).length;
+    // Active projects count — match the same logic as the Index page tabs
+    const isLocal = (id: string) => id.startsWith("local_");
+    const staticActive = Math.min(
+      allProjects.filter((p) => !isLocal(p.id) && p.status !== "expired" && isActiveStatus(getLocalProjectStatus(p.id, p.status)) && !cancelledIds.includes(p.id)).length,
+      MAX_STATIC_ACTIVE
+    );
+    const localAndReinstated = allProjects.filter(
+      (p) => (isLocal(p.id) || p.status === "expired") && isActiveStatus(getLocalProjectStatus(p.id, p.status)) && !cancelledIds.includes(p.id)
+    ).length;
+    const activeCount = staticActive + localAndReinstated;
 
     // Total bids across all projects
     const totalBids = allProjects.reduce((sum, p) => sum + p.bids.length, 0);

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import type { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseMissing } from "@/lib/supabase";
 import type { Tables } from "@/lib/database.types";
 
 interface AuthContextValue {
@@ -37,6 +37,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, fetchProfile]);
 
   useEffect(() => {
+    if (supabaseMissing) {
+      setLoading(false);
+      return;
+    }
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);

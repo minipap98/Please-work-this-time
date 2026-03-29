@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import ReviewForm from "@/components/ReviewForm";
+import StripePayment from "@/components/StripePayment";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 import { getAugmentedProjects, getRejectedBidIds, rejectBid, unrejectBid, getBidAdjustment, getRescindedBidIds } from "@/data/bidUtils";
 import { VENDOR_PROFILES } from "@/data/vendorData";
@@ -146,6 +147,7 @@ export default function ProjectDetail() {
   const [depositPaid, setDepositPaid] = useState(() => {
     try { return JSON.parse(localStorage.getItem(depositKey) ?? "null"); } catch { return null; }
   });
+  const [paymentModal, setPaymentModal] = useState<{ amount: number; label: string } | null>(null);
 
   // Project status progression (stored locally for demo)
   const statusKey = `project_status_${id}`;
@@ -535,7 +537,7 @@ export default function ProjectDetail() {
                   </svg>
                   <div>
                     <p className="text-sm font-semibold text-green-700">Deposit paid</p>
-                    <p className="text-xs text-green-600">${depositPaid.amount} · {depositPaid.date} · Remaining balance due at completion</p>
+                    <p className="text-xs text-green-600">${depositPaid.amount} · {depositPaid.date}{depositPaid.method ? ` · ${depositPaid.method}` : ""} · Remaining balance due at completion</p>
                   </div>
                 </div>
               ) : (
@@ -559,11 +561,7 @@ export default function ProjectDetail() {
                   <button
                     onClick={() => {
                       const price = project.bids.find((b) => b.id === bookingConfirmed.bidId)?.price ?? 0;
-                      const deposit = Math.round(price * 0.25);
-                      const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-                      const info = { amount: deposit, date };
-                      localStorage.setItem(depositKey, JSON.stringify(info));
-                      setDepositPaid(info);
+                      setPaymentModal({ amount: Math.round(price * 0.25), label: "25% Deposit" });
                     }}
                     className="w-full px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
                   >
@@ -572,10 +570,7 @@ export default function ProjectDetail() {
                   <button
                     onClick={() => {
                       const price = project.bids.find((b) => b.id === bookingConfirmed.bidId)?.price ?? 0;
-                      const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-                      const info = { amount: price, date, full: true };
-                      localStorage.setItem(depositKey, JSON.stringify(info));
-                      setDepositPaid(info);
+                      setPaymentModal({ amount: price, label: "Pay in Full" });
                     }}
                     className="w-full px-4 py-2.5 rounded-md border border-border text-sm font-semibold text-foreground hover:border-primary hover:bg-primary/5 transition-colors"
                   >
@@ -842,6 +837,22 @@ export default function ProjectDetail() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Stripe Payment Modal */}
+      {paymentModal && bookingConfirmed && (
+        <StripePayment
+          amount={paymentModal.amount}
+          label={paymentModal.label}
+          vendorName={bookingConfirmed.vendorName}
+          projectTitle={project.title}
+          onSuccess={(info) => {
+            localStorage.setItem(depositKey, JSON.stringify(info));
+            setDepositPaid(info);
+            setPaymentModal(null);
+          }}
+          onCancel={() => setPaymentModal(null)}
+        />
       )}
     </div>
   );

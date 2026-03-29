@@ -27,9 +27,13 @@ import Onboarding from "./pages/Onboarding";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { RoleProvider } from "./context/RoleContext";
 
+// Demo mode: bypass auth for sharing/demo purposes
+const DEMO_MODE = true;
+
 // Redirects unauthenticated users to /login; incomplete onboarding to /onboarding
 function AuthGuard() {
   const { user, profile, loading } = useAuth();
+  if (DEMO_MODE) return <Outlet />;
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" /></div>;
   if (!user) return <Navigate to="/login" replace />;
   if (profile && !profile.onboarding_complete) return <Navigate to="/onboarding" replace />;

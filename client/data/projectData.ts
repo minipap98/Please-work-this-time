@@ -278,63 +278,6 @@ export const VENDOR_PAST_PROJECTS: Record<string, VendorPastProject[]> = {
 
 export const PROJECTS: Project[] = [
   {
-    id: "captain-day",
-    title: "Captain Needed for Day Trip",
-    description: "Looking for a licensed USCG captain for a full-day outing — approx. 8 hrs. Departing Fort Lauderdale, destination TBD based on weather.",
-    status: "gathering",
-    date: "Mar 9, 2026",
-    location: "Fort Lauderdale",
-    category: "Captain / Charter",
-    boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
-    bids: [
-      {
-        id: "c1",
-        vendorName: "Capt. Mike Harrington",
-        vendorInitials: "MH",
-        rating: 4.9,
-        reviewCount: 127,
-        message:
-          "Hi Dean! USCG-licensed Master (100-ton) with 12 years running boats out of Fort Lauderdale and Miami. I know the local waters well — inlets, reefs, and offshore runs — and can tailor the day to your group's interests, whether that's fishing, sightseeing, or cruising the Keys. I carry full liability insurance and a current OUPV/Master credential. My Sea Ray experience is a big plus here.",
-        price: 650,
-        submittedDate: "Mar 5, 2026",
-        expiryDate: "Mar 20, 2026",
-        thread: [
-          { from: "vendor", text: "Hey Dean — happy to answer any questions about the itinerary or my background. I'm flexible on departure time and can adjust the route day-of based on conditions.", time: "Mar 6, 8:52 AM" },
-        ],
-      },
-      {
-        id: "c2",
-        vendorName: "Capt. Sofia Reyes",
-        vendorInitials: "SR",
-        rating: 4.8,
-        reviewCount: 83,
-        message:
-          "USCG-certified captain (Master 50-ton) with 8 years of charter experience out of the Lauderdale area. I specialize in day trips for private groups — offshore fishing, sandbar stops, and sunset cruises. Comfortable handling twin-engine boats and familiar with the Fort Lauderdale intracoastal and inlets. Fully insured and CPR/First Aid certified. I keep things relaxed and fun for the whole group.",
-        price: 575,
-        submittedDate: "Mar 6, 2026",
-        expiryDate: "Mar 22, 2026",
-        thread: [],
-      },
-      {
-        id: "c3",
-        vendorName: "Capt. Tyler Banks",
-        vendorInitials: "TB",
-        rating: 4.6,
-        reviewCount: 34,
-        message:
-          "USCG OUPV (6-pack) license, 5 years running private charters out of Bahia Mar and Las Olas Marina. I grew up boating in South Florida and know the local spots well. Competitive rate for a full 8-hour day — includes a detailed pre-departure safety brief and all required safety equipment checks. I'm available the 9th and happy to discuss the route in advance.",
-        price: 490,
-        submittedDate: "Mar 7, 2026",
-        expiryDate: "Mar 21, 2026",
-        thread: [
-          { from: "vendor", text: "Hi Dean, just checking in — I've got the 9th wide open and would love to take you and your crew out. Let me know if you'd like to chat!", time: "Mar 8, 10:15 AM" },
-          { from: "user", text: "Thanks Tyler — do you have experience with Sea Rays specifically?", time: "Mar 8, 11:40 AM" },
-          { from: "vendor", text: "Absolutely — I've run Sea Ray SLX and Sundancer models for two regular clients. Very comfortable with MerCruiser and sterndrive boats.", time: "Mar 8, 12:08 PM" },
-        ],
-      },
-    ],
-  },
-  {
     id: "engine-maintenance",
     title: "Engine Maintenance Service",
     description: "Annual engine service and oil change needed for twin outboard motors",
@@ -1336,42 +1279,6 @@ export const PROJECTS: Project[] = [
     ],
   },
 
-  {
-    id: "midnight-run-captain",
-    title: "Captain Needed — Ft. Lauderdale to Bimini",
-    description: "Looking for a licensed offshore captain for a 4-day trip from Fort Lauderdale to Bimini and back. Boston Whaler 405 Conquest — need offshore experience and Bahamas routing knowledge. USCG 100-ton preferred.",
-    status: "gathering",
-    date: "Mar 9, 2026",
-    location: "Fort Lauderdale",
-    category: "Captain / Charter",
-    boat: { name: "Midnight Run", make: "Boston Whaler", model: "405 Conquest", year: "2022", propulsion: "Triple Mercury Verado 350" },
-    bids: [
-      {
-        id: "nb40",
-        vendorName: "Capt. Mike Harrington",
-        vendorInitials: "MH",
-        rating: 4.9,
-        reviewCount: 127,
-        message: "USCG Master (100-ton) with extensive Bahamas experience — I've made the Bimini crossing dozens of times and know the inlets, anchorages, and customs procedures well. Comfortable on the 405 Conquest, which is an excellent offshore platform. I handle all passage planning and weather window selection.",
-        price: 2400,
-        submittedDate: "Mar 9, 2026",
-        expiryDate: "Mar 30, 2026",
-        thread: [],
-      },
-      {
-        id: "nb41",
-        vendorName: "Capt. Sofia Reyes",
-        vendorInitials: "SR",
-        rating: 4.8,
-        reviewCount: 83,
-        message: "USCG Master (50-ton) with offshore Bahamas routing experience. I've done the Ft. Lauderdale to Bimini run many times and know the weather windows well. Comfortable on large center consoles and express cruisers.",
-        price: 2100,
-        submittedDate: "Mar 9, 2026",
-        expiryDate: "Mar 28, 2026",
-        thread: [],
-      },
-    ],
-  },
 
   // ── Client Projects — MarineMax Service Center ──────────────────────────────
   // Each client has one boat with multiple service projects

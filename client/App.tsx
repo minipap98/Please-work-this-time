@@ -14,8 +14,9 @@ import Settings from "./pages/Settings";
 import BrowseVendors from "./pages/BrowseVendors";
 import VendorProfile from "./pages/VendorProfile";
 import MaintenancePage from "./pages/MaintenancePage";
-import FindCrew from "./pages/FindCrew";
-import CrewProfile from "./pages/CrewProfile";
+// Find Crew sidelined — feature exists in another app
+// import FindCrew from "./pages/FindCrew";
+// import CrewProfile from "./pages/CrewProfile";
 import NotFound from "./pages/NotFound";
 import VendorDashboard from "./pages/vendor/VendorDashboard";
 import VendorRFPs from "./pages/vendor/VendorRFPs";
@@ -96,8 +97,7 @@ const App = () => (
                 <Route path="/vendors" element={<BrowseVendors />} />
                 <Route path="/vendor/:name" element={<VendorProfile />} />
                 <Route path="/maintenance" element={<MaintenancePage />} />
-                <Route path="/find-crew" element={<FindCrew />} />
-                <Route path="/find-crew/:id" element={<CrewProfile />} />
+                {/* Find Crew sidelined — feature exists in another app */}
                 {/* Vendor-facing routes */}
                 <Route path="/vendor-dashboard" element={<VendorDashboard />} />
                 <Route path="/vendor-rfps" element={<VendorRFPs />} />

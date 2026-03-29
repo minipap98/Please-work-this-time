@@ -283,24 +283,6 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
           Start a New Project
         </button>
         <button
-          onClick={() => navigate("/find-crew?post=1")}
-          className="flex items-center justify-center gap-2 bg-foreground text-background px-4 py-3 sm:py-2.5 rounded-md text-sm font-semibold hover:opacity-90 transition-opacity"
-        >
-          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
-          Find Crew
-        </button>
-        <button
-          onClick={() => navigate("/find-crew")}
-          className="flex items-center justify-center gap-2 border border-border text-foreground px-4 py-3 sm:py-2.5 rounded-md text-sm font-semibold hover:bg-muted transition-colors"
-        >
-          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          Browse Crew
-        </button>
-        <button
           onClick={() => navigate("/vendors")}
           className="flex items-center justify-center gap-2 border border-border text-foreground px-4 py-3 sm:py-2.5 rounded-md text-sm font-semibold hover:bg-muted transition-colors"
         >

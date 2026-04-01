@@ -51,6 +51,17 @@ export interface Project {
   bids: Bid[];
   chosenBidId?: string;
   photos?: string[];
+  linkedEquipmentId?: string;
+  isWarrantyClaim?: boolean;
+  linkedEquipment?: {
+    manufacturer: string;
+    model: string;
+    category: string;
+    serialNumber: string;
+    warrantyExpiry: string;
+    warrantyStatus: string;
+    dealer: string;
+  };
   invoice?: {
     invoiceNumber: string;
     issuedDate: string;

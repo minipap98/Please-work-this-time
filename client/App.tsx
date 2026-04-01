@@ -14,6 +14,7 @@ import Settings from "./pages/Settings";
 import BrowseVendors from "./pages/BrowseVendors";
 import VendorProfile from "./pages/VendorProfile";
 import MaintenancePage from "./pages/MaintenancePage";
+import WarrantyTracker from "./pages/WarrantyTracker";
 // Find Crew sidelined — feature exists in another app
 // import FindCrew from "./pages/FindCrew";
 // import CrewProfile from "./pages/CrewProfile";
@@ -97,6 +98,7 @@ const App = () => (
                 <Route path="/vendors" element={<BrowseVendors />} />
                 <Route path="/vendor/:name" element={<VendorProfile />} />
                 <Route path="/maintenance" element={<MaintenancePage />} />
+                <Route path="/warranty" element={<WarrantyTracker />} />
                 {/* Find Crew sidelined — feature exists in another app */}
                 {/* Vendor-facing routes */}
                 <Route path="/vendor-dashboard" element={<VendorDashboard />} />

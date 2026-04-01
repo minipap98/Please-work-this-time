@@ -103,6 +103,51 @@ const DEFAULT_BOAT = {
   isPrimary: true,
 };
 
+interface BoatEquipmentItem {
+  id: string;
+  boatId: string;
+  category: string;
+  manufacturer: string;
+  model: string;
+  serialNumber: string;
+  purchaseDate: string;
+  warrantyExpiry: string;
+  dealer: string;
+  notes: string;
+  createdAt: string;
+}
+
+function getEquipmentWarrantyStatus(warrantyExpiry: string): "active" | "expiring" | "expired" {
+  if (!warrantyExpiry) return "expired";
+  const now = Date.now();
+  const expiryTime = new Date(warrantyExpiry).getTime();
+  if (expiryTime < now) return "expired";
+  const ninetyDays = 90 * 24 * 60 * 60 * 1000;
+  if (expiryTime - now < ninetyDays) return "expiring";
+  return "active";
+}
+
+const EQUIPMENT_CATEGORY_LABELS: Record<string, string> = {
+  engine: "Engine",
+  mfd: "MFD",
+  radar: "Radar",
+  fishfinder: "Fishfinder",
+  vhf_radio: "VHF Radio",
+  autopilot: "Autopilot",
+  trolling_motor: "Trolling Motor",
+  generator: "Generator",
+  air_conditioning: "Air Conditioning",
+  windlass: "Windlass",
+  thruster: "Thruster",
+  watermaker: "Watermaker",
+  refrigeration: "Refrigeration",
+  stereo: "Stereo",
+  lighting: "Lighting",
+  battery: "Battery",
+  charger_inverter: "Charger/Inverter",
+  other: "Other",
+};
+
 type Step = "category" | "engine" | "details";
 
 interface HeroSectionProps {
@@ -131,6 +176,8 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
   const [projectDescription, setProjectDescription] = useState("");
   const [projectPhotos, setProjectPhotos] = useState<string[]>([]);
   const [postSubmitted, setPostSubmitted] = useState(false);
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>("");
+  const [isWarrantyClaim, setIsWarrantyClaim] = useState(false);
 
   useEffect(() => {
     const onFocus = () => {
@@ -173,6 +220,8 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
       setProjectDescription("");
       setProjectPhotos([]);
       setPostSubmitted(false);
+      setSelectedEquipmentId("");
+      setIsWarrantyClaim(false);
     }, 200);
   }
 
@@ -219,6 +268,26 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
   const availableMakes = engineType ? Object.keys(ENGINE_DATA[engineType]) : [];
   const availableModels = engineType && make ? ENGINE_DATA[engineType][make] : [];
   const canSubmit = engineType && make && model;
+
+  // Load registered equipment for this boat
+  const [boatEquipment, setBoatEquipment] = useState<BoatEquipmentItem[]>([]);
+  useEffect(() => {
+    if (boatInfo?.id) {
+      try {
+        const stored = localStorage.getItem(`bosun_boat_equipment_${boatInfo.id}`);
+        setBoatEquipment(stored ? JSON.parse(stored) : []);
+      } catch {
+        setBoatEquipment([]);
+      }
+    }
+  }, [boatInfo?.id]);
+
+  const selectedEquipment = boatEquipment.find((e) => e.id === selectedEquipmentId) ?? null;
+  const selectedWarrantyStatus = selectedEquipment
+    ? getEquipmentWarrantyStatus(selectedEquipment.warrantyExpiry)
+    : null;
+  const showWarrantyClaimOption =
+    selectedEquipment && (selectedWarrantyStatus === "active" || selectedWarrantyStatus === "expiring");
 
   const engineModel = boatInfo?.engineModel?.replace(/\s*\([\d–\-]+.*?\)$/, "") || null;
   const engineDisplay = [
@@ -536,6 +605,85 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                     )}
                   </div>
 
+                  {/* Link Equipment */}
+                  {boatEquipment.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-semibold text-foreground mb-1.5">
+                        Link Equipment <span className="text-muted-foreground font-normal">(optional)</span>
+                      </label>
+                      <select
+                        value={selectedEquipmentId}
+                        onChange={(e) => {
+                          setSelectedEquipmentId(e.target.value);
+                          if (!e.target.value) setIsWarrantyClaim(false);
+                        }}
+                        className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                      >
+                        <option value="">None / Not applicable</option>
+                        {boatEquipment.map((eq) => (
+                          <option key={eq.id} value={eq.id}>
+                            {eq.manufacturer} {eq.model} — {EQUIPMENT_CATEGORY_LABELS[eq.category] || eq.category}
+                          </option>
+                        ))}
+                      </select>
+
+                      {selectedEquipment && selectedWarrantyStatus && (
+                        <div className="mt-2 border border-border rounded-md p-3 bg-muted/30">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-semibold text-foreground">
+                              {selectedEquipment.manufacturer} {selectedEquipment.model}
+                            </span>
+                            <span className="text-[10px] font-medium text-muted-foreground bg-background px-1.5 py-0.5 rounded border border-border">
+                              {EQUIPMENT_CATEGORY_LABELS[selectedEquipment.category] || selectedEquipment.category}
+                            </span>
+                            {selectedWarrantyStatus === "active" && (
+                              <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
+                                Active ✅
+                              </span>
+                            )}
+                            {selectedWarrantyStatus === "expiring" && (
+                              <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                                Expiring ⚠️
+                              </span>
+                            )}
+                            {selectedWarrantyStatus === "expired" && (
+                              <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                                Expired ❌
+                              </span>
+                            )}
+                          </div>
+                          {selectedEquipment.warrantyExpiry && (
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                              Warranty expires {new Date(selectedEquipment.warrantyExpiry).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Warranty claim toggle */}
+                      {showWarrantyClaimOption && (
+                        <div className="mt-2">
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isWarrantyClaim}
+                              onChange={(e) => setIsWarrantyClaim(e.target.checked)}
+                              className="mt-0.5 rounded border-border"
+                            />
+                            <span className="text-xs text-foreground font-medium">
+                              This may be covered under warranty
+                            </span>
+                          </label>
+                          {isWarrantyClaim && (
+                            <p className="text-[11px] text-muted-foreground mt-1 ml-5">
+                              The accepted vendor will receive equipment details to help file a warranty claim.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between pt-1">
                     <button
                       onClick={() => setStep("category")}
@@ -584,6 +732,19 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                           boat,
                           bids: [],
                           photos: projectPhotos.length > 0 ? projectPhotos : undefined,
+                          linkedEquipmentId: selectedEquipment ? selectedEquipment.id : undefined,
+                          isWarrantyClaim: selectedEquipment && isWarrantyClaim ? true : undefined,
+                          linkedEquipment: selectedEquipment
+                            ? {
+                                manufacturer: selectedEquipment.manufacturer,
+                                model: selectedEquipment.model,
+                                category: EQUIPMENT_CATEGORY_LABELS[selectedEquipment.category] || selectedEquipment.category,
+                                serialNumber: selectedEquipment.serialNumber,
+                                warrantyExpiry: selectedEquipment.warrantyExpiry,
+                                warrantyStatus: selectedWarrantyStatus || "expired",
+                                dealer: selectedEquipment.dealer,
+                              }
+                            : undefined,
                         };
 
                         saveLocalProject(newProject);

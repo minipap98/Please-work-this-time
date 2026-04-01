@@ -6,6 +6,7 @@ import StripePayment from "@/components/StripePayment";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 import { getAugmentedProjects, getRejectedBidIds, rejectBid, unrejectBid, getBidAdjustment, getRescindedBidIds } from "@/data/bidUtils";
 import { VENDOR_PROFILES } from "@/data/vendorData";
+// useRole available if needed for vendor-specific views
 import { getProjectPhotos } from "@/lib/photoUtils";
 import {
   Dialog,

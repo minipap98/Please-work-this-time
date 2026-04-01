@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import { BOAT_MAKES, BOAT_MODELS, type BoatMake } from "@/data/boatData";
 import { ENGINE_DATA, ENGINE_TYPES, OUTBOARD_COUNTS, type EngineType } from "@/data/engineData";
 import BoatDocuments from "@/components/BoatDocuments";
+import BoatEquipment from "@/components/BoatEquipment";
 
 const FLEET_STORAGE_KEY = "my_fleet";
 const BOAT_STORAGE_KEY = "my_boat"; // keep for backwards compat with HeroSection
@@ -300,6 +301,11 @@ export default function MyBoats() {
                   />
                 </div>
               )}
+
+              {/* Equipment & Warranty section */}
+              <div className="border-t border-border px-5 py-3">
+                <BoatEquipment boatId={boat.id} boatInfo={{ name: boat.name, make: boat.make, model: boat.model, year: boat.year }} />
+              </div>
 
               {/* Documents section */}
               <div className="border-t border-border px-5 py-3">

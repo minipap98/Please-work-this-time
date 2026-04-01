@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Wrench,
   Trash2,
@@ -6,8 +6,15 @@ import {
   Shield,
   AlertTriangle,
   FileText,
+  BookOpen,
+  ExternalLink,
+  Upload,
+  AlertOctagon,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import WarrantyClaimForm from "./WarrantyClaimForm";
+import { getSupportPortal, getRecallsForEquipment } from "@/data/equipmentData";
 
 interface BoatEquipmentItem {
   id: string;
@@ -21,6 +28,8 @@ interface BoatEquipmentItem {
   dealer: string;
   notes: string;
   createdAt: string;
+  manualUrl?: string;    // data URL or external URL for uploaded service manual
+  manualName?: string;   // original filename of uploaded manual
 }
 
 const EQUIPMENT_CATEGORIES: Record<string, string> = {
@@ -89,7 +98,7 @@ const DEMO_EQUIPMENT: BoatEquipmentItem[] = [
     category: "engine",
     manufacturer: "Mercury",
     model: "Verado 250",
-    serialNumber: "MER-1T082734",
+    serialNumber: "2B736428",
     purchaseDate: "2020-04-15",
     warrantyExpiry: "2027-04-15",
     dealer: "MarineMax Fort Lauderdale",
@@ -164,7 +173,11 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [claimItemId, setClaimItemId] = useState<string | null>(null);
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [manualFile, setManualFile] = useState<File | null>(null);
+  const [manualDataUrl, setManualDataUrl] = useState<string | null>(null);
+  const manualInputRef = useRef<HTMLInputElement>(null);
 
   // Check if the user's engine is already registered
   const engineAlreadyRegistered = engineInfo?.engineMake
@@ -182,13 +195,34 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
     saveEquipment(boatId, items);
   }
 
+  function handleManualUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      alert("File too large. Maximum size is 10 MB.");
+      return;
+    }
+    setManualFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setManualDataUrl(reader.result as string);
+    reader.readAsDataURL(file);
+    // Reset input so same file can be re-selected
+    e.target.value = "";
+  }
+
   function handleSubmit() {
     if (!form.manufacturer || !form.model || !form.serialNumber) return;
+
+    const manualFields: Partial<BoatEquipmentItem> = {};
+    if (manualDataUrl && manualFile) {
+      manualFields.manualUrl = manualDataUrl;
+      manualFields.manualName = manualFile.name;
+    }
 
     if (editingId) {
       const updated = equipment.map((item) =>
         item.id === editingId
-          ? { ...item, ...form }
+          ? { ...item, ...form, ...manualFields }
           : item
       );
       persist(updated);
@@ -198,12 +232,15 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
         id: `equip-${Date.now()}`,
         boatId,
         ...form,
+        ...manualFields,
         createdAt: new Date().toISOString(),
       };
       persist([...equipment, newItem]);
     }
 
     setForm(EMPTY_FORM);
+    setManualFile(null);
+    setManualDataUrl(null);
     setShowForm(false);
   }
 
@@ -230,6 +267,8 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
     setShowForm(false);
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setManualFile(null);
+    setManualDataUrl(null);
   }
 
   return (
@@ -343,6 +382,49 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
               className="w-full border border-border rounded-md px-2 py-1.5 text-xs placeholder:text-muted-foreground resize-none"
             />
           </div>
+          {/* Service Manual Upload */}
+          <div>
+            <label className="block text-xs font-medium text-foreground mb-1">
+              Service Manual <span className="text-muted-foreground font-normal">(optional — PDF)</span>
+            </label>
+            {manualFile ? (
+              <div className="flex items-center gap-2 px-2 py-1.5 border border-border rounded-md bg-gray-50">
+                <BookOpen className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                <span className="text-xs text-foreground truncate flex-1">{manualFile.name}</span>
+                <button
+                  onClick={() => { setManualFile(null); setManualDataUrl(null); }}
+                  className="text-xs text-red-500 hover:opacity-70 flex-shrink-0"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (editingId && equipment.find((e) => e.id === editingId)?.manualUrl) ? (
+              <div className="flex items-center gap-2 px-2 py-1.5 border border-border rounded-md bg-gray-50">
+                <BookOpen className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                <span className="text-xs text-foreground truncate flex-1">
+                  {equipment.find((e) => e.id === editingId)?.manualName || "Service Manual"}
+                </span>
+                <span className="text-[10px] text-muted-foreground">Already uploaded</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => manualInputRef.current?.click()}
+                className="w-full flex items-center justify-center gap-1.5 px-2 py-2 border border-dashed border-border rounded-md text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Upload PDF Manual
+              </button>
+            )}
+            <input
+              ref={manualInputRef}
+              type="file"
+              accept=".pdf"
+              className="hidden"
+              onChange={handleManualUpload}
+            />
+          </div>
+
           <button
             onClick={handleSubmit}
             disabled={!form.manufacturer || !form.model || !form.serialNumber}
@@ -385,66 +467,236 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
           {equipment.map((item) => {
             const status = getWarrantyStatus(item.warrantyExpiry);
             const IconComponent = CATEGORY_ICONS[item.category] || Wrench;
+            const recalls = getRecallsForEquipment(item.manufacturer, item.model);
+            const support = getSupportPortal(item.manufacturer);
+            const isExpanded = expandedItemId === item.id;
 
             return (
               <div key={item.id}>
-                <div className="flex items-center gap-3 p-2.5 rounded-lg border border-border hover:bg-gray-50 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <IconComponent className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs font-medium text-foreground truncate">
-                        {item.manufacturer} {item.model}
+                <div
+                  className={`rounded-lg border hover:bg-gray-50 transition-colors ${recalls.some((r) => r.severity === "safety") ? "border-red-300 bg-red-50/30" : "border-border"}`}
+                >
+                  <div className="flex items-center gap-3 p-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                      <IconComponent className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-xs font-medium text-foreground truncate">
+                          {item.manufacturer} {item.model}
+                        </p>
+                        <span className="text-[10px] font-medium text-muted-foreground bg-gray-100 px-1.5 py-0.5 rounded flex-shrink-0">
+                          {EQUIPMENT_CATEGORIES[item.category] || item.category}
+                        </span>
+                        {status === "active" && (
+                          <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded flex-shrink-0">
+                            Active
+                          </span>
+                        )}
+                        {status === "expiring" && (
+                          <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded flex-shrink-0 flex items-center gap-0.5">
+                            <AlertTriangle className="w-2.5 h-2.5" />
+                            Expiring Soon
+                          </span>
+                        )}
+                        {status === "expired" && (
+                          <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded flex-shrink-0">
+                            Expired
+                          </span>
+                        )}
+                        {recalls.length > 0 && (
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0 flex items-center gap-0.5 ${
+                            recalls.some((r) => r.severity === "safety")
+                              ? "text-red-700 bg-red-100"
+                              : "text-orange-700 bg-orange-100"
+                          }`}>
+                            <AlertOctagon className="w-2.5 h-2.5" />
+                            {recalls.length} Recall{recalls.length > 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        S/N: {item.serialNumber}
+                        {item.warrantyExpiry && ` · Warranty expires ${new Date(item.warrantyExpiry).toLocaleDateString()}`}
                       </p>
-                      <span className="text-[10px] font-medium text-muted-foreground bg-gray-100 px-1.5 py-0.5 rounded flex-shrink-0">
-                        {EQUIPMENT_CATEGORIES[item.category] || item.category}
-                      </span>
-                      {status === "active" && (
-                        <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded flex-shrink-0">
-                          Active
-                        </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button
+                        onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        title="Details & Resources"
+                      >
+                        {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      </button>
+                      <button
+                        onClick={() => setClaimItemId(claimItemId === item.id ? null : item.id)}
+                        className="text-xs text-blue-600 hover:opacity-70 transition-opacity"
+                        title="File Warranty Claim"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className="text-xs text-primary hover:opacity-70 transition-opacity"
+                        title="Edit"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="text-xs text-red-500 hover:opacity-70 transition-opacity"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded details: manuals, support, recalls */}
+                  {isExpanded && (
+                    <div className="border-t border-border px-3 py-3 space-y-3">
+                      {/* Recall Alerts */}
+                      {recalls.length > 0 && (
+                        <div className="space-y-2">
+                          {recalls.map((recall) => (
+                            <div
+                              key={recall.id}
+                              className={`rounded-md p-2.5 text-xs ${
+                                recall.severity === "safety"
+                                  ? "bg-red-50 border border-red-200"
+                                  : recall.severity === "performance"
+                                  ? "bg-orange-50 border border-orange-200"
+                                  : "bg-blue-50 border border-blue-200"
+                              }`}
+                            >
+                              <div className="flex items-start gap-2">
+                                <AlertOctagon className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${
+                                  recall.severity === "safety" ? "text-red-600" : recall.severity === "performance" ? "text-orange-600" : "text-blue-600"
+                                }`} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <span className="font-semibold">{recall.title}</span>
+                                    <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                                      recall.severity === "safety"
+                                        ? "bg-red-200 text-red-800"
+                                        : recall.severity === "performance"
+                                        ? "bg-orange-200 text-orange-800"
+                                        : "bg-blue-200 text-blue-800"
+                                    }`}>
+                                      {recall.severity}
+                                    </span>
+                                  </div>
+                                  <p className="text-muted-foreground mb-1">{recall.description}</p>
+                                  <p className="font-medium mb-1">Action: {recall.actionRequired}</p>
+                                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                                    <span>Issued: {new Date(recall.issueDate).toLocaleDateString()}</span>
+                                    <span>ID: {recall.id}</span>
+                                    {recall.moreInfoUrl && (
+                                      <a
+                                        href={recall.moreInfoUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-primary font-semibold hover:underline flex items-center gap-0.5"
+                                      >
+                                        More Info <ExternalLink className="w-2.5 h-2.5" />
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       )}
-                      {status === "expiring" && (
-                        <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded flex-shrink-0 flex items-center gap-0.5">
-                          <AlertTriangle className="w-2.5 h-2.5" />
-                          Expiring Soon
-                        </span>
-                      )}
-                      {status === "expired" && (
-                        <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded flex-shrink-0">
-                          Expired
-                        </span>
+
+                      {/* Service Manual */}
+                      <div>
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Service Manual</p>
+                        {item.manualUrl ? (
+                          <a
+                            href={item.manualUrl}
+                            download={item.manualName || "service-manual.pdf"}
+                            className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-primary/5 border border-primary/20 text-xs text-primary font-medium hover:bg-primary/10 transition-colors"
+                          >
+                            <BookOpen className="w-3.5 h-3.5" />
+                            <span className="truncate">{item.manualName || "Service Manual"}</span>
+                            <span className="text-[10px] text-muted-foreground ml-auto flex-shrink-0">Download</span>
+                          </a>
+                        ) : (
+                          <button
+                            onClick={() => handleEdit(item)}
+                            className="flex items-center gap-2 px-2.5 py-2 rounded-md border border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors w-full"
+                          >
+                            <Upload className="w-3.5 h-3.5" />
+                            Upload a service manual PDF
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Manufacturer Resources */}
+                      {support && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                            {item.manufacturer} Resources
+                          </p>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <a
+                              href={support.manualsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 px-2.5 py-2 rounded-md bg-gray-50 border border-border text-xs text-foreground hover:bg-gray-100 transition-colors"
+                            >
+                              <BookOpen className="w-3 h-3 text-primary" />
+                              <span className="truncate">Manuals & Docs</span>
+                              <ExternalLink className="w-2.5 h-2.5 text-muted-foreground ml-auto flex-shrink-0" />
+                            </a>
+                            {support.partsUrl && (
+                              <a
+                                href={support.partsUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 px-2.5 py-2 rounded-md bg-gray-50 border border-border text-xs text-foreground hover:bg-gray-100 transition-colors"
+                              >
+                                <Wrench className="w-3 h-3 text-primary" />
+                                <span className="truncate">Parts Lookup</span>
+                                <ExternalLink className="w-2.5 h-2.5 text-muted-foreground ml-auto flex-shrink-0" />
+                              </a>
+                            )}
+                            {support.techSupportUrl && (
+                              <a
+                                href={support.techSupportUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 px-2.5 py-2 rounded-md bg-gray-50 border border-border text-xs text-foreground hover:bg-gray-100 transition-colors"
+                              >
+                                <Shield className="w-3 h-3 text-primary" />
+                                <span className="truncate">Tech Support</span>
+                                <ExternalLink className="w-2.5 h-2.5 text-muted-foreground ml-auto flex-shrink-0" />
+                              </a>
+                            )}
+                            {support.videosUrl && (
+                              <a
+                                href={support.videosUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 px-2.5 py-2 rounded-md bg-gray-50 border border-border text-xs text-foreground hover:bg-gray-100 transition-colors"
+                              >
+                                <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span className="truncate">Videos</span>
+                                <ExternalLink className="w-2.5 h-2.5 text-muted-foreground ml-auto flex-shrink-0" />
+                              </a>
+                            )}
+                          </div>
+                          {support.notes && (
+                            <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">{support.notes}</p>
+                          )}
+                        </div>
                       )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground">
-                      S/N: {item.serialNumber}
-                      {item.warrantyExpiry && ` · Warranty expires ${new Date(item.warrantyExpiry).toLocaleDateString()}`}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <button
-                      onClick={() => setClaimItemId(claimItemId === item.id ? null : item.id)}
-                      className="text-xs text-blue-600 hover:opacity-70 transition-opacity"
-                      title="File Warranty Claim"
-                    >
-                      <FileText className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleEdit(item)}
-                      className="text-xs text-primary hover:opacity-70 transition-opacity"
-                      title="Edit"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      className="text-xs text-red-500 hover:opacity-70 transition-opacity"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  )}
                 </div>
                 {claimItemId === item.id && (
                   <div className="mt-2 mb-2 border border-border rounded-lg p-3">

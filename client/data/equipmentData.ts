@@ -462,6 +462,218 @@ export const warrantyPortals: Record<string, WarrantyPortalInfo> = {
   },
 };
 
+export interface SupportPortalInfo {
+  manualsUrl: string;
+  partsUrl?: string;
+  techSupportUrl?: string;
+  videosUrl?: string;
+  notes?: string;
+}
+
+/** Service manual, parts lookup, and tech support portals for major marine manufacturers */
+export const supportPortals: Record<string, SupportPortalInfo> = {
+  Mercury: {
+    manualsUrl: "https://www.mercurymarine.com/en/us/support/library/",
+    partsUrl: "https://www.mercurymarine.com/en/us/parts/",
+    techSupportUrl: "https://www.mercurymarine.com/en/us/support/",
+    videosUrl: "https://www.youtube.com/@MercuryMarine",
+    notes: "Owner's manuals, service bulletins, and rigging guides available. Create a Mercury account for full access.",
+  },
+  Yamaha: {
+    manualsUrl: "https://www.yamahaoutboards.com/en-us/owner-resources/manuals",
+    partsUrl: "https://www.yamahaoutboards.com/en-us/owner-resources/parts-catalog",
+    techSupportUrl: "https://www.yamahaoutboards.com/en-us/owner-resources",
+    videosUrl: "https://www.youtube.com/@YamahaOutboards",
+    notes: "Owner's manuals and maintenance schedules. Enter model and serial number for specific documentation.",
+  },
+  Suzuki: {
+    manualsUrl: "https://www.suzukimarine.com/en-us/support/owners-manuals",
+    partsUrl: "https://www.suzukimarine.com/en-us/support/parts",
+    techSupportUrl: "https://www.suzukimarine.com/en-us/support",
+    notes: "Download owner's manuals by model year. Parts lookup requires dealer assistance.",
+  },
+  Honda: {
+    manualsUrl: "https://marine.honda.com/support/owners-manuals",
+    partsUrl: "https://marine.honda.com/support/parts",
+    techSupportUrl: "https://marine.honda.com/support",
+    notes: "Owner's manuals and maintenance schedules available by model.",
+  },
+  "Volvo Penta": {
+    manualsUrl: "https://www.volvopenta.com/marineleisure/support/manuals-and-handbooks/",
+    partsUrl: "https://marinparts.volvopenta.com/",
+    techSupportUrl: "https://www.volvopenta.com/marineleisure/support/",
+    notes: "EPC parts catalog available online. Service protocols require dealer login.",
+  },
+  Garmin: {
+    manualsUrl: "https://support.garmin.com/en-US/?productType=marine",
+    partsUrl: "https://www.garmin.com/en-US/marine-accessories/",
+    techSupportUrl: "https://support.garmin.com/en-US/",
+    videosUrl: "https://www.youtube.com/@GarminMarine",
+    notes: "Software updates, owner's manuals, and quick-start guides available by product.",
+  },
+  Raymarine: {
+    manualsUrl: "https://www.raymarine.com/en-us/support/product-support",
+    techSupportUrl: "https://www.raymarine.com/en-us/support",
+    videosUrl: "https://www.youtube.com/@RaymarineInc",
+    notes: "Download manuals, software updates, and access knowledge base articles.",
+  },
+  Simrad: {
+    manualsUrl: "https://www.simrad-yachting.com/support/downloads/",
+    techSupportUrl: "https://www.simrad-yachting.com/support/",
+    videosUrl: "https://www.youtube.com/@SimradYachting",
+    notes: "Software updates, installation manuals, and user guides. Part of Navico group.",
+  },
+  Furuno: {
+    manualsUrl: "https://www.furunousa.com/en/support/manuals-datasheets",
+    techSupportUrl: "https://www.furunousa.com/en/support",
+    notes: "Installation and operator's manuals. Technical support available via phone during business hours.",
+  },
+  Humminbird: {
+    manualsUrl: "https://www.humminbird.com/support",
+    techSupportUrl: "https://www.humminbird.com/support",
+    videosUrl: "https://www.youtube.com/@HumminbirdElectronics",
+    notes: "Software updates, manuals, and installation guides available by model.",
+  },
+  Lowrance: {
+    manualsUrl: "https://www.lowrance.com/support/downloads/",
+    techSupportUrl: "https://www.lowrance.com/support/",
+    videosUrl: "https://www.youtube.com/@Lowrance",
+    notes: "Software updates, quick-start guides, and full manuals. Part of Navico group.",
+  },
+  Dometic: {
+    manualsUrl: "https://www.dometic.com/en-us/support/manuals-and-documents",
+    techSupportUrl: "https://www.dometic.com/en-us/support",
+    notes: "Product manuals for HVAC, refrigeration, sanitation, and other marine systems.",
+  },
+  "Minn Kota": {
+    manualsUrl: "https://www.minnkota.com/support",
+    techSupportUrl: "https://www.minnkota.com/support",
+    notes: "Owner's manuals, parts diagrams, and software updates for trolling motors.",
+  },
+  Kohler: {
+    manualsUrl: "https://kohlerpower.com/en/marine/support/documentation",
+    partsUrl: "https://kohlerpower.com/en/marine/support/parts",
+    techSupportUrl: "https://kohlerpower.com/en/marine/support",
+    notes: "Generator manuals, wiring diagrams, and parts catalogs. Dealer locator available.",
+  },
+  Victron: {
+    manualsUrl: "https://www.victronenergy.com/support-and-downloads/technical-information",
+    techSupportUrl: "https://www.victronenergy.com/support-and-downloads/software",
+    notes: "Comprehensive technical documentation, wiring diagrams, and firmware updates.",
+  },
+  Fusion: {
+    manualsUrl: "https://www.fusionentertainment.com/en-US/support/",
+    techSupportUrl: "https://www.fusionentertainment.com/en-US/support/",
+    notes: "Product manuals and software updates. Owned by Garmin.",
+  },
+  ProMariner: {
+    manualsUrl: "https://promariner.com/support/",
+    techSupportUrl: "https://promariner.com/support/",
+    notes: "Owner's manuals, installation guides, and troubleshooting for battery chargers and inverters.",
+  },
+  Mastervolt: {
+    manualsUrl: "https://www.mastervolt.com/support/downloads/",
+    techSupportUrl: "https://www.mastervolt.com/support/",
+    notes: "Product documentation, software updates, and system configuration guides.",
+  },
+  Cummins: {
+    manualsUrl: "https://www.cummins.com/support/documentation",
+    partsUrl: "https://parts.cummins.com/",
+    techSupportUrl: "https://www.cummins.com/support",
+    notes: "Owner's manuals and service bulletins. QuickServe Online for detailed technical data.",
+  },
+};
+
+export interface RecallInfo {
+  id: string;
+  manufacturer: string;
+  affectedModels: string[];   // model name patterns
+  issueDate: string;          // ISO date
+  title: string;
+  description: string;
+  severity: "safety" | "performance" | "advisory";
+  actionRequired: string;
+  moreInfoUrl?: string;
+}
+
+/** Known marine equipment recalls — checked against registered equipment */
+export const recallDatabase: RecallInfo[] = [
+  {
+    id: "RCL-MERC-2024-001",
+    manufacturer: "Mercury",
+    affectedModels: ["Verado 250", "Verado 300", "Verado 350", "Verado 400"],
+    issueDate: "2024-11-15",
+    title: "Fuel Rail Pressure Sensor Connector",
+    description: "Certain Verado outboard engines may have a fuel rail pressure sensor connector that could loosen over time, potentially causing intermittent engine performance issues.",
+    severity: "performance",
+    actionRequired: "Contact your authorized Mercury dealer to inspect and secure the fuel rail pressure sensor connector. Repair performed at no cost under recall.",
+    moreInfoUrl: "https://www.mercurymarine.com/en/us/support/recalls/",
+  },
+  {
+    id: "RCL-SIM-2025-001",
+    manufacturer: "Simrad",
+    affectedModels: ["NSX 3009", "NSX 3012", "NSX 3015"],
+    issueDate: "2025-06-10",
+    title: "Software Update — Chart Rendering Fix",
+    description: "NSX series units manufactured before June 2025 may experience intermittent chart rendering delays when using C-MAP cartography in certain coastal areas.",
+    severity: "advisory",
+    actionRequired: "Download and install firmware version 2.1.4 or later from Simrad's website. No dealer visit required.",
+    moreInfoUrl: "https://www.simrad-yachting.com/support/downloads/",
+  },
+  {
+    id: "RCL-PROM-2024-002",
+    manufacturer: "ProMariner",
+    affectedModels: ["ProTournament 360 Elite", "ProTournament 240 Elite"],
+    issueDate: "2024-08-22",
+    title: "Thermal Protection Circuit Update",
+    description: "Certain ProTournament Elite chargers manufactured between January 2022 and March 2023 may have a thermal protection circuit that triggers prematurely in high ambient temperature conditions common in southern marine environments.",
+    severity: "performance",
+    actionRequired: "Contact ProMariner support for a free replacement thermal sensor module. Installation can be performed by owner — instructions included with replacement part.",
+    moreInfoUrl: "https://promariner.com/support/",
+  },
+  {
+    id: "RCL-GAR-2025-001",
+    manufacturer: "Garmin",
+    affectedModels: ["GPSMAP 8616xsv", "GPSMAP 8622", "GPSMAP 9x3"],
+    issueDate: "2025-03-01",
+    title: "Touchscreen Calibration — Cold Weather",
+    description: "Select GPSMAP units may experience reduced touchscreen responsiveness when ambient temperature drops below 40°F (4°C).",
+    severity: "advisory",
+    actionRequired: "Software update v34.10 resolves the issue. Available via Garmin Express or Wi-Fi update on the unit.",
+    moreInfoUrl: "https://support.garmin.com/en-US/",
+  },
+  {
+    id: "RCL-MERC-2025-002",
+    manufacturer: "Mercury",
+    affectedModels: ["Verado 200", "Verado 250", "Verado 300"],
+    issueDate: "2025-09-05",
+    title: "Cowling Latch Inspection",
+    description: "Mercury has identified that certain Verado models manufactured 2019-2021 may have cowling latches that do not fully engage, which could allow the cowling to open unexpectedly at speed.",
+    severity: "safety",
+    actionRequired: "Inspect cowling latches immediately. Contact your authorized Mercury dealer for free replacement latches if affected. Do not operate at high speed until inspected.",
+    moreInfoUrl: "https://www.mercurymarine.com/en/us/support/recalls/",
+  },
+];
+
+/**
+ * Check registered equipment against recall database.
+ * Returns matching recalls for a given manufacturer and model.
+ */
+export function getRecallsForEquipment(manufacturer: string, model: string): RecallInfo[] {
+  return recallDatabase.filter(
+    (r) =>
+      r.manufacturer.toLowerCase() === manufacturer.toLowerCase() &&
+      r.affectedModels.some((m) => model.toLowerCase().includes(m.toLowerCase()) || m.toLowerCase().includes(model.toLowerCase()))
+  );
+}
+
+/**
+ * Look up support portal info for a manufacturer, if available.
+ */
+export function getSupportPortal(manufacturer: string): SupportPortalInfo | undefined {
+  return supportPortals[manufacturer];
+}
+
 /**
  * Look up all manufacturers for a given equipment category.
  */

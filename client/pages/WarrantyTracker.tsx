@@ -12,7 +12,10 @@ import {
   Calendar,
   FileText,
   Clock,
+  AlertOctagon,
+  ExternalLink,
 } from "lucide-react";
+import { getRecallsForEquipment, type RecallInfo } from "@/data/equipmentData";
 
 // ---------------------------------------------------------------------------
 // Types (mirrored from other modules to avoid import issues)
@@ -136,7 +139,7 @@ function loadFleet(): SavedBoat[] {
 
 const DEFAULT_BOAT_ID = "boat-1773000691182";
 const DEMO_EQUIPMENT: BoatEquipmentItem[] = [
-  { id: "demo-equip-engine-1", boatId: DEFAULT_BOAT_ID, category: "engine", manufacturer: "Mercury", model: "Verado 250", serialNumber: "MER-1T082734", purchaseDate: "2020-04-15", warrantyExpiry: "2027-04-15", dealer: "MarineMax Fort Lauderdale", notes: "Factory-installed. 7-year warranty.", createdAt: "2024-06-01T00:00:00.000Z" },
+  { id: "demo-equip-engine-1", boatId: DEFAULT_BOAT_ID, category: "engine", manufacturer: "Mercury", model: "Verado 250", serialNumber: "2B736428", purchaseDate: "2020-04-15", warrantyExpiry: "2027-04-15", dealer: "MarineMax Fort Lauderdale", notes: "Factory-installed. 7-year warranty.", createdAt: "2024-06-01T00:00:00.000Z" },
   { id: "demo-equip-mfd-1", boatId: DEFAULT_BOAT_ID, category: "mfd", manufacturer: "Simrad", model: "NSX 3012", serialNumber: "SIM-NSX-20491287", purchaseDate: "2023-08-20", warrantyExpiry: "2025-08-20", dealer: "West Marine Pompano Beach", notes: "12-inch touchscreen MFD. 2-year warranty.", createdAt: "2024-06-01T00:00:00.000Z" },
   { id: "demo-equip-charger-1", boatId: DEFAULT_BOAT_ID, category: "charger_inverter", manufacturer: "ProMariner", model: "ProTournament 360 Elite", serialNumber: "PM-360E-00847523", purchaseDate: "2022-03-10", warrantyExpiry: "2025-03-10", dealer: "Defender Industries", notes: "36-amp 3-bank charger. 3-year warranty.", createdAt: "2024-06-01T00:00:00.000Z" },
 ];
@@ -272,6 +275,21 @@ export default function WarrantyTracker() {
     return map;
   }, [allEquipment]);
 
+  // Recall scan across all registered equipment
+  const allRecalls = useMemo(() => {
+    const found: { recall: RecallInfo; equipment: BoatEquipmentItem & { boatName: string } }[] = [];
+    for (const item of allEquipment) {
+      const recalls = getRecallsForEquipment(item.manufacturer, item.model);
+      for (const recall of recalls) {
+        found.push({ recall, equipment: item });
+      }
+    }
+    // Sort: safety first, then performance, then advisory
+    const severityOrder: Record<string, number> = { safety: 0, performance: 1, advisory: 2 };
+    found.sort((a, b) => (severityOrder[a.recall.severity] ?? 3) - (severityOrder[b.recall.severity] ?? 3));
+    return found;
+  }, [allEquipment]);
+
   // Expiration timeline: upcoming 12 months
   const timeline = useMemo(() => {
     const now = new Date();
@@ -370,7 +388,7 @@ export default function WarrantyTracker() {
         )}
 
         {/* ──────────── Summary cards ──────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+        <div className={`grid grid-cols-2 ${allRecalls.length > 0 ? "sm:grid-cols-5" : "sm:grid-cols-4"} gap-3 mb-8`}>
           <div className="border border-border rounded-lg p-4">
             <p className="text-xs font-medium text-muted-foreground mb-1">Total Equipment</p>
             <p className="text-2xl font-bold text-foreground">{totalCount}</p>
@@ -396,7 +414,86 @@ export default function WarrantyTracker() {
             </div>
             <p className="text-2xl font-bold text-red-700">{expiredCount}</p>
           </div>
+          {allRecalls.length > 0 && (
+            <div className="border border-red-300 bg-red-50/50 rounded-lg p-4">
+              <div className="flex items-center gap-1.5 mb-1">
+                <AlertOctagon className="w-3.5 h-3.5 text-red-600" />
+                <p className="text-xs font-medium text-red-700">Recalls</p>
+              </div>
+              <p className="text-2xl font-bold text-red-700">{allRecalls.length}</p>
+            </div>
+          )}
         </div>
+
+        {/* ──────────── Recall Alerts ──────────── */}
+        {allRecalls.length > 0 && (
+          <section className="mb-10">
+            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <AlertOctagon className="w-5 h-5 text-red-500" />
+              Recall Alerts
+              <span className="text-xs font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                {allRecalls.length}
+              </span>
+            </h2>
+            <div className="space-y-3">
+              {allRecalls.map(({ recall, equipment: eq }) => (
+                <div
+                  key={`${recall.id}-${eq.id}`}
+                  className={`rounded-lg p-4 border ${
+                    recall.severity === "safety"
+                      ? "bg-red-50 border-red-200"
+                      : recall.severity === "performance"
+                      ? "bg-orange-50 border-orange-200"
+                      : "bg-blue-50 border-blue-200"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <AlertOctagon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                      recall.severity === "safety" ? "text-red-600" : recall.severity === "performance" ? "text-orange-600" : "text-blue-600"
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="text-sm font-semibold text-foreground">{recall.title}</span>
+                        <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                          recall.severity === "safety"
+                            ? "bg-red-200 text-red-800"
+                            : recall.severity === "performance"
+                            ? "bg-orange-200 text-orange-800"
+                            : "bg-blue-200 text-blue-800"
+                        }`}>
+                          {recall.severity}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-1.5">
+                        Affects: <span className="font-medium text-foreground">{eq.manufacturer} {eq.model}</span>
+                        {" "}on <span className="font-medium text-foreground">{eq.boatName}</span>
+                        {" "}(S/N: {eq.serialNumber})
+                      </p>
+                      <p className="text-xs text-muted-foreground mb-1.5">{recall.description}</p>
+                      <p className="text-xs font-medium text-foreground mb-2">
+                        Action Required: {recall.actionRequired}
+                      </p>
+                      <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+                        <span>Issued: {new Date(recall.issueDate).toLocaleDateString()}</span>
+                        <span>ID: {recall.id}</span>
+                        {recall.moreInfoUrl && (
+                          <a
+                            href={recall.moreInfoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary font-semibold hover:underline flex items-center gap-0.5"
+                          >
+                            More Info <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ──────────── Equipment by boat ──────────── */}
         <section className="mb-10">

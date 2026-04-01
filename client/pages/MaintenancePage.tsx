@@ -9,7 +9,7 @@ import {
   type ServiceRecord,
 } from "@/data/maintenanceData";
 import { getOwnerSpendingByBoat } from "@/data/ownerMaintenanceUtils";
-import WeatherWidget from "@/components/WeatherWidget";
+import { getRecallsForEquipment, getSupportPortal, type RecallInfo } from "@/data/equipmentData";
 import CalendarExport from "@/components/CalendarExport";
 import type { CalendarTask } from "@/lib/calendarUtils";
 
@@ -322,6 +322,114 @@ export default function MaintenancePage() {
     [tasks],
   );
 
+  // ─── Equipment & Warranty ────────────────────────────────────
+  interface EquipmentItem {
+    id: string; boatId: string; category: string; manufacturer: string; model: string;
+    serialNumber: string; purchaseDate: string; warrantyExpiry: string; dealer: string;
+    notes: string; createdAt: string; manualUrl?: string; manualName?: string;
+  }
+
+  const DEFAULT_BOAT_ID = "boat-1773000691182";
+  const DEMO_EQUIPMENT: EquipmentItem[] = [
+    { id: "demo-equip-engine-1", boatId: DEFAULT_BOAT_ID, category: "engine", manufacturer: "Mercury", model: "Verado 250", serialNumber: "2B736428", purchaseDate: "2020-04-15", warrantyExpiry: "2027-04-15", dealer: "MarineMax Fort Lauderdale", notes: "Factory-installed. 7-year warranty.", createdAt: "2024-06-01T00:00:00.000Z" },
+    { id: "demo-equip-mfd-1", boatId: DEFAULT_BOAT_ID, category: "mfd", manufacturer: "Simrad", model: "NSX 3012", serialNumber: "SIM-NSX-20491287", purchaseDate: "2023-08-20", warrantyExpiry: "2025-08-20", dealer: "West Marine Pompano Beach", notes: "12-inch touchscreen MFD. 2-year warranty.", createdAt: "2024-06-01T00:00:00.000Z" },
+    { id: "demo-equip-charger-1", boatId: DEFAULT_BOAT_ID, category: "charger_inverter", manufacturer: "ProMariner", model: "ProTournament 360 Elite", serialNumber: "PM-360E-00847523", purchaseDate: "2022-03-10", warrantyExpiry: "2025-03-10", dealer: "Defender Industries", notes: "36-amp 3-bank charger. 3-year warranty.", createdAt: "2024-06-01T00:00:00.000Z" },
+  ];
+
+  const EQUIP_CATEGORIES: Record<string, string> = {
+    engine: "Engine", mfd: "MFD", radar: "Radar", fishfinder: "Fishfinder", vhf_radio: "VHF Radio",
+    autopilot: "Autopilot", trolling_motor: "Trolling Motor", generator: "Generator",
+    air_conditioning: "A/C", windlass: "Windlass", thruster: "Thruster", watermaker: "Watermaker",
+    refrigeration: "Refrigeration", stereo: "Stereo", lighting: "Lighting", battery: "Battery",
+    charger_inverter: "Charger/Inverter", other: "Other",
+  };
+
+  const equipment = useMemo<EquipmentItem[]>(() => {
+    // Load from all boats in fleet
+    const items: EquipmentItem[] = [];
+    try {
+      const fleetRaw = localStorage.getItem("my_fleet");
+      const fleet: { id: string }[] = fleetRaw ? JSON.parse(fleetRaw) : [{ id: DEFAULT_BOAT_ID }];
+      for (const boat of fleet) {
+        const key = `bosun_boat_equipment_${boat.id}`;
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          items.push(...JSON.parse(stored));
+        } else if (boat.id === DEFAULT_BOAT_ID) {
+          localStorage.setItem(key, JSON.stringify(DEMO_EQUIPMENT));
+          items.push(...DEMO_EQUIPMENT);
+        }
+      }
+    } catch { /* ignore */ }
+    return items;
+  }, []);
+
+  function getWarrantyStatus(warrantyExpiry: string): "active" | "expiring" | "expired" {
+    if (!warrantyExpiry) return "expired";
+    const now = Date.now();
+    const expiryTime = new Date(warrantyExpiry).getTime();
+    if (expiryTime < now) return "expired";
+    if (expiryTime - now < 90 * 24 * 60 * 60 * 1000) return "expiring";
+    return "active";
+  }
+
+  const warrantyExpiring = equipment.filter((e) => getWarrantyStatus(e.warrantyExpiry) === "expiring").length;
+  const warrantyExpired = equipment.filter((e) => getWarrantyStatus(e.warrantyExpiry) === "expired").length;
+
+  // Recalls
+  const allRecalls = useMemo(() => {
+    const found: { recall: RecallInfo; equip: EquipmentItem }[] = [];
+    for (const eq of equipment) {
+      for (const r of getRecallsForEquipment(eq.manufacturer, eq.model)) {
+        found.push({ recall: r, equip: eq });
+      }
+    }
+    const order: Record<string, number> = { safety: 0, performance: 1, advisory: 2 };
+    found.sort((a, b) => (order[a.recall.severity] ?? 3) - (order[b.recall.severity] ?? 3));
+    return found;
+  }, [equipment]);
+
+  const RECALL_STATUS_KEY = "bosun_recall_status";
+  const [recallStatuses, setRecallStatuses] = useState<Record<string, { status: string; date: string }>>(() => {
+    try { const raw = localStorage.getItem(RECALL_STATUS_KEY); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+  });
+
+  function handleRecallAction(recallId: string, equipmentId: string, status: "open" | "resolved" | "not_applicable") {
+    const all = { ...recallStatuses };
+    const key = `${recallId}__${equipmentId}`;
+    if (status === "open") delete all[key]; else all[key] = { status, date: new Date().toISOString() };
+    localStorage.setItem(RECALL_STATUS_KEY, JSON.stringify(all));
+    setRecallStatuses(all);
+  }
+
+  const openRecallCount = allRecalls.filter(({ recall, equip }) => {
+    const s = recallStatuses[`${recall.id}__${equip.id}`];
+    return !s || s.status === "open";
+  }).length;
+
+  // Warranty claims
+  type ClaimStatus = "draft" | "submitted" | "approved" | "denied";
+  interface SavedClaim { id: string; equipmentId: string; status: ClaimStatus; submittedDate: string | null; notes: string; }
+  const claims = useMemo<SavedClaim[]>(() => {
+    try { const raw = localStorage.getItem("bosun_warranty_claims"); return raw ? JSON.parse(raw) : []; } catch { return []; }
+  }, []);
+  const equipmentNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const e of equipment) map[e.id] = `${e.manufacturer} ${e.model}`;
+    return map;
+  }, [equipment]);
+  const CLAIM_STYLES: Record<ClaimStatus, { bg: string; text: string; label: string }> = {
+    draft: { bg: "bg-gray-100", text: "text-gray-700", label: "Draft" },
+    submitted: { bg: "bg-blue-50", text: "text-blue-700", label: "Submitted" },
+    approved: { bg: "bg-green-50", text: "text-green-700", label: "Approved" },
+    denied: { bg: "bg-red-50", text: "text-red-700", label: "Denied" },
+  };
+
+  // Warranty/equipment collapsible
+  const [warrantyOpen, setWarrantyOpen] = useState(false);
+  const [recallsOpen, setRecallsOpen] = useState(true);
+  const [claimsOpen, setClaimsOpen] = useState(false);
+
   // Spending — all owner's boats (all projects belong to the logged-in owner)
   const ownerSpending = useMemo(() => getOwnerSpendingByBoat(), []);
   const [spendingOpen, setSpendingOpen] = useState(false);
@@ -438,7 +546,7 @@ export default function MaintenancePage() {
             Back
           </button>
           <div className="flex-1">
-            <h1 className="text-base font-bold text-foreground leading-tight">Maintenance Checklist</h1>
+            <h1 className="text-base font-bold text-foreground leading-tight">Maintenance</h1>
             <p className="text-xs text-muted-foreground leading-tight">
               {boatName} · {boatInfo?.engineCount ? `${boatInfo.engineCount} ` : ""}{engineMake} {engineModel.replace(/\s*\(.*?\)$/, "")}
             </p>
@@ -448,19 +556,25 @@ export default function MaintenancePage() {
 
       <div className="max-w-2xl mx-auto px-4 pb-12">
         {/* ── Summary strip ── */}
-        <div className="flex gap-3 mt-4 mb-3">
-          <div className="flex-1 bg-white rounded-xl border border-border px-4 py-3 text-center">
+        <div className={`grid ${openRecallCount > 0 ? "grid-cols-4" : "grid-cols-3"} gap-3 mt-4 mb-3`}>
+          <div className="bg-white rounded-xl border border-border px-4 py-3 text-center">
             <div className="text-2xl font-bold text-red-500">{counts.overdue}</div>
             <div className="text-xs text-muted-foreground mt-0.5">Overdue</div>
           </div>
-          <div className="flex-1 bg-white rounded-xl border border-border px-4 py-3 text-center">
+          <div className="bg-white rounded-xl border border-border px-4 py-3 text-center">
             <div className="text-2xl font-bold text-amber-500">{counts.dueSoon}</div>
             <div className="text-xs text-muted-foreground mt-0.5">Due Soon</div>
           </div>
-          <div className="flex-1 bg-white rounded-xl border border-border px-4 py-3 text-center">
+          <div className="bg-white rounded-xl border border-border px-4 py-3 text-center">
             <div className="text-2xl font-bold text-green-600">{counts.ok}</div>
             <div className="text-xs text-muted-foreground mt-0.5">Up to Date</div>
           </div>
+          {openRecallCount > 0 && (
+            <div className="bg-white rounded-xl border border-red-300 px-4 py-3 text-center">
+              <div className="text-2xl font-bold text-red-600">{openRecallCount}</div>
+              <div className="text-xs text-red-600 mt-0.5">Recalls</div>
+            </div>
+          )}
         </div>
 
         {/* ── Engine hours row ── */}
@@ -497,11 +611,6 @@ export default function MaintenancePage() {
               </svg>
             </button>
           )}
-        </div>
-
-        {/* ── Weather widget ── */}
-        <div className="mb-4">
-          <WeatherWidget />
         </div>
 
         {/* ── Calendar export ── */}
@@ -663,6 +772,282 @@ export default function MaintenancePage() {
           </svg>
           Add custom item
         </button>
+
+        {/* ── Recall Alerts ── */}
+        {allRecalls.length > 0 && (
+          <div className="mt-3 bg-white rounded-xl border border-border overflow-hidden">
+            <button
+              onClick={() => setRecallsOpen((v) => !v)}
+              className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted/30 transition-colors"
+            >
+              <div className={`w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 ${openRecallCount > 0 ? "bg-red-100" : "bg-muted"}`}>
+                <svg className={`w-3.5 h-3.5 ${openRecallCount > 0 ? "text-red-600" : "text-muted-foreground"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-semibold text-foreground">Recall Alerts</span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {openRecallCount > 0 ? (
+                    <span className="text-xs text-red-500 font-medium">{openRecallCount} open</span>
+                  ) : (
+                    <span className="text-xs text-green-600 font-medium">All resolved</span>
+                  )}
+                  <span className="text-xs text-muted-foreground">· {allRecalls.length} total</span>
+                </div>
+              </div>
+              <svg
+                className={`w-4 h-4 text-muted-foreground flex-shrink-0 transition-transform ${recallsOpen ? "rotate-180" : ""}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {recallsOpen && (
+              <div className="border-t border-border divide-y divide-border">
+                {allRecalls.map(({ recall, equip }) => {
+                  const key = `${recall.id}__${equip.id}`;
+                  const rStatus = recallStatuses[key];
+                  const isDismissed = rStatus?.status === "resolved" || rStatus?.status === "not_applicable";
+
+                  return (
+                    <div key={`${recall.id}-${equip.id}`} className="flex">
+                      <div className={`w-1 flex-shrink-0 ${isDismissed ? "bg-gray-300" : recall.severity === "safety" ? "bg-red-500" : recall.severity === "performance" ? "bg-orange-400" : "bg-blue-400"}`} />
+                      <div className={`flex-1 px-4 py-3.5 ${isDismissed ? "opacity-60" : ""}`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span className={`text-sm font-semibold leading-snug ${isDismissed ? "line-through text-muted-foreground" : "text-foreground"}`}>{recall.title}</span>
+                              <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                                isDismissed ? "bg-gray-200 text-gray-600"
+                                : recall.severity === "safety" ? "bg-red-100 text-red-800"
+                                : recall.severity === "performance" ? "bg-orange-100 text-orange-800"
+                                : "bg-blue-100 text-blue-800"
+                              }`}>{recall.severity}</span>
+                              {rStatus?.status === "resolved" && (
+                                <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">Resolved</span>
+                              )}
+                              {rStatus?.status === "not_applicable" && (
+                                <span className="text-[10px] font-semibold text-gray-600 bg-gray-200 px-1.5 py-0.5 rounded">N/A</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mb-1">
+                              {equip.manufacturer} {equip.model} · S/N: {equip.serialNumber}
+                            </p>
+                            {!isDismissed && (
+                              <>
+                                <p className="text-xs text-muted-foreground mb-1">{recall.description}</p>
+                                <p className="text-xs font-medium text-foreground mb-1.5">Action: {recall.actionRequired}</p>
+                              </>
+                            )}
+                            {isDismissed && rStatus?.date && (
+                              <p className="text-[11px] text-muted-foreground">
+                                Marked {rStatus.status === "resolved" ? "resolved" : "N/A"} on {new Date(rStatus.date).toLocaleDateString()}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 mt-2">
+                              {(!rStatus || rStatus.status === "open") ? (
+                                <>
+                                  <button
+                                    onClick={() => handleRecallAction(recall.id, equip.id, "resolved")}
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-600 text-white text-[11px] font-semibold hover:bg-green-700 transition-colors"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                    Resolved
+                                  </button>
+                                  <button
+                                    onClick={() => handleRecallAction(recall.id, equip.id, "not_applicable")}
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-200 text-gray-700 text-[11px] font-semibold hover:bg-gray-300 transition-colors"
+                                  >
+                                    N/A
+                                  </button>
+                                  {recall.moreInfoUrl && (
+                                    <a href={recall.moreInfoUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary font-semibold hover:underline ml-1">
+                                      More Info →
+                                    </a>
+                                  )}
+                                </>
+                              ) : (
+                                <button
+                                  onClick={() => handleRecallAction(recall.id, equip.id, "open")}
+                                  className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-200 text-gray-700 text-[11px] font-semibold hover:bg-gray-300 transition-colors"
+                                >
+                                  Reopen
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Equipment & Warranty ── */}
+        {equipment.length > 0 && (
+          <div className="mt-3 bg-white rounded-xl border border-border overflow-hidden">
+            <button
+              onClick={() => setWarrantyOpen((v) => !v)}
+              className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted/30 transition-colors"
+            >
+              <div className="w-7 h-7 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                <svg className="w-3.5 h-3.5 text-foreground/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-semibold text-foreground">Equipment & Warranty</span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {warrantyExpiring > 0 && <span className="text-xs text-amber-600 font-medium">{warrantyExpiring} expiring</span>}
+                  {warrantyExpired > 0 && <span className="text-xs text-red-500 font-medium">{warrantyExpired} expired</span>}
+                  {warrantyExpiring === 0 && warrantyExpired === 0 && <span className="text-xs text-green-600 font-medium">All active</span>}
+                  <span className="text-xs text-muted-foreground">· {equipment.length} items</span>
+                </div>
+              </div>
+              <svg
+                className={`w-4 h-4 text-muted-foreground flex-shrink-0 transition-transform ${warrantyOpen ? "rotate-180" : ""}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {warrantyOpen && (
+              <div className="border-t border-border divide-y divide-border">
+                {equipment
+                  .sort((a, b) => {
+                    const order = { active: 2, expiring: 0, expired: 1 };
+                    return (order[getWarrantyStatus(a.warrantyExpiry)] ?? 3) - (order[getWarrantyStatus(b.warrantyExpiry)] ?? 3);
+                  })
+                  .map((eq) => {
+                    const ws = getWarrantyStatus(eq.warrantyExpiry);
+                    const daysLeft = eq.warrantyExpiry ? Math.ceil((new Date(eq.warrantyExpiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+                    const support = getSupportPortal(eq.manufacturer);
+
+                    return (
+                      <div key={eq.id} className="flex">
+                        <div className={`w-1 flex-shrink-0 ${ws === "active" ? "bg-green-500" : ws === "expiring" ? "bg-amber-400" : "bg-red-500"}`} />
+                        <div className="flex-1 px-4 py-3.5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                <span className="text-sm font-semibold text-foreground">{eq.manufacturer} {eq.model}</span>
+                                <span className="text-[10px] font-medium text-muted-foreground bg-gray-100 px-1.5 py-0.5 rounded">{EQUIP_CATEGORIES[eq.category] || eq.category}</span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                                <span>S/N: <span className="text-foreground font-medium">{eq.serialNumber}</span></span>
+                                {eq.warrantyExpiry && (
+                                  <>
+                                    <span className="text-border">·</span>
+                                    <span>
+                                      Expires {new Date(eq.warrantyExpiry).toLocaleDateString()}
+                                      {daysLeft !== null && daysLeft > 0 && (
+                                        <span className={daysLeft <= 90 ? " text-amber-600 font-medium" : ""}> ({daysLeft}d)</span>
+                                      )}
+                                      {daysLeft !== null && daysLeft <= 0 && (
+                                        <span className="text-red-500 font-medium"> ({Math.abs(daysLeft)}d ago)</span>
+                                      )}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                              {support && (
+                                <div className="flex items-center gap-3 mt-1.5">
+                                  <a href={support.manualsUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary font-medium hover:underline">
+                                    Manuals
+                                  </a>
+                                  {support.partsUrl && (
+                                    <a href={support.partsUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary font-medium hover:underline">
+                                      Parts
+                                    </a>
+                                  )}
+                                  {support.techSupportUrl && (
+                                    <a href={support.techSupportUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary font-medium hover:underline">
+                                      Support
+                                    </a>
+                                  )}
+                                  {eq.manualUrl && (
+                                    <a href={eq.manualUrl} download={eq.manualName || "manual.pdf"} className="text-[11px] text-primary font-medium hover:underline">
+                                      My Manual ↓
+                                    </a>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                              ws === "active" ? "bg-green-50 text-green-700 border border-green-200"
+                              : ws === "expiring" ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : "bg-red-50 text-red-600 border border-red-200"
+                            }`}>
+                              {ws === "active" ? "Active" : ws === "expiring" ? "Expiring" : "Expired"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                <div className="px-4 py-3">
+                  <button
+                    onClick={() => navigate("/my-boats")}
+                    className="w-full text-xs font-semibold text-primary hover:underline"
+                  >
+                    Manage Equipment in My Boats →
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Warranty Claims ── */}
+        {claims.length > 0 && (
+          <div className="mt-3 bg-white rounded-xl border border-border overflow-hidden">
+            <button
+              onClick={() => setClaimsOpen((v) => !v)}
+              className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted/30 transition-colors"
+            >
+              <div className="w-7 h-7 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                <svg className="w-3.5 h-3.5 text-foreground/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-semibold text-foreground">Warranty Claims</span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs text-muted-foreground">{claims.length} filed</span>
+                </div>
+              </div>
+              <svg
+                className={`w-4 h-4 text-muted-foreground flex-shrink-0 transition-transform ${claimsOpen ? "rotate-180" : ""}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {claimsOpen && (
+              <div className="border-t border-border divide-y divide-border">
+                {claims.map((claim) => {
+                  const style = CLAIM_STYLES[claim.status];
+                  return (
+                    <div key={claim.id} className="px-4 py-3.5">
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <span className="text-sm font-medium text-foreground">{equipmentNames[claim.equipmentId] || "Unknown Equipment"}</span>
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${style.bg} ${style.text}`}>{style.label}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {claim.submittedDate ? `Submitted ${new Date(claim.submittedDate).toLocaleDateString()}` : "Not yet submitted"}
+                        {claim.notes && ` · ${claim.notes.substring(0, 80)}${claim.notes.length > 80 ? "..." : ""}`}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Hidden items ── */}
         {hiddenTasks.length > 0 && (

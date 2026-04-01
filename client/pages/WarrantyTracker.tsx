@@ -275,6 +275,24 @@ export default function WarrantyTracker() {
     return map;
   }, [allEquipment]);
 
+  // Recall status tracking
+  const RECALL_STATUS_KEY = "bosun_recall_status";
+  const [recallStatuses, setRecallStatuses] = useState<Record<string, { status: string; date: string }>>(() => {
+    try { const raw = localStorage.getItem(RECALL_STATUS_KEY); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+  });
+
+  function handleRecallStatus(recallId: string, equipmentId: string, status: "open" | "resolved" | "not_applicable") {
+    const all = { ...recallStatuses };
+    const key = `${recallId}__${equipmentId}`;
+    if (status === "open") {
+      delete all[key];
+    } else {
+      all[key] = { status, date: new Date().toISOString() };
+    }
+    localStorage.setItem(RECALL_STATUS_KEY, JSON.stringify(all));
+    setRecallStatuses(all);
+  }
+
   // Recall scan across all registered equipment
   const allRecalls = useMemo(() => {
     const found: { recall: RecallInfo; equipment: BoatEquipmentItem & { boatName: string } }[] = [];
@@ -289,6 +307,11 @@ export default function WarrantyTracker() {
     found.sort((a, b) => (severityOrder[a.recall.severity] ?? 3) - (severityOrder[b.recall.severity] ?? 3));
     return found;
   }, [allEquipment]);
+
+  const openRecallCount = allRecalls.filter(({ recall, equipment: eq }) => {
+    const s = recallStatuses[`${recall.id}__${eq.id}`];
+    return !s || s.status === "open";
+  }).length;
 
   // Expiration timeline: upcoming 12 months
   const timeline = useMemo(() => {
@@ -388,7 +411,7 @@ export default function WarrantyTracker() {
         )}
 
         {/* ──────────── Summary cards ──────────── */}
-        <div className={`grid grid-cols-2 ${allRecalls.length > 0 ? "sm:grid-cols-5" : "sm:grid-cols-4"} gap-3 mb-8`}>
+        <div className={`grid grid-cols-2 ${openRecallCount > 0 ? "sm:grid-cols-5" : "sm:grid-cols-4"} gap-3 mb-8`}>
           <div className="border border-border rounded-lg p-4">
             <p className="text-xs font-medium text-muted-foreground mb-1">Total Equipment</p>
             <p className="text-2xl font-bold text-foreground">{totalCount}</p>
@@ -414,13 +437,13 @@ export default function WarrantyTracker() {
             </div>
             <p className="text-2xl font-bold text-red-700">{expiredCount}</p>
           </div>
-          {allRecalls.length > 0 && (
+          {openRecallCount > 0 && (
             <div className="border border-red-300 bg-red-50/50 rounded-lg p-4">
               <div className="flex items-center gap-1.5 mb-1">
                 <AlertOctagon className="w-3.5 h-3.5 text-red-600" />
-                <p className="text-xs font-medium text-red-700">Recalls</p>
+                <p className="text-xs font-medium text-red-700">Open Recalls</p>
               </div>
-              <p className="text-2xl font-bold text-red-700">{allRecalls.length}</p>
+              <p className="text-2xl font-bold text-red-700">{openRecallCount}</p>
             </div>
           )}
         </div>
@@ -431,66 +454,124 @@ export default function WarrantyTracker() {
             <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
               <AlertOctagon className="w-5 h-5 text-red-500" />
               Recall Alerts
-              <span className="text-xs font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                {allRecalls.length}
-              </span>
+              {openRecallCount > 0 && (
+                <span className="text-xs font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                  {openRecallCount} open
+                </span>
+              )}
             </h2>
             <div className="space-y-3">
-              {allRecalls.map(({ recall, equipment: eq }) => (
-                <div
-                  key={`${recall.id}-${eq.id}`}
-                  className={`rounded-lg p-4 border ${
-                    recall.severity === "safety"
-                      ? "bg-red-50 border-red-200"
-                      : recall.severity === "performance"
-                      ? "bg-orange-50 border-orange-200"
-                      : "bg-blue-50 border-blue-200"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <AlertOctagon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                      recall.severity === "safety" ? "text-red-600" : recall.severity === "performance" ? "text-orange-600" : "text-blue-600"
-                    }`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="text-sm font-semibold text-foreground">{recall.title}</span>
-                        <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                          recall.severity === "safety"
-                            ? "bg-red-200 text-red-800"
-                            : recall.severity === "performance"
-                            ? "bg-orange-200 text-orange-800"
-                            : "bg-blue-200 text-blue-800"
-                        }`}>
-                          {recall.severity}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-1.5">
-                        Affects: <span className="font-medium text-foreground">{eq.manufacturer} {eq.model}</span>
-                        {" "}on <span className="font-medium text-foreground">{eq.boatName}</span>
-                        {" "}(S/N: {eq.serialNumber})
-                      </p>
-                      <p className="text-xs text-muted-foreground mb-1.5">{recall.description}</p>
-                      <p className="text-xs font-medium text-foreground mb-2">
-                        Action Required: {recall.actionRequired}
-                      </p>
-                      <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
-                        <span>Issued: {new Date(recall.issueDate).toLocaleDateString()}</span>
-                        <span>ID: {recall.id}</span>
-                        {recall.moreInfoUrl && (
-                          <a
-                            href={recall.moreInfoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary font-semibold hover:underline flex items-center gap-0.5"
-                          >
-                            More Info <ExternalLink className="w-3 h-3" />
-                          </a>
+              {allRecalls.map(({ recall, equipment: eq }) => {
+                const key = `${recall.id}__${eq.id}`;
+                const rStatus = recallStatuses[key];
+                const isDismissed = rStatus?.status === "resolved" || rStatus?.status === "not_applicable";
+
+                return (
+                  <div
+                    key={`${recall.id}-${eq.id}`}
+                    className={`rounded-lg p-4 border ${
+                      isDismissed
+                        ? "bg-gray-50 border-gray-200 opacity-70"
+                        : recall.severity === "safety"
+                        ? "bg-red-50 border-red-200"
+                        : recall.severity === "performance"
+                        ? "bg-orange-50 border-orange-200"
+                        : "bg-blue-50 border-blue-200"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <AlertOctagon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                        isDismissed ? "text-gray-400" : recall.severity === "safety" ? "text-red-600" : recall.severity === "performance" ? "text-orange-600" : "text-blue-600"
+                      }`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className={`text-sm font-semibold ${isDismissed ? "line-through text-muted-foreground" : "text-foreground"}`}>{recall.title}</span>
+                          <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                            isDismissed
+                              ? "bg-gray-200 text-gray-600"
+                              : recall.severity === "safety"
+                              ? "bg-red-200 text-red-800"
+                              : recall.severity === "performance"
+                              ? "bg-orange-200 text-orange-800"
+                              : "bg-blue-200 text-blue-800"
+                          }`}>
+                            {recall.severity}
+                          </span>
+                          {rStatus?.status === "resolved" && (
+                            <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">
+                              Resolved
+                            </span>
+                          )}
+                          {rStatus?.status === "not_applicable" && (
+                            <span className="text-[10px] font-semibold text-gray-600 bg-gray-200 px-1.5 py-0.5 rounded">
+                              N/A
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-1.5">
+                          Affects: <span className="font-medium text-foreground">{eq.manufacturer} {eq.model}</span>
+                          {" "}on <span className="font-medium text-foreground">{eq.boatName}</span>
+                          {" "}(S/N: {eq.serialNumber})
+                        </p>
+                        {!isDismissed && (
+                          <>
+                            <p className="text-xs text-muted-foreground mb-1.5">{recall.description}</p>
+                            <p className="text-xs font-medium text-foreground mb-2">
+                              Action Required: {recall.actionRequired}
+                            </p>
+                          </>
                         )}
+                        {isDismissed && rStatus?.date && (
+                          <p className="text-[11px] text-muted-foreground mb-1.5">
+                            Marked {rStatus.status === "resolved" ? "resolved" : "N/A"} on {new Date(rStatus.date).toLocaleDateString()}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+                          <span>Issued: {new Date(recall.issueDate).toLocaleDateString()}</span>
+                          <span>ID: {recall.id}</span>
+                          {recall.moreInfoUrl && (
+                            <a
+                              href={recall.moreInfoUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary font-semibold hover:underline flex items-center gap-0.5"
+                            >
+                              More Info <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+                        {/* Status action buttons */}
+                        <div className="flex items-center gap-2 mt-3 pt-2 border-t border-border/50">
+                          {(!rStatus || rStatus.status === "open") ? (
+                            <>
+                              <button
+                                onClick={() => handleRecallStatus(recall.id, eq.id, "resolved")}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-semibold hover:bg-green-700 transition-colors"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                Mark as Resolved
+                              </button>
+                              <button
+                                onClick={() => handleRecallStatus(recall.id, eq.id, "not_applicable")}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gray-200 text-gray-700 text-xs font-semibold hover:bg-gray-300 transition-colors"
+                              >
+                                N/A — Doesn't Apply
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => handleRecallStatus(recall.id, eq.id, "open")}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gray-200 text-gray-700 text-xs font-semibold hover:bg-gray-300 transition-colors"
+                            >
+                              Reopen
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         )}

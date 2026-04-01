@@ -87,7 +87,7 @@ export default function MaintenanceAlert() {
 
       {/* Text */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground">Maintenance Checklist</p>
+        <p className="text-sm font-semibold text-foreground">Maintenance</p>
         <p className="text-xs text-muted-foreground mt-0.5">
           {issueCount > 0
             ? `${issueCount} item${issueCount !== 1 ? "s" : ""} need attention · ${total} total`

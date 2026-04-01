@@ -162,6 +162,39 @@ function getWarrantyStatus(warrantyExpiry: string): "active" | "expiring" | "exp
   return "active";
 }
 
+// Recall dismissal tracking
+type RecallStatus = "open" | "resolved" | "not_applicable";
+interface RecallDismissal {
+  status: RecallStatus;
+  date: string;
+  note?: string;
+}
+const RECALL_STATUS_KEY = "bosun_recall_status";
+
+function loadRecallStatuses(): Record<string, RecallDismissal> {
+  try {
+    const raw = localStorage.getItem(RECALL_STATUS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function saveRecallStatus(recallId: string, equipmentId: string, status: RecallStatus, note?: string) {
+  const all = loadRecallStatuses();
+  const key = `${recallId}__${equipmentId}`;
+  if (status === "open") {
+    delete all[key];
+  } else {
+    all[key] = { status, date: new Date().toISOString(), note };
+  }
+  localStorage.setItem(RECALL_STATUS_KEY, JSON.stringify(all));
+  return all;
+}
+
+function getRecallStatus(recallId: string, equipmentId: string): RecallDismissal | null {
+  const all = loadRecallStatuses();
+  return all[`${recallId}__${equipmentId}`] ?? null;
+}
+
 interface BoatEquipmentProps {
   boatId: string;
   boatInfo?: { name: string; make: string; model: string; year: string };
@@ -178,6 +211,12 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
   const [manualFile, setManualFile] = useState<File | null>(null);
   const [manualDataUrl, setManualDataUrl] = useState<string | null>(null);
   const manualInputRef = useRef<HTMLInputElement>(null);
+  const [recallStatuses, setRecallStatuses] = useState<Record<string, RecallDismissal>>(() => loadRecallStatuses());
+
+  function handleRecallStatus(recallId: string, equipmentId: string, status: RecallStatus) {
+    const updated = saveRecallStatus(recallId, equipmentId, status);
+    setRecallStatuses({ ...updated });
+  }
 
   // Check if the user's engine is already registered
   const engineAlreadyRegistered = engineInfo?.engineMake
@@ -467,14 +506,19 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
           {equipment.map((item) => {
             const status = getWarrantyStatus(item.warrantyExpiry);
             const IconComponent = CATEGORY_ICONS[item.category] || Wrench;
-            const recalls = getRecallsForEquipment(item.manufacturer, item.model);
+            const allItemRecalls = getRecallsForEquipment(item.manufacturer, item.model);
+            const recalls = allItemRecalls; // keep full list for expanded view
+            const openRecalls = allItemRecalls.filter((r) => {
+              const s = recallStatuses[`${r.id}__${item.id}`];
+              return !s || s.status === "open";
+            });
             const support = getSupportPortal(item.manufacturer);
             const isExpanded = expandedItemId === item.id;
 
             return (
               <div key={item.id}>
                 <div
-                  className={`rounded-lg border hover:bg-gray-50 transition-colors ${recalls.some((r) => r.severity === "safety") ? "border-red-300 bg-red-50/30" : "border-border"}`}
+                  className={`rounded-lg border hover:bg-gray-50 transition-colors ${openRecalls.some((r) => r.severity === "safety") ? "border-red-300 bg-red-50/30" : "border-border"}`}
                 >
                   <div className="flex items-center gap-3 p-2.5">
                     <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
@@ -504,14 +548,14 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
                             Expired
                           </span>
                         )}
-                        {recalls.length > 0 && (
+                        {openRecalls.length > 0 && (
                           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0 flex items-center gap-0.5 ${
-                            recalls.some((r) => r.severity === "safety")
+                            openRecalls.some((r) => r.severity === "safety")
                               ? "text-red-700 bg-red-100"
                               : "text-orange-700 bg-orange-100"
                           }`}>
                             <AlertOctagon className="w-2.5 h-2.5" />
-                            {recalls.length} Recall{recalls.length > 1 ? "s" : ""}
+                            {openRecalls.length} Recall{openRecalls.length > 1 ? "s" : ""}
                           </span>
                         )}
                       </div>
@@ -558,54 +602,109 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
                       {/* Recall Alerts */}
                       {recalls.length > 0 && (
                         <div className="space-y-2">
-                          {recalls.map((recall) => (
-                            <div
-                              key={recall.id}
-                              className={`rounded-md p-2.5 text-xs ${
-                                recall.severity === "safety"
-                                  ? "bg-red-50 border border-red-200"
-                                  : recall.severity === "performance"
-                                  ? "bg-orange-50 border border-orange-200"
-                                  : "bg-blue-50 border border-blue-200"
-                              }`}
-                            >
-                              <div className="flex items-start gap-2">
-                                <AlertOctagon className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${
-                                  recall.severity === "safety" ? "text-red-600" : recall.severity === "performance" ? "text-orange-600" : "text-blue-600"
-                                }`} />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-0.5">
-                                    <span className="font-semibold">{recall.title}</span>
-                                    <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                                      recall.severity === "safety"
-                                        ? "bg-red-200 text-red-800"
-                                        : recall.severity === "performance"
-                                        ? "bg-orange-200 text-orange-800"
-                                        : "bg-blue-200 text-blue-800"
-                                    }`}>
-                                      {recall.severity}
-                                    </span>
-                                  </div>
-                                  <p className="text-muted-foreground mb-1">{recall.description}</p>
-                                  <p className="font-medium mb-1">Action: {recall.actionRequired}</p>
-                                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                                    <span>Issued: {new Date(recall.issueDate).toLocaleDateString()}</span>
-                                    <span>ID: {recall.id}</span>
-                                    {recall.moreInfoUrl && (
-                                      <a
-                                        href={recall.moreInfoUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-primary font-semibold hover:underline flex items-center gap-0.5"
-                                      >
-                                        More Info <ExternalLink className="w-2.5 h-2.5" />
-                                      </a>
+                          {recalls.map((recall) => {
+                            const rStatus = getRecallStatus(recall.id, item.id);
+                            const isDismissed = rStatus?.status === "resolved" || rStatus?.status === "not_applicable";
+
+                            return (
+                              <div
+                                key={recall.id}
+                                className={`rounded-md p-2.5 text-xs ${
+                                  isDismissed
+                                    ? "bg-gray-50 border border-gray-200 opacity-70"
+                                    : recall.severity === "safety"
+                                    ? "bg-red-50 border border-red-200"
+                                    : recall.severity === "performance"
+                                    ? "bg-orange-50 border border-orange-200"
+                                    : "bg-blue-50 border border-blue-200"
+                                }`}
+                              >
+                                <div className="flex items-start gap-2">
+                                  <AlertOctagon className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${
+                                    isDismissed ? "text-gray-400" : recall.severity === "safety" ? "text-red-600" : recall.severity === "performance" ? "text-orange-600" : "text-blue-600"
+                                  }`} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                      <span className={`font-semibold ${isDismissed ? "line-through text-muted-foreground" : ""}`}>{recall.title}</span>
+                                      <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                                        isDismissed
+                                          ? "bg-gray-200 text-gray-600"
+                                          : recall.severity === "safety"
+                                          ? "bg-red-200 text-red-800"
+                                          : recall.severity === "performance"
+                                          ? "bg-orange-200 text-orange-800"
+                                          : "bg-blue-200 text-blue-800"
+                                      }`}>
+                                        {recall.severity}
+                                      </span>
+                                      {rStatus?.status === "resolved" && (
+                                        <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">
+                                          Resolved
+                                        </span>
+                                      )}
+                                      {rStatus?.status === "not_applicable" && (
+                                        <span className="text-[10px] font-semibold text-gray-600 bg-gray-200 px-1.5 py-0.5 rounded">
+                                          N/A
+                                        </span>
+                                      )}
+                                    </div>
+                                    {!isDismissed && (
+                                      <>
+                                        <p className="text-muted-foreground mb-1">{recall.description}</p>
+                                        <p className="font-medium mb-1">Action: {recall.actionRequired}</p>
+                                      </>
                                     )}
+                                    {isDismissed && rStatus?.date && (
+                                      <p className="text-[10px] text-muted-foreground mb-1">
+                                        Marked {rStatus.status === "resolved" ? "resolved" : "N/A"} on {new Date(rStatus.date).toLocaleDateString()}
+                                      </p>
+                                    )}
+                                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                                      <span>Issued: {new Date(recall.issueDate).toLocaleDateString()}</span>
+                                      <span>ID: {recall.id}</span>
+                                      {recall.moreInfoUrl && (
+                                        <a
+                                          href={recall.moreInfoUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-primary font-semibold hover:underline flex items-center gap-0.5"
+                                        >
+                                          More Info <ExternalLink className="w-2.5 h-2.5" />
+                                        </a>
+                                      )}
+                                    </div>
+                                    {/* Status action buttons */}
+                                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
+                                      {(!rStatus || rStatus.status === "open") ? (
+                                        <>
+                                          <button
+                                            onClick={() => handleRecallStatus(recall.id, item.id, "resolved")}
+                                            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-green-600 text-white text-[10px] font-semibold hover:bg-green-700 transition-colors"
+                                          >
+                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                            Mark as Resolved
+                                          </button>
+                                          <button
+                                            onClick={() => handleRecallStatus(recall.id, item.id, "not_applicable")}
+                                            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-200 text-gray-700 text-[10px] font-semibold hover:bg-gray-300 transition-colors"
+                                          >
+                                            N/A — Doesn't Apply
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleRecallStatus(recall.id, item.id, "open")}
+                                          className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-200 text-gray-700 text-[10px] font-semibold hover:bg-gray-300 transition-colors"
+                                        >
+                                          Reopen
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
 

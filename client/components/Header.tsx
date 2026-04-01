@@ -11,8 +11,7 @@ import NotificationCenter from "@/components/NotificationCenter";
 
 const OWNER_MENU_ITEMS = [
   { label: "My Boats", to: "/my-boats" },
-  { label: "Warranty", to: "/warranty" },
-  { label: "Maintenance Log", to: "/maintenance" },
+  { label: "Maintenance", to: "/maintenance" },
   { label: "Settings", to: "/settings" },
 ];
 

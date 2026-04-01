@@ -134,12 +134,23 @@ function loadFleet(): SavedBoat[] {
   return [];
 }
 
+const DEFAULT_BOAT_ID = "boat-1773000691182";
+const DEMO_EQUIPMENT: BoatEquipmentItem[] = [
+  { id: "demo-equip-engine-1", boatId: DEFAULT_BOAT_ID, category: "engine", manufacturer: "Mercury", model: "Verado 250", serialNumber: "MER-1T082734", purchaseDate: "2020-04-15", warrantyExpiry: "2027-04-15", dealer: "MarineMax Fort Lauderdale", notes: "Factory-installed. 7-year warranty.", createdAt: "2024-06-01T00:00:00.000Z" },
+  { id: "demo-equip-mfd-1", boatId: DEFAULT_BOAT_ID, category: "mfd", manufacturer: "Simrad", model: "NSX 3012", serialNumber: "SIM-NSX-20491287", purchaseDate: "2023-08-20", warrantyExpiry: "2025-08-20", dealer: "West Marine Pompano Beach", notes: "12-inch touchscreen MFD. 2-year warranty.", createdAt: "2024-06-01T00:00:00.000Z" },
+  { id: "demo-equip-charger-1", boatId: DEFAULT_BOAT_ID, category: "charger_inverter", manufacturer: "ProMariner", model: "ProTournament 360 Elite", serialNumber: "PM-360E-00847523", purchaseDate: "2022-03-10", warrantyExpiry: "2025-03-10", dealer: "Defender Industries", notes: "36-amp 3-bank charger. 3-year warranty.", createdAt: "2024-06-01T00:00:00.000Z" },
+];
+
 function loadEquipment(boatId: string): BoatEquipmentItem[] {
   try {
     const stored = localStorage.getItem(`bosun_boat_equipment_${boatId}`);
     if (stored) return JSON.parse(stored);
   } catch {
     // ignore
+  }
+  if (boatId === DEFAULT_BOAT_ID) {
+    localStorage.setItem(`bosun_boat_equipment_${boatId}`, JSON.stringify(DEMO_EQUIPMENT));
+    return [...DEMO_EQUIPMENT];
   }
   return [];
 }

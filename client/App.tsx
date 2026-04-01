@@ -26,6 +26,7 @@ import VendorRevenue from "./pages/vendor/VendorRevenue";
 import VendorBusinessHub from "./pages/vendor/VendorBusinessHub";
 import AuthPage from "./pages/AuthPage";
 import Onboarding from "./pages/Onboarding";
+import AdminPortal from "./pages/AdminPortal";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { RoleProvider } from "./context/RoleContext";
 
@@ -55,9 +56,10 @@ function OnboardingGuard() {
   return <Outlet />;
 }
 
-// Redirect authenticated users away from login
+// Redirect authenticated users away from login (unless in demo mode)
 function PublicOnlyGuard() {
   const { user, profile, loading } = useAuth();
+  if (DEMO_MODE) return <Outlet />;
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" /></div>;
   if (user && profile?.onboarding_complete) {
     return profile.role === "vendor"
@@ -107,6 +109,9 @@ const App = () => (
                 <Route path="/vendor-revenue" element={<VendorRevenue />} />
                 <Route path="/vendor-business" element={<VendorBusinessHub />} />
               </Route>
+
+              {/* Admin portal — has its own password gate, outside AuthGuard */}
+              <Route path="/admin" element={<AdminPortal />} />
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

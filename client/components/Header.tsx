@@ -4,6 +4,7 @@ import { PROJECTS } from "@/data/projectData";
 import { VENDOR_PROFILES } from "@/data/vendorData";
 import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { useRole } from "@/context/RoleContext";
+import { useAuth } from "@/context/AuthContext";
 import { getVendorUnreadCount } from "@/data/bidUtils";
 import { getCurrentUser, logout } from "@/data/authUtils";
 import NotificationCenter from "@/components/NotificationCenter";
@@ -38,8 +39,11 @@ export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   const { role, vendorId, setVendorMode, setOwnerMode } = useRole();
+  const { user: supabaseUser, signOut: supabaseSignOut } = useAuth();
 
   const currentUser = getCurrentUser();
+  // User is "authenticated" if they have a Supabase session
+  const isAuthenticated = !!supabaseUser;
   const isVendor = role === "vendor";
   const currentVendor = vendorId ? getAllVendorProfiles()[vendorId] : null;
 
@@ -54,6 +58,7 @@ export default function Header() {
   function handleSignOut() {
     setMenuOpen(false);
     logout();
+    supabaseSignOut();
     navigate("/login");
   }
 
@@ -123,6 +128,31 @@ export default function Header() {
 
           {/* Right side */}
           <div className="flex items-center gap-2">
+            {/* Auth buttons for unauthenticated users */}
+            {!isAuthenticated && (
+              <div className="flex items-center gap-1.5 mr-1">
+                <Link
+                  to="/login"
+                  className="px-3 py-1.5 text-sm font-medium text-foreground hover:opacity-70 transition-opacity"
+                >
+                  Log In
+                </Link>
+                <Link
+                  to="/login"
+                  className="px-3 py-1.5 text-sm font-medium text-white bg-foreground rounded-md hover:bg-foreground/90 transition-colors"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            )}
+
+            {/* Logged-in user info */}
+            {isAuthenticated && (
+              <span className="hidden sm:inline text-xs text-muted-foreground mr-1">
+                {supabaseUser.email}
+              </span>
+            )}
+
             {/* Notification bell */}
             <NotificationCenter />
 

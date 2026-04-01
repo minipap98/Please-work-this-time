@@ -1,14 +1,12 @@
 import { useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { useRole } from "@/context/RoleContext";
 import { cn } from "@/lib/utils";
 
 type Mode = "signin" | "signup";
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const { setVendorMode, setOwnerMode } = useRole();
   const { signIn, signUp } = useAuth();
 
   const [mode, setMode] = useState<Mode>("signin");
@@ -18,6 +16,7 @@ export default function AuthPage() {
   const [role, setRole] = useState<"owner" | "vendor">("owner");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
   function resetForm() {
@@ -26,6 +25,7 @@ export default function AuthPage() {
     setName("");
     setRole("owner");
     setError("");
+    setSuccess("");
     setShowPassword(false);
   }
 
@@ -34,23 +34,10 @@ export default function AuthPage() {
     setMode(next);
   }
 
-  function handleSuccess(userRole: "owner" | "vendor", vendorId?: string, isNewSignup = false) {
-    if (userRole === "vendor" && vendorId) {
-      setVendorMode(vendorId);
-    } else {
-      setOwnerMode();
-    }
-
-    if (isNewSignup) {
-      navigate("/onboarding");
-    } else {
-      navigate(userRole === "vendor" ? "/vendor-dashboard" : "/");
-    }
-  }
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
+    setSuccess("");
     setLoading(true);
 
     try {
@@ -59,8 +46,8 @@ export default function AuthPage() {
         if (err) {
           setError(err);
         } else {
-          // Profile will be loaded by AuthContext; read role from metadata
-          handleSuccess(role, undefined, false);
+          // Profile will be loaded by AuthContext; redirect to home
+          navigate("/");
         }
       } else {
         if (!name.trim()) {
@@ -77,7 +64,7 @@ export default function AuthPage() {
         if (err) {
           setError(err);
         } else {
-          handleSuccess(role, undefined, true);
+          setSuccess("Account created! Check your email to confirm your address, then sign in.");
         }
       }
     } catch (err: any) {
@@ -225,6 +212,13 @@ export default function AuthPage() {
           {error && (
             <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
               {error}
+            </p>
+          )}
+
+          {/* Success */}
+          {success && (
+            <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+              {success}
             </p>
           )}
 

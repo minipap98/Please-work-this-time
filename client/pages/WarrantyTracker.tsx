@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
+import BoatEquipment from "@/components/BoatEquipment";
 import {
   Shield,
   AlertTriangle,
@@ -193,10 +194,20 @@ const CLAIM_STATUS_STYLES: Record<ClaimStatus, { bg: string; text: string; label
 export default function WarrantyTracker() {
   const navigate = useNavigate();
   const [sortBy, setSortBy] = useState<SortKey>("expiry");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addBoatId, setAddBoatId] = useState<string>("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Load all data
-  const fleet = useMemo(() => loadFleet(), []);
-  const claims = useMemo(() => loadClaims(), []);
+  // Load all data (refreshKey forces re-read after adding equipment)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fleet = useMemo(() => loadFleet(), [refreshKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const claims = useMemo(() => loadClaims(), [refreshKey]);
+
+  const handleEquipmentAdded = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+    setShowAddForm(false);
+  }, []);
 
   // Build a flat list of all equipment with boat info attached
   const allEquipment = useMemo(() => {
@@ -286,7 +297,66 @@ export default function WarrantyTracker() {
           Back
         </button>
 
-        <h1 className="text-2xl font-semibold text-foreground mb-6">Warranty Tracker</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-semibold text-foreground">Warranty Tracker</h1>
+          <button
+            onClick={() => {
+              if (showAddForm) {
+                setShowAddForm(false);
+              } else {
+                const boats = loadFleet();
+                setAddBoatId(boats[0]?.id ?? "");
+                setShowAddForm(true);
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+          >
+            {showAddForm ? "Cancel" : "+ Add Equipment"}
+          </button>
+        </div>
+
+        {/* Add equipment form */}
+        {showAddForm && (
+          <div className="border border-border rounded-lg p-4 mb-6">
+            {fleet.length > 1 && (
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-foreground mb-1">Select Boat</label>
+                <select
+                  value={addBoatId}
+                  onChange={(e) => setAddBoatId(e.target.value)}
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm"
+                >
+                  {fleet.map((boat) => (
+                    <option key={boat.id} value={boat.id}>
+                      {boat.name || [boat.year, boat.make, boat.model].filter(Boolean).join(" ") || "Unnamed Boat"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {addBoatId && (
+              <BoatEquipment
+                boatId={addBoatId}
+                boatInfo={(() => {
+                  const b = fleet.find((f) => f.id === addBoatId);
+                  return b ? { name: b.name, make: b.make, model: b.model, year: b.year } : undefined;
+                })()}
+                engineInfo={(() => {
+                  const b = fleet.find((f) => f.id === addBoatId);
+                  return b ? { engineMake: b.engineMake, engineModel: b.engineModel, engineType: b.engineType, engineCount: b.engineCount } : undefined;
+                })()}
+              />
+            )}
+            <div className="mt-3 flex justify-end">
+              <button
+                onClick={handleEquipmentAdded}
+                className="text-xs font-semibold text-primary hover:opacity-70 transition-opacity"
+              >
+                Done — Refresh List
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ──────────── Summary cards ──────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">

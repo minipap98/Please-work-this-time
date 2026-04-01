@@ -297,6 +297,16 @@ export const PROJECTS: Project[] = [
     location: "Fort Lauderdale",
     category: "Engine Service",
     boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
+    linkedEquipment: {
+      manufacturer: "Mercury",
+      model: "Verado 250",
+      category: "Engine",
+      serialNumber: "MER-2020-V250-78432",
+      warrantyExpiry: "2027-02-19",
+      warrantyStatus: "active",
+      dealer: "MarineMax Fort Lauderdale",
+    },
+    isWarrantyClaim: true,
     bids: [
       {
         id: "b1",

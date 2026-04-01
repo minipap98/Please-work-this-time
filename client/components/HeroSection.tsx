@@ -238,8 +238,27 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
     });
   }
 
+  // Auto-select equipment when category matches registered gear
+  function autoSelectEquipment(categoryLabel: string) {
+    const categoryMap: Record<string, string[]> = {
+      "Engine Service": ["engine"],
+      "Electronics & AV": ["mfd", "radar", "fishfinder", "vhf_radio", "autopilot", "stereo"],
+      "Electrical": ["battery", "charger_inverter", "lighting"],
+      "Mechanical": ["windlass", "thruster", "trolling_motor"],
+    };
+    const matchCategories = categoryMap[categoryLabel];
+    if (matchCategories && boatEquipment.length > 0) {
+      const match = boatEquipment.find((e) => matchCategories.includes(e.category));
+      if (match) {
+        setSelectedEquipmentId(match.id);
+        return;
+      }
+    }
+  }
+
   function handleSelectCategory(label: string) {
     setSelectedCategory(label);
+    autoSelectEquipment(label);
     if (label === "Engine Service") {
       setStep("engine");
     } else {
@@ -251,6 +270,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
     setSelectedCategory(template.label);
     setProjectTitle(template.title);
     setProjectDescription(template.description);
+    autoSelectEquipment(template.label);
     setStep("details");
   }
 

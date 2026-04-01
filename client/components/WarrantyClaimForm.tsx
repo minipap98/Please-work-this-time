@@ -9,6 +9,7 @@ import {
   Check,
   Shield,
 } from "lucide-react";
+import { getWarrantyPortal } from "@/data/equipmentData";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -45,87 +46,8 @@ interface SavedClaim {
   notes: string;
 }
 
-// ---------------------------------------------------------------------------
-// Manufacturer warranty portal directory
-// ---------------------------------------------------------------------------
-
-interface ManufacturerInfo {
-  url: string;
-  phone?: string;
-  notes?: string;
-}
-
-const MANUFACTURER_PORTALS: Record<string, ManufacturerInfo> = {
-  Yamaha: {
-    url: "https://www.yamaha-motor.com/warranty",
-    phone: "1-866-894-1626",
-    notes: "Register your product online before filing a claim.",
-  },
-  Mercury: {
-    url: "https://www.mercurymarine.com/en/us/support/warranty/",
-    phone: "1-920-929-5040",
-    notes: "Claims must be submitted through an authorized dealer.",
-  },
-  Honda: {
-    url: "https://marine.honda.com/warranty",
-    phone: "1-866-784-1870",
-    notes: "Keep your maintenance records — they may be required.",
-  },
-  Suzuki: {
-    url: "https://www.suzukimarine.com/support/warranty",
-    phone: "1-714-996-7040",
-    notes: "Extended warranty available through Suzuki Protection Plan.",
-  },
-  Evinrude: {
-    url: "https://www.evinrude.com/en-us/support/warranty.html",
-    phone: "1-877-838-5534",
-    notes: "BRP handles all Evinrude warranty service.",
-  },
-  Garmin: {
-    url: "https://www.garmin.com/en-US/forms/warranty/",
-    phone: "1-913-397-8200",
-    notes: "Marine electronics carry a separate warranty from the engine.",
-  },
-  Raymarine: {
-    url: "https://www.raymarine.com/warranty/",
-    phone: "1-603-324-7900",
-    notes: "Product registration is required before submitting a claim.",
-  },
-  Simrad: {
-    url: "https://www.simrad-yachting.com/support/warranty/",
-    phone: "1-800-628-4487",
-    notes: "Navico handles all Simrad warranty claims.",
-  },
-  Lowrance: {
-    url: "https://www.lowrance.com/support/warranty/",
-    phone: "1-800-628-4487",
-    notes: "Submit claims through the Navico warranty portal.",
-  },
-  Volvo: {
-    url: "https://www.volvopenta.com/warranty",
-    phone: "1-757-436-2800",
-    notes: "Claims must go through an authorized Volvo Penta dealer.",
-  },
-  Cummins: {
-    url: "https://www.cummins.com/parts-and-service/warranty",
-    phone: "1-800-286-6467",
-    notes: "QuickServe Online portal available for registered users.",
-  },
-  Lewmar: {
-    url: "https://www.lewmar.com/warranty",
-    notes: "Contact your local distributor for warranty service.",
-  },
-  Minn_Kota: {
-    url: "https://www.minnkotamotors.com/support/warranty",
-    phone: "1-800-227-6433",
-    notes: "Registration must be completed within 30 days of purchase.",
-  },
-  Humminbird: {
-    url: "https://www.humminbird.com/support/warranty",
-    phone: "1-800-227-6433",
-    notes: "Johnson Outdoors handles all Humminbird claims.",
-  },
-};
+// Manufacturer warranty portal directory is loaded from shared equipmentData.ts
+// which contains 23+ manufacturers with URLs, phone numbers, and claim notes.
 
 // ---------------------------------------------------------------------------
 // Local-storage helpers
@@ -193,11 +115,7 @@ export default function WarrantyClaimForm({
   }, [claims]);
 
   // ------- Manufacturer portal lookup -------
-  const mfr = equipment.manufacturer;
-  const portalKey = Object.keys(MANUFACTURER_PORTALS).find(
-    (k) => mfr.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(mfr.toLowerCase()),
-  );
-  const portal = portalKey ? MANUFACTURER_PORTALS[portalKey] : null;
+  const portal = getWarrantyPortal(equipment.manufacturer);
 
   // ------- Warranty status -------
   const warrantyExpired =

@@ -30,6 +30,19 @@ const EMPTY_BOAT: Omit<SavedBoat, "id"> = {
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: CURRENT_YEAR - 2009 }, (_, i) => String(CURRENT_YEAR - i));
 
+const DEFAULT_DEMO_BOAT: SavedBoat = {
+  id: "boat-1773000691182",
+  make: "Sea Ray",
+  model: "SDX 250 OB",
+  year: "2020",
+  name: "No Vacancy",
+  engineType: "Outboard",
+  engineMake: "Mercury",
+  engineModel: "Verado 250 (2021–present)",
+  engineCount: "Single",
+  isPrimary: true,
+};
+
 function loadFleet(): SavedBoat[] {
   try {
     const stored = localStorage.getItem(FLEET_STORAGE_KEY);
@@ -41,7 +54,10 @@ function loadFleet(): SavedBoat[] {
       return [boat];
     }
   } catch {}
-  return [];
+  // Seed demo boat for first-time visitors
+  const fleet = [DEFAULT_DEMO_BOAT];
+  saveFleet(fleet);
+  return fleet;
 }
 
 function saveFleet(fleet: SavedBoat[]) {

@@ -6,7 +6,7 @@ import StripePayment from "@/components/StripePayment";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 import { getAugmentedProjects, getRejectedBidIds, rejectBid, unrejectBid, getBidAdjustment, getRescindedBidIds } from "@/data/bidUtils";
 import { VENDOR_PROFILES } from "@/data/vendorData";
-// useRole available if needed for vendor-specific views
+import { useRole } from "@/context/RoleContext";
 import { getProjectPhotos } from "@/lib/photoUtils";
 import {
   Dialog,
@@ -41,6 +41,7 @@ function Stars({ rating, reviewCount }: { rating: number; reviewCount: number })
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { role, vendorId } = useRole();
 
   const project = getAugmentedProjects().find((p) => p.id === id);
 
@@ -257,6 +258,110 @@ export default function ProjectDetail() {
             </div>
           )}
         </div>
+
+        {/* Equipment & Warranty */}
+        {project.linkedEquipment && (() => {
+          const eq = project.linkedEquipment;
+          const isAcceptedVendor =
+            role === "vendor" &&
+            vendorId != null &&
+            project.chosenBidId != null &&
+            project.bids.some(
+              (b) => b.id === project.chosenBidId && b.vendorName === vendorId
+            );
+          const isVendor = role === "vendor";
+
+          const warrantyBadge = (() => {
+            const s = eq.warrantyStatus.toLowerCase();
+            if (s === "active")
+              return { label: "Active", icon: "\u2705", classes: "bg-green-50 text-green-700 border-green-200" };
+            if (s.includes("expiring"))
+              return { label: "Expiring Soon", icon: "\u26A0\uFE0F", classes: "bg-amber-50 text-amber-700 border-amber-200" };
+            return { label: "Expired", icon: "\u274C", classes: "bg-red-50 text-red-700 border-red-200" };
+          })();
+
+          const showWarrantyClaim =
+            project.isWarrantyClaim === true &&
+            (eq.warrantyStatus.toLowerCase() === "active" ||
+              eq.warrantyStatus.toLowerCase().includes("expiring"));
+
+          return (
+            <section className="mb-10">
+              <h2 className="text-base font-semibold text-foreground mb-4">Equipment &amp; Warranty</h2>
+              <div className="border border-border rounded-lg p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-1">{eq.category}</p>
+                    <p className="text-sm font-semibold text-foreground">{eq.manufacturer} {eq.model}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+                    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${warrantyBadge.classes}`}>
+                      {warrantyBadge.icon} {warrantyBadge.label}
+                    </span>
+                    {showWarrantyClaim && (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200">
+                        Potential Warranty Claim
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {isAcceptedVendor ? (
+                  <div className="mt-4 pt-4 border-t border-border/50 space-y-2">
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Serial Number</p>
+                        <p className="font-medium text-foreground">{eq.serialNumber}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Dealer</p>
+                        <p className="font-medium text-foreground">{eq.dealer}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Warranty Expiry</p>
+                        <p className="font-medium text-foreground">{eq.warrantyExpiry}</p>
+                      </div>
+                    </div>
+                    {showWarrantyClaim && (
+                      <button
+                        onClick={() => {
+                          const claims = JSON.parse(localStorage.getItem("bosun_vendor_warranty_claims") || "[]");
+                          const newClaim = {
+                            id: `wc_${Date.now()}`,
+                            projectId: project.id,
+                            projectTitle: project.title,
+                            ownerName: project.owner || "Boat Owner",
+                            equipmentManufacturer: eq.manufacturer,
+                            equipmentModel: eq.model,
+                            serialNumber: eq.serialNumber,
+                            status: "submitted" as const,
+                            submittedDate: new Date().toISOString().split("T")[0],
+                            lastUpdated: new Date().toISOString().split("T")[0],
+                            notes: "",
+                            claimAmount: 0,
+                          };
+                          claims.push(newClaim);
+                          localStorage.setItem("bosun_vendor_warranty_claims", JSON.stringify(claims));
+                          alert("Warranty claim filed successfully.");
+                        }}
+                        className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        File Warranty Claim
+                      </button>
+                    )}
+                  </div>
+                ) : isVendor ? (
+                  <p className="mt-4 pt-4 border-t border-border/50 text-sm text-muted-foreground italic">
+                    Full equipment details available after bid acceptance
+                  </p>
+                ) : null}
+              </div>
+            </section>
+          );
+        })()}
 
         {/* Bids */}
         <section>

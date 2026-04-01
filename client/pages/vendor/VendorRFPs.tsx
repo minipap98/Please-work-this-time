@@ -170,6 +170,25 @@ export default function VendorRFPs() {
                           <span>{project.boat.propulsion}</span>
                         </div>
                       )}
+                      {project.linkedEquipment && (
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                            {"\uD83D\uDD27"} {project.linkedEquipment.manufacturer} {project.linkedEquipment.model}
+                            <span className="mx-0.5">·</span>
+                            {(() => {
+                              const s = project.linkedEquipment.warrantyStatus.toLowerCase();
+                              if (s === "active") return <span className="text-green-600">Warranty Active</span>;
+                              if (s.includes("expiring")) return <span className="text-amber-600">Warranty Expiring</span>;
+                              return <span className="text-red-600">Warranty Expired</span>;
+                            })()}
+                          </span>
+                          {project.isWarrantyClaim && (
+                            <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                              Warranty Claim
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <p className="text-xs text-muted-foreground mt-2">
                         {project.bids.length} bid{project.bids.length !== 1 ? "s" : ""} submitted
                       </p>

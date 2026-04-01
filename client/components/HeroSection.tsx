@@ -455,7 +455,44 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
               </DialogHeader>
 
               <div className="space-y-5 pt-1">
-                {/* Engine Type */}
+                {/* Shortcut: use registered engine */}
+                {boatEquipment.filter((e) => e.category === "engine").length > 0 && (
+                  <div className="border border-blue-200 bg-blue-50 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-blue-800 mb-2">Your registered engine{boatEquipment.filter((e) => e.category === "engine").length > 1 ? "s" : ""}</p>
+                    <div className="space-y-2">
+                      {boatEquipment.filter((e) => e.category === "engine").map((eng) => (
+                        <button
+                          key={eng.id}
+                          onClick={() => {
+                            setSelectedEquipmentId(eng.id);
+                            setSelectedCategory("Engine Service");
+                            setProjectTitle("");
+                            setProjectDescription("");
+                            setStep("details");
+                          }}
+                          className="w-full flex items-center justify-between gap-2 p-2.5 rounded-md bg-white border border-blue-200 hover:border-blue-400 transition-colors text-left"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{eng.manufacturer} {eng.model}</p>
+                            <p className="text-[10px] text-muted-foreground">S/N: {eng.serialNumber}</p>
+                          </div>
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0 ${
+                            getEquipmentWarrantyStatus(eng.warrantyExpiry) === "active"
+                              ? "text-green-600 bg-green-50"
+                              : getEquipmentWarrantyStatus(eng.warrantyExpiry) === "expiring"
+                              ? "text-amber-600 bg-amber-50"
+                              : "text-red-600 bg-red-50"
+                          }`}>
+                            {getEquipmentWarrantyStatus(eng.warrantyExpiry) === "active" ? "Warranty Active" : getEquipmentWarrantyStatus(eng.warrantyExpiry) === "expiring" ? "Expiring Soon" : "Warranty Expired"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-blue-600 mt-2">Click to skip engine selection and go straight to project details</p>
+                  </div>
+                )}
+
+                {/* Engine Type — manual selection */}
                 <div>
                   <p className="text-sm font-semibold text-foreground mb-2">Engine Type</p>
                   <div className="grid grid-cols-3 gap-2">

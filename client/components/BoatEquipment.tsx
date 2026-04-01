@@ -107,14 +107,22 @@ function getWarrantyStatus(warrantyExpiry: string): "active" | "expiring" | "exp
 interface BoatEquipmentProps {
   boatId: string;
   boatInfo?: { name: string; make: string; model: string; year: string };
+  engineInfo?: { engineMake: string; engineModel: string; engineType: string; engineCount: string };
 }
 
-export default function BoatEquipment({ boatId, boatInfo }: BoatEquipmentProps) {
+export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEquipmentProps) {
   const [equipment, setEquipment] = useState<BoatEquipmentItem[]>(() => loadEquipment(boatId));
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [claimItemId, setClaimItemId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+
+  // Check if the user's engine is already registered
+  const engineAlreadyRegistered = engineInfo?.engineMake
+    ? equipment.some(
+        (e) => e.category === "engine" && e.manufacturer.toLowerCase() === engineInfo.engineMake.toLowerCase()
+      )
+    : true; // no engine info = don't show prompt
 
   useEffect(() => {
     setEquipment(loadEquipment(boatId));
@@ -292,6 +300,32 @@ export default function BoatEquipment({ boatId, boatInfo }: BoatEquipmentProps) 
             className="w-full py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {editingId ? "Update Equipment" : "Add Equipment"}
+          </button>
+        </div>
+      )}
+
+      {/* Engine pre-fill prompt */}
+      {!engineAlreadyRegistered && !showForm && engineInfo?.engineMake && (
+        <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 mb-3">
+          <p className="text-xs font-semibold text-blue-800 mb-1">
+            Register your {engineInfo.engineMake} {engineInfo.engineModel?.replace(/\s*\([\d–\-]+.*?\)$/, "")}?
+          </p>
+          <p className="text-[10px] text-blue-600 mb-2">
+            We already have your engine details from your boat profile. Just add the serial number{engineInfo.engineCount && engineInfo.engineCount !== "Single" ? "s" : ""} and warranty info.
+          </p>
+          <button
+            onClick={() => {
+              setForm({
+                ...EMPTY_FORM,
+                category: "engine",
+                manufacturer: engineInfo.engineMake,
+                model: engineInfo.engineModel?.replace(/\s*\([\d–\-]+.*?\)$/, "") || "",
+              });
+              setShowForm(true);
+            }}
+            className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors"
+          >
+            Add Serial Number{engineInfo.engineCount && engineInfo.engineCount !== "Single" ? "s" : ""} & Warranty Info
           </button>
         </div>
       )}

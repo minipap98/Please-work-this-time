@@ -304,7 +304,11 @@ export default function MyBoats() {
 
               {/* Equipment & Warranty section */}
               <div className="border-t border-border px-5 py-3">
-                <BoatEquipment boatId={boat.id} boatInfo={{ name: boat.name, make: boat.make, model: boat.model, year: boat.year }} />
+                <BoatEquipment
+                  boatId={boat.id}
+                  boatInfo={{ name: boat.name, make: boat.make, model: boat.model, year: boat.year }}
+                  engineInfo={{ engineMake: boat.engineMake, engineModel: boat.engineModel, engineType: boat.engineType, engineCount: boat.engineCount }}
+                />
               </div>
 
               {/* Documents section */}

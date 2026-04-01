@@ -144,6 +144,59 @@ export default function ProjectDetail() {
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
+  // Additional notes & photos (owner can add after posting)
+  const notesKey = `project_notes_${id}`;
+  const photosKey = `project_extra_photos_${id}`;
+  const [additionalNotes, setAdditionalNotes] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(notesKey) ?? "[]"); } catch { return []; }
+  });
+  const [additionalPhotos, setAdditionalPhotos] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(photosKey) ?? "[]"); } catch { return []; }
+  });
+  const [showAddNote, setShowAddNote] = useState(false);
+  const [newNoteText, setNewNoteText] = useState("");
+
+  function handleAddNote() {
+    if (!newNoteText.trim()) return;
+    const timestamp = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+    const entry = `[${timestamp}] ${newNoteText.trim()}`;
+    const updated = [...additionalNotes, entry];
+    setAdditionalNotes(updated);
+    localStorage.setItem(notesKey, JSON.stringify(updated));
+    setNewNoteText("");
+    setShowAddNote(false);
+  }
+
+  function handleDeleteNote(index: number) {
+    const updated = additionalNotes.filter((_, i) => i !== index);
+    setAdditionalNotes(updated);
+    localStorage.setItem(notesKey, JSON.stringify(updated));
+  }
+
+  function handleAddPhotos(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    files.forEach((file) => {
+      if (file.size > 10 * 1024 * 1024) return; // 10MB limit
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (ev.target?.result) {
+          setAdditionalPhotos((prev) => {
+            const updated = [...prev, ev.target!.result as string];
+            localStorage.setItem(photosKey, JSON.stringify(updated));
+            return updated;
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function handleDeletePhoto(index: number) {
+    const updated = additionalPhotos.filter((_, i) => i !== index);
+    setAdditionalPhotos(updated);
+    localStorage.setItem(photosKey, JSON.stringify(updated));
+  }
+
   // Payment/deposit state
   const depositKey = `deposit_${id}`;
   const [depositPaid, setDepositPaid] = useState(() => {
@@ -258,6 +311,107 @@ export default function ProjectDetail() {
             </div>
           )}
         </div>
+
+        {/* Additional Notes & Photos */}
+        <section className="mb-10">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-semibold text-foreground">Notes & Photos</h2>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-semibold text-primary hover:opacity-70 transition-opacity cursor-pointer">
+                + Photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleAddPhotos}
+                  className="hidden"
+                />
+              </label>
+              <button
+                onClick={() => setShowAddNote(!showAddNote)}
+                className="text-xs font-semibold text-primary hover:opacity-70 transition-opacity"
+              >
+                {showAddNote ? "Cancel" : "+ Note"}
+              </button>
+            </div>
+          </div>
+
+          {/* Add note form */}
+          {showAddNote && (
+            <div className="border border-dashed border-primary/30 rounded-lg p-3 mb-3">
+              <textarea
+                value={newNoteText}
+                onChange={(e) => setNewNoteText(e.target.value)}
+                placeholder="Add a note for vendors — additional details, schedule changes, clarifications…"
+                rows={3}
+                className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30 resize-none mb-2"
+              />
+              <button
+                onClick={handleAddNote}
+                disabled={!newNoteText.trim()}
+                className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity"
+              >
+                Add Note
+              </button>
+            </div>
+          )}
+
+          {/* Photos grid */}
+          {(allPhotos.length > 0 || additionalPhotos.length > 0) && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {allPhotos.map((src, i) => (
+                <div key={`orig-${i}`} className="relative">
+                  <img
+                    src={src}
+                    className="w-20 h-20 rounded-lg object-cover border border-border cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => setLightboxIndex(i)}
+                  />
+                </div>
+              ))}
+              {additionalPhotos.map((src, i) => (
+                <div key={`extra-${i}`} className="relative group">
+                  <img
+                    src={src}
+                    className="w-20 h-20 rounded-lg object-cover border border-border cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => setLightboxIndex(allPhotos.length + i)}
+                  />
+                  <button
+                    onClick={() => handleDeletePhoto(i)}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Notes list */}
+          {additionalNotes.length > 0 ? (
+            <div className="space-y-2">
+              {additionalNotes.map((note, i) => (
+                <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg border border-border bg-muted/30 group">
+                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </div>
+                  <p className="text-xs text-foreground flex-1 leading-relaxed">{note}</p>
+                  <button
+                    onClick={() => handleDeleteNote(i)}
+                    className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            !showAddNote && allPhotos.length === 0 && additionalPhotos.length === 0 && (
+              <p className="text-xs text-muted-foreground">No additional notes or photos yet. Add details to help vendors give better bids.</p>
+            )
+          )}
+        </section>
 
         {/* Equipment & Warranty */}
         {project.linkedEquipment && (() => {

@@ -128,24 +128,6 @@ export default function Header() {
 
           {/* Right side */}
           <div className="flex items-center gap-2">
-            {/* Auth buttons for unauthenticated users */}
-            {!isAuthenticated && (
-              <div className="flex items-center gap-1.5 mr-1">
-                <Link
-                  to="/login"
-                  className="px-3 py-1.5 text-sm font-medium text-foreground hover:opacity-70 transition-opacity"
-                >
-                  Log In
-                </Link>
-                <Link
-                  to="/login"
-                  className="px-3 py-1.5 text-sm font-medium text-white bg-foreground rounded-md hover:bg-foreground/90 transition-colors"
-                >
-                  Sign Up
-                </Link>
-              </div>
-            )}
-
             {/* Logged-in user info */}
             {isAuthenticated && (
               <span className="hidden sm:inline text-xs text-muted-foreground mr-1">

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Shield, Anchor, MapPin } from "lucide-react";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
 import { submitBid, vendorHasBid, getAllProjects } from "@/data/bidUtils";
@@ -155,6 +156,24 @@ export default function VendorRFPs() {
                         >
                           {project.status === "gathering" ? "Gathering candidates" : "Accepting bids"}
                         </span>
+                        {project.marinaCOIRequired && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                            <Shield className="w-3 h-3" />
+                            COI Required
+                          </span>
+                        )}
+                        {project.haulOutRequired && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                            <Anchor className="w-3 h-3" />
+                            Haul-Out Required
+                          </span>
+                        )}
+                        {project.workLocation && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-50 text-gray-600 border border-gray-200">
+                            <MapPin className="w-3 h-3" />
+                            {project.workLocation === "at_marina" ? "At Marina" : project.workLocation === "vendor_facility" ? "Vendor Facility" : "Mobile"}
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground mb-2">{project.date}</p>
                       <p className="text-sm text-foreground leading-relaxed">{project.description}</p>

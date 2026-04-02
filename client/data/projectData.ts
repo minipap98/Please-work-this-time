@@ -68,6 +68,11 @@ export interface Project {
     paidDate: string;
     items: InvoiceItem[];
   };
+  workLocation?: "at_marina" | "vendor_facility" | "mobile";
+  workLocationNote?: string;
+  haulOutRequired?: boolean;
+  haulOutArrangedBy?: "owner" | "vendor";
+  marinaCOIRequired?: boolean;
 }
 
 export interface VendorPastProject {
@@ -307,6 +312,8 @@ export const PROJECTS: Project[] = [
       dealer: "MarineMax Fort Lauderdale",
     },
     isWarrantyClaim: true,
+    workLocation: "at_marina",
+    marinaCOIRequired: true,
     bids: [
       {
         id: "b1",
@@ -364,6 +371,10 @@ export const PROJECTS: Project[] = [
     location: "Fort Lauderdale",
     category: "Detailing",
     boat: { name: "No Vacancy", make: "Sea Ray", model: "SDX 250 OB", year: "2020", propulsion: "Single Mercury Verado 250" },
+    workLocation: "at_marina",
+    haulOutRequired: true,
+    haulOutArrangedBy: "owner",
+    marinaCOIRequired: true,
     bids: [
       {
         id: "b4",

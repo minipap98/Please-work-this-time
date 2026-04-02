@@ -20,15 +20,21 @@ interface SavedBoat {
   engineModel: string;
   engineCount: string;
   isPrimary?: boolean;
+  storageType?: string;
+  locationName?: string;
+  locationAddress?: string;
 }
 
 const EMPTY_BOAT: Omit<SavedBoat, "id"> = {
   make: "", model: "", year: "", name: "",
   engineType: "", engineMake: "", engineModel: "", engineCount: "",
+  storageType: "", locationName: "", locationAddress: "",
 };
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: CURRENT_YEAR - 2009 }, (_, i) => String(CURRENT_YEAR - i));
+
+const STORAGE_TYPES = ["Marina Slip", "Mooring", "Trailer", "Dry Storage", "Boatyard"];
 
 const DEFAULT_DEMO_BOAT: SavedBoat = {
   id: "boat-1773000691182",
@@ -41,6 +47,9 @@ const DEFAULT_DEMO_BOAT: SavedBoat = {
   engineModel: "Verado 250 (2021–present)",
   engineCount: "Single",
   isPrimary: true,
+  storageType: "Marina Slip",
+  locationName: "Rickenbacker Marina",
+  locationAddress: "3301 Rickenbacker Cswy, Key Biscayne, FL 33149",
 };
 
 function loadFleet(): SavedBoat[] {
@@ -168,6 +177,44 @@ function BoatForm({
         </div>
       </div>
 
+      {/* Storage & Location */}
+      <div>
+        <h3 className="text-sm font-semibold text-foreground mb-3">Storage & Location</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Storage Type</label>
+            <select value={form.storageType} onChange={(e) => setForm({ ...form, storageType: e.target.value })} className={sel}>
+              <option value="">Select storage type…</option>
+              {STORAGE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Marina / Storage Facility <span className="text-muted-foreground font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={form.locationName}
+              onChange={(e) => setForm({ ...form, locationName: e.target.value })}
+              placeholder="e.g. Rickenbacker Marina, Slip D-42"
+              className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              Address <span className="text-muted-foreground font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={form.locationAddress}
+              onChange={(e) => setForm({ ...form, locationAddress: e.target.value })}
+              placeholder="e.g. 3301 Rickenbacker Cswy, Key Biscayne, FL 33149"
+              className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center justify-end gap-3 pt-2">
         <button onClick={onCancel} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
           Cancel
@@ -279,6 +326,15 @@ export default function MyBoats() {
                     {boat.engineMake && (
                       <p className="text-xs text-muted-foreground truncate">
                         {[boat.engineCount, boat.engineMake, boat.engineModel?.replace(/\s*\([\d–\-]+.*?\)$/, "")].filter(Boolean).join(" ")}
+                      </p>
+                    )}
+                    {(boat.storageType || boat.locationName) && (
+                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                        <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        {[boat.storageType, boat.locationName].filter(Boolean).join(" · ")}
                       </p>
                     )}
                   </div>

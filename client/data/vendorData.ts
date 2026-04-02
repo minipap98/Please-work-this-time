@@ -14,6 +14,8 @@ export interface VendorProfile {
   completedJobs: number;
   lat?: number;
   lng?: number;
+  coiDocument?: { fileName: string; dataUrl: string; uploadedAt: string };
+  insurancePolicy?: { provider: string; policyNumber: string; expiryDate: string; coverageAmount: string };
 }
 
 export const VENDOR_PROFILES: Record<string, VendorProfile> = {

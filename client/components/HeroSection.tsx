@@ -178,6 +178,10 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
   const [postSubmitted, setPostSubmitted] = useState(false);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>("");
   const [isWarrantyClaim, setIsWarrantyClaim] = useState(false);
+  const [workLocation, setWorkLocation] = useState<string>("");
+  const [haulOutRequired, setHaulOutRequired] = useState(false);
+  const [haulOutArrangedBy, setHaulOutArrangedBy] = useState<string>("");
+  const [marinaCOIRequired, setMarinaCOIRequired] = useState(false);
 
   useEffect(() => {
     const onFocus = () => {
@@ -222,6 +226,10 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
       setPostSubmitted(false);
       setSelectedEquipmentId("");
       setIsWarrantyClaim(false);
+      setWorkLocation("");
+      setHaulOutRequired(false);
+      setHaulOutArrangedBy("");
+      setMarinaCOIRequired(false);
     }, 200);
   }
 
@@ -662,6 +670,103 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                     )}
                   </div>
 
+                  {/* Work Location & Logistics */}
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-2">Where should the work be done?</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { value: "at_marina", label: "At My Marina" },
+                        { value: "vendor_facility", label: "Vendor's Shop" },
+                        { value: "mobile", label: "Mobile / On-Site" },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setWorkLocation(opt.value)}
+                          className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-colors ${
+                            workLocation === opt.value
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground hover:border-primary/50"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Marina COI requirement */}
+                    {workLocation === "at_marina" && (
+                      <label className="flex items-center gap-2 mt-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={marinaCOIRequired}
+                          onChange={(e) => setMarinaCOIRequired(e.target.checked)}
+                          className="rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        <div>
+                          <span className="text-xs font-semibold text-amber-800">My marina requires vendor insurance (COI)</span>
+                          <p className="text-[10px] text-amber-600 mt-0.5">Vendors will need a Certificate of Insurance on file</p>
+                        </div>
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Haul-out */}
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={haulOutRequired}
+                        onChange={(e) => {
+                          setHaulOutRequired(e.target.checked);
+                          if (!e.target.checked) setHaulOutArrangedBy("");
+                        }}
+                        className="rounded border-border text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm font-semibold text-foreground">This project requires haul-out</span>
+                    </label>
+
+                    {haulOutRequired && (
+                      <div className="ml-6 mt-2 space-y-2">
+                        <div className="flex gap-2">
+                          {([
+                            { value: "owner", label: "I'll arrange the haul" },
+                            { value: "vendor", label: "Vendor to arrange" },
+                          ] as const).map((opt) => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setHaulOutArrangedBy(opt.value)}
+                              className={`flex-1 px-3 py-2 rounded-lg border text-xs font-semibold transition-colors ${
+                                haulOutArrangedBy === opt.value
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border text-muted-foreground hover:border-primary/50"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Auto-suggest for hull work */}
+                    {selectedCategory === "Hull & Gelcoat" && !haulOutRequired && (
+                      <div className="mt-2 p-2.5 rounded-lg bg-blue-50 border border-blue-200">
+                        <p className="text-xs text-blue-800">
+                          <span className="font-semibold">Tip:</span> Hull & gelcoat work typically requires haul-out.{" "}
+                          <button
+                            type="button"
+                            onClick={() => setHaulOutRequired(true)}
+                            className="text-blue-600 font-semibold underline"
+                          >
+                            Add haul-out requirement
+                          </button>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Link Equipment */}
                   {boatEquipment.length > 0 && (
                     <div>
@@ -791,6 +896,10 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                           photos: projectPhotos.length > 0 ? projectPhotos : undefined,
                           linkedEquipmentId: selectedEquipment ? selectedEquipment.id : undefined,
                           isWarrantyClaim: selectedEquipment && isWarrantyClaim ? true : undefined,
+                          workLocation: workLocation as Project["workLocation"] || undefined,
+                          haulOutRequired: haulOutRequired || undefined,
+                          haulOutArrangedBy: (haulOutRequired && haulOutArrangedBy) as Project["haulOutArrangedBy"] || undefined,
+                          marinaCOIRequired: marinaCOIRequired || undefined,
                           linkedEquipment: selectedEquipment
                             ? {
                                 manufacturer: selectedEquipment.manufacturer,

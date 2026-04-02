@@ -6,6 +6,7 @@ import StripePayment from "@/components/StripePayment";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 import { getAugmentedProjects, getRejectedBidIds, rejectBid, unrejectBid, getBidAdjustment, getRescindedBidIds } from "@/data/bidUtils";
 import { VENDOR_PROFILES } from "@/data/vendorData";
+import { getVendorInsuranceStatus } from "@/data/vendorProfileUtils";
 import { useRole } from "@/context/RoleContext";
 import { getProjectPhotos } from "@/lib/photoUtils";
 import {
@@ -574,11 +575,38 @@ export default function ProjectDetail() {
                               Withdrawn
                             </span>
                           )}
-                          {VENDOR_PROFILES[bid.vendorName]?.insured && (
-                            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
-                              Insured
-                            </span>
-                          )}
+                          {(() => {
+                            const insStatus = getVendorInsuranceStatus(bid.vendorName);
+                            if (insStatus === "verified") {
+                              return (
+                                <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                                  Insurance Verified
+                                </span>
+                              );
+                            }
+                            if (insStatus === "expired") {
+                              return (
+                                <span className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full">
+                                  Insurance Expired
+                                </span>
+                              );
+                            }
+                            if (insStatus === "expiring") {
+                              return (
+                                <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                                  Insurance Expiring
+                                </span>
+                              );
+                            }
+                            if (VENDOR_PROFILES[bid.vendorName]?.insured) {
+                              return (
+                                <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                                  Insured
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                           {VENDOR_PROFILES[bid.vendorName]?.licensed && (
                             <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full">
                               Licensed

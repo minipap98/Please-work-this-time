@@ -5,6 +5,8 @@ import { useRole } from "@/context/RoleContext";
 import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { submitBid, vendorHasBid, getAllProjects, getLocalProjectStatus, getVendorBidProjects, isBidAccepted } from "@/data/bidUtils";
 import { getVendorRevenueWithTiers, getVendorScorecard, getVendorAnalytics, getMaintenanceReminders } from "@/data/vendorRetentionUtils";
+import { Shield, Anchor, MapPin } from "lucide-react";
+import VendorInsurance from "@/components/VendorInsurance";
 
 interface LineItem {
   description: string;
@@ -301,6 +303,13 @@ export default function VendorDashboard() {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
 
+        {/* ── Insurance / COI ─────────────────────────────────── */}
+        {vendorId && (
+          <div className="mb-6">
+            <VendorInsurance vendorName={vendorId} />
+          </div>
+        )}
+
         {/* ── Active Jobs ──────────────────────────────────────── */}
         {activeJobs.length > 0 && (
           <div className="mb-6">
@@ -490,6 +499,24 @@ export default function VendorDashboard() {
                         {project.category && (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground whitespace-nowrap">
                             {project.category}
+                          </span>
+                        )}
+                        {project.marinaCOIRequired && (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">
+                            <Shield className="w-3 h-3" />
+                            COI Required
+                          </span>
+                        )}
+                        {project.haulOutRequired && (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
+                            <Anchor className="w-3 h-3" />
+                            Haul-Out
+                          </span>
+                        )}
+                        {project.workLocation && (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-50 text-gray-500 border border-gray-200 whitespace-nowrap">
+                            <MapPin className="w-3 h-3" />
+                            {project.workLocation === "at_marina" ? "At Marina" : project.workLocation === "vendor_facility" ? "Vendor Facility" : "Mobile"}
                           </span>
                         )}
                       </div>

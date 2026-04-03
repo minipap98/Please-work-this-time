@@ -14,13 +14,17 @@ import {
   QuickInvoice,
 } from "@/data/vendorRetentionUtils";
 import { resizePhoto, getProjectPhotos, addProjectPhoto, removeProjectPhoto } from "@/lib/photoUtils";
+import VendorInsurance from "@/components/VendorInsurance";
+import VendorBidTemplates from "@/components/VendorBidTemplates";
 
-type Tab = "clients" | "history" | "reminders";
+type Tab = "clients" | "history" | "reminders" | "templates" | "insurance";
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: "clients", label: "Clients", icon: "👤" },
   { key: "history", label: "Service History", icon: "🔧" },
-  { key: "reminders", label: "Reminders", icon: "🔔" },
+  { key: "reminders", label: "Follow-ups", icon: "🔔" },
+  { key: "templates", label: "Auto-Bid", icon: "⚡" },
+  { key: "insurance", label: "Insurance", icon: "🛡️" },
 ];
 
 function fmt(n: number) {
@@ -215,7 +219,8 @@ export default function VendorBusinessHub() {
           ))}
         </div>
 
-        {/* Search bar */}
+        {/* Search bar (only for searchable tabs) */}
+        {(activeTab === "clients" || activeTab === "history" || activeTab === "reminders") && (
         <div className="relative mb-5">
           <svg
             className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"
@@ -245,6 +250,7 @@ export default function VendorBusinessHub() {
             </button>
           )}
         </div>
+        )}
 
         {/* Tab content */}
         {activeTab === "clients" && (
@@ -254,6 +260,12 @@ export default function VendorBusinessHub() {
           <HistoryTab services={filteredServices} search={q} vendorId={vendorId} />
         )}
         {activeTab === "reminders" && <RemindersTab reminders={filteredReminders} search={q} />}
+        {activeTab === "templates" && vendorId && (
+          <VendorBidTemplates vendorId={vendorId} />
+        )}
+        {activeTab === "insurance" && vendorId && (
+          <VendorInsurance vendorName={vendorId} />
+        )}
       </main>
     </div>
   );

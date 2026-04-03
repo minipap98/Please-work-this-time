@@ -22,6 +22,7 @@ export interface Bid {
   submittedDate: string;
   expiryDate: string;
   thread: BidMessage[];
+  isAutoBid?: boolean;
 }
 
 export interface InvoiceItem {

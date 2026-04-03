@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { ENGINE_DATA, type EngineType } from "@/data/engineData";
 import { saveLocalProject } from "@/data/bidUtils";
+import { runAutoBidMatching, seedDemoTemplates } from "@/data/autoBidTemplates";
 import { type Project, type ProjectBoat } from "@/data/projectData";
 
 // ─── Icons ───────────────────────────────────────────────────
@@ -914,6 +915,9 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                         };
 
                         saveLocalProject(newProject);
+                        // Run auto-bid matching against vendor templates
+                        seedDemoTemplates();
+                        runAutoBidMatching(newProject);
                         setPostSubmitted(true);
                         onProjectPosted?.();
                       }}

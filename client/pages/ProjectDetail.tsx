@@ -612,6 +612,11 @@ export default function ProjectDetail() {
                               Licensed
                             </span>
                           )}
+                          {bid.isAutoBid && (
+                            <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                              ⚡ Auto-bid
+                            </span>
+                          )}
                         </div>
                         <Stars rating={bid.rating} reviewCount={bid.reviewCount} />
                         <div className="flex items-center gap-3 mt-0.5 flex-wrap">

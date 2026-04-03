@@ -4,9 +4,9 @@ import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
 import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { submitBid, vendorHasBid, getAllProjects, getLocalProjectStatus, getVendorBidProjects, isBidAccepted } from "@/data/bidUtils";
-import { getVendorRevenueWithTiers, getVendorScorecard, getVendorAnalytics, getMaintenanceReminders } from "@/data/vendorRetentionUtils";
+import { getVendorRevenueWithTiers, getVendorScorecard, getVendorAnalytics } from "@/data/vendorRetentionUtils";
 import { Shield, Anchor, MapPin } from "lucide-react";
-import VendorInsurance from "@/components/VendorInsurance";
+// Insurance + Templates moved to Business Hub
 
 interface LineItem {
   description: string;
@@ -77,8 +77,6 @@ export default function VendorDashboard() {
   const revenue = vendorId ? getVendorRevenueWithTiers(vendorId) : null;
   const scorecard = vendorId ? getVendorScorecard(vendorId) : null;
   const analytics = vendorId ? getVendorAnalytics(vendorId) : null;
-  const reminders = vendorId ? getMaintenanceReminders(vendorId) : [];
-  const overdueReminders = reminders.filter((r) => r.urgency === "overdue" || r.urgency === "upcoming");
 
   const allProjects = getAllProjects();
   const bidProjects = vendorId ? getVendorBidProjects(vendorId) : [];
@@ -303,12 +301,8 @@ export default function VendorDashboard() {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
 
-        {/* ── Insurance / COI ─────────────────────────────────── */}
-        {vendorId && (
-          <div className="mb-6">
-            <VendorInsurance vendorName={vendorId} />
-          </div>
-        )}
+
+
 
         {/* ── Active Jobs ──────────────────────────────────────── */}
         {activeJobs.length > 0 && (
@@ -361,42 +355,8 @@ export default function VendorDashboard() {
           </div>
         )}
 
-        {/* ── Follow-up Opportunities ─────────────────────────── */}
-        {overdueReminders.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2.5">
-              <h2 className="text-sm font-semibold text-foreground">Follow-up Opportunities</h2>
-              <button
-                onClick={() => navigate("/vendor-business")}
-                className="text-xs text-sky-600 hover:text-sky-700 font-medium"
-              >
-                Business Hub
-              </button>
-            </div>
-            <div className="bg-white border border-amber-200 rounded-xl overflow-hidden">
-              {overdueReminders.slice(0, 3).map((r, i) => (
-                <div
-                  key={`${r.boatName}-${r.category}`}
-                  className={`px-4 py-3 flex items-center justify-between gap-3 ${i > 0 ? "border-t border-border/50" : ""}`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">{r.suggestedFollowUp}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {r.boatName} · Last serviced {r.monthsSince} mo. ago
-                    </p>
-                  </div>
-                  <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                    r.urgency === "overdue"
-                      ? "bg-red-50 text-red-700"
-                      : "bg-amber-50 text-amber-700"
-                  }`}>
-                    {r.urgency === "overdue" ? "Overdue" : "Upcoming"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
+
 
         {/* ── Open RFPs ────────────────────────────────────────── */}
         <div className="flex items-center justify-between mb-2.5">

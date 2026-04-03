@@ -87,9 +87,32 @@ export default function VendorDashboard() {
     return (effective === "in-progress" || isBidAccepted(project, bid)) && effective !== "completed";
   });
 
+  // Declined RFPs (vendor dismissed)
+  const [declinedIds, setDeclinedIds] = useState<Set<string>>(() => {
+    try {
+      const ids: string[] = JSON.parse(localStorage.getItem(`vendor_declined_rfps_${vendorId}`) ?? "[]");
+      return new Set(ids);
+    } catch { return new Set(); }
+  });
+
+  function declineRFP(projectId: string) {
+    setDeclinedIds((prev) => {
+      const next = new Set(prev);
+      next.add(projectId);
+      localStorage.setItem(`vendor_declined_rfps_${vendorId}`, JSON.stringify([...next]));
+      return next;
+    });
+  }
+
   const openRFPs = allProjects.filter((p) => {
     const effective = getLocalProjectStatus(p.id, p.status);
-    return effective === "gathering" || effective === "bidding";
+    if (effective !== "gathering" && effective !== "bidding") return false;
+    // Hide already-bid
+    if (vendorId && vendorHasBid(p.id, vendorId)) return false;
+    if (submitted.includes(p.id)) return false;
+    // Hide declined
+    if (declinedIds.has(p.id)) return false;
+    return true;
   });
 
   const locations = useMemo(() => {
@@ -432,18 +455,11 @@ export default function VendorDashboard() {
         ) : (
           <div className="space-y-2.5">
             {filteredRFPs.map((project) => {
-              const alreadyBid =
-                submitted.includes(project.id) ||
-                (vendorId ? vendorHasBid(project.id, vendorId) : false);
               return (
                 <div
                   key={project.id}
                   onClick={() => openDetail(project.id)}
-                  className={`bg-white border rounded-xl p-4 sm:p-5 transition-all cursor-pointer ${
-                    alreadyBid
-                      ? "border-green-200 hover:shadow-sm"
-                      : "border-border hover:border-sky-300 hover:shadow-sm"
-                  }`}
+                  className="bg-white border rounded-xl p-4 sm:p-5 transition-all cursor-pointer border-border hover:border-sky-300 hover:shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-3 mb-1">
                     <div className="min-w-0 flex-1">
@@ -481,26 +497,23 @@ export default function VendorDashboard() {
                         )}
                       </div>
                     </div>
-                    <div className="flex-shrink-0">
-                      {alreadyBid ? (
-                        <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-50 text-green-700 text-xs font-semibold border border-green-200 whitespace-nowrap">
-                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                          </svg>
-                          <span className="hidden sm:inline">Bid Submitted</span>
-                          <span className="sm:hidden">✓</span>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openDialog(project.id); }}
-                          className="flex items-center gap-1 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-sky-500 text-white text-xs sm:text-sm font-bold hover:bg-sky-600 active:scale-95 transition-all shadow-sm whitespace-nowrap"
-                        >
-                          Bid Now
-                          <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                          </svg>
-                        </button>
-                      )}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); declineRFP(project.id); }}
+                        className="px-2.5 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors whitespace-nowrap"
+                        title="Decline this RFP"
+                      >
+                        Not Interested
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openDialog(project.id); }}
+                        className="flex items-center gap-1 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-sky-500 text-white text-xs sm:text-sm font-bold hover:bg-sky-600 active:scale-95 transition-all shadow-sm whitespace-nowrap"
+                      >
+                        Bid Now
+                        <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
 

@@ -13,22 +13,28 @@ export interface TemplateLineItem {
 export interface AutoBidTemplate {
   id: string;
   vendorId: string;
-  /** Human-readable name, e.g. "100-Hour Service — Mercury Verado" */
+  /** Auto-generated from engine + service selection */
   name: string;
-  /** Service category to match (e.g. "Engine Service") */
-  category: string;
-  /** Engine type filter — null = any */
-  engineType: EngineType | null;
-  /** Engine make filter — null = any */
-  engineMake: string | null;
-  /** Engine model keywords — if set, project title/description must contain one */
-  engineModelKeywords: string[];
-  /** Title keywords that must appear in the RFP (any one match = pass) */
-  titleKeywords: string[];
+
+  // ── Exact matching fields ──────────────────────────────────
+  /** Engine type — required */
+  engineType: EngineType;
+  /** Engine make — required (e.g. "Mercury") */
+  engineMake: string;
+  /** Engine model — required (e.g. "Verado 300 (2021–present)") */
+  engineModel: string;
+  /** Service ID from engineServices.ts (e.g. "out-100hr") */
+  serviceId: string;
+  /** Service name for display (e.g. "100-Hour Service") */
+  serviceName: string;
+
+  // ── Bid content ────────────────────────────────────────────
   /** Pre-set bid message */
   message: string;
   /** Pre-set line items */
   lineItems: TemplateLineItem[];
+
+  // ── Behavior ───────────────────────────────────────────────
   /** "auto" = submit bid automatically; "notify" = just flag it */
   mode: "auto" | "notify";
   /** Max concurrent auto-bids from this template (0 = unlimited) */
@@ -37,6 +43,8 @@ export interface AutoBidTemplate {
   active: boolean;
   /** How many times this template has auto-bid */
   bidCount: number;
+
+  // ── Logistics filters ──────────────────────────────────────
   /** Work location preferences — empty = any */
   workLocations: ("at_marina" | "vendor_facility" | "mobile")[];
   /** Whether vendor can handle haul-out jobs */
@@ -85,44 +93,56 @@ export function toggleTemplateActive(templateId: string): void {
   }
 }
 
-// ── Matching logic ──────────────────────────────────────────────────────────
+// ── Exact matching logic ────────────────────────────────────────────────────
 
-function textContainsAny(text: string, keywords: string[]): boolean {
-  if (keywords.length === 0) return true;
-  const lower = text.toLowerCase();
-  return keywords.some((kw) => lower.includes(kw.toLowerCase()));
-}
-
-/** Check if a template matches a given project */
+/**
+ * Check if a template matches a given project.
+ * Matching is EXACT on engine type + make + model + service type.
+ */
 export function templateMatchesProject(template: AutoBidTemplate, project: Project): boolean {
-  // Category match
-  if (template.category && project.category) {
-    if (project.category.toLowerCase() !== template.category.toLowerCase()) return false;
-  }
+  // Must be an engine service category
+  if (project.category && project.category.toLowerCase() !== "engine service") return false;
 
-  // Title/description keyword match
-  const searchText = `${project.title} ${project.description}`;
-  if (template.titleKeywords.length > 0 && !textContainsAny(searchText, template.titleKeywords)) {
-    return false;
-  }
+  // Must have boat/propulsion info to match against
+  if (!project.boat?.propulsion) return false;
 
-  // Engine type match (check boat propulsion string)
-  if (template.engineType && project.boat?.propulsion) {
-    const prop = project.boat.propulsion.toLowerCase();
-    if (template.engineType === "Outboard" && !prop.includes("outboard")) return false;
-    if (template.engineType === "Inboard" && !prop.includes("inboard")) return false;
-    if (template.engineType === "I/O (Sterndrive)" && !prop.includes("sterndrive") && !prop.includes("i/o")) return false;
-  }
+  const propulsion = project.boat.propulsion.toLowerCase();
+  const title = project.title.toLowerCase();
+  const description = project.description.toLowerCase();
+  const fullText = `${propulsion} ${title} ${description}`;
 
-  // Engine make match
-  if (template.engineMake && project.boat?.propulsion) {
-    if (!project.boat.propulsion.toLowerCase().includes(template.engineMake.toLowerCase())) return false;
-  }
+  // Exact engine make match (case-insensitive)
+  if (!fullText.includes(template.engineMake.toLowerCase())) return false;
 
-  // Engine model keywords
-  if (template.engineModelKeywords.length > 0) {
-    const boatText = `${project.boat?.propulsion ?? ""} ${project.title} ${project.description}`;
-    if (!textContainsAny(boatText, template.engineModelKeywords)) return false;
+  // Engine model match — extract the model name part (before the year range in parens)
+  const modelName = template.engineModel.replace(/\s*\([\d–\-]+.*?\)$/, "").toLowerCase();
+  if (!fullText.includes(modelName)) return false;
+
+  // Service match — check for the service name in title/description
+  const serviceName = template.serviceName.toLowerCase();
+  if (!fullText.includes(serviceName)) {
+    // Also check common variations
+    const serviceAliases: Record<string, string[]> = {
+      "100-hour service": ["100 hour", "100-hour", "100hr", "annual service"],
+      "annual service / winterization prep": ["annual service", "annual maintenance"],
+      "oil & filter change": ["oil change", "oil and filter"],
+      "lower unit / gear lube service": ["gear lube", "lower unit"],
+      "water pump / impeller replacement": ["impeller", "water pump"],
+      "winterization": ["winterize", "winter prep", "lay-up", "layup"],
+      "de-winterization / spring commissioning": ["de-winterize", "dewinterize", "spring commissioning", "spring commission"],
+      "250-hour service": ["250 hour", "250-hour", "250hr"],
+      "500-hour / major service": ["500 hour", "500-hour", "500hr", "major service"],
+      "outdrive service": ["outdrive", "sterndrive service"],
+      "bellows replacement": ["bellows"],
+      "gimbal bearing replacement": ["gimbal bearing", "gimbal"],
+      "raw water pump / impeller service": ["impeller", "raw water pump"],
+      "heat exchanger service": ["heat exchanger"],
+      "engine alignment": ["alignment", "shaft alignment"],
+    };
+
+    const aliases = serviceAliases[serviceName] ?? [];
+    const hasAlias = aliases.some((alias) => fullText.includes(alias));
+    if (!hasAlias) return false;
   }
 
   // Work location preference
@@ -130,10 +150,10 @@ export function templateMatchesProject(template: AutoBidTemplate, project: Proje
     if (!template.workLocations.includes(project.workLocation)) return false;
   }
 
-  // Haul-out filter: if template doesn't accept haul-out, skip haul-out projects
+  // Haul-out filter
   if (!template.acceptsHaulOut && project.haulOutRequired) return false;
 
-  // COI filter: if project requires marina COI and template doesn't have it
+  // COI filter
   if (project.marinaCOIRequired && !template.hasCOI) return false;
 
   return true;
@@ -165,7 +185,6 @@ export function getAutoBidLogForVendor(vendorId: string): AutoBidLogEntry[] {
   return getAutoBidLog().filter((e) => e.vendorId === vendorId);
 }
 
-/** Count how many active (non-completed) auto-bids exist for a template */
 function activeAutoBidCount(templateId: string): number {
   return getAutoBidLog().filter((e) => e.templateId === templateId && e.mode === "auto").length;
 }
@@ -209,7 +228,6 @@ export function runAutoBidMatching(project: Project): AutoBidLogEntry[] {
     };
 
     if (template.mode === "auto") {
-      // Actually submit the bid
       const bid: Bid = {
         id: bidId,
         vendorName: template.vendorId,
@@ -235,7 +253,6 @@ export function runAutoBidMatching(project: Project): AutoBidLogEntry[] {
       };
       submitBid(project.id, bid);
 
-      // Increment template bid count
       template.bidCount++;
       saveTemplate(template);
     }
@@ -248,59 +265,26 @@ export function runAutoBidMatching(project: Project): AutoBidLogEntry[] {
   return results;
 }
 
-// ── Notifications for "notify" mode ─────────────────────────────────────────
-
-const NOTIFICATIONS_KEY = "auto_bid_notifications";
-
-export interface AutoBidNotification {
-  id: string;
-  templateId: string;
-  templateName: string;
-  projectId: string;
-  projectTitle: string;
-  vendorId: string;
-  price: number;
-  timestamp: string;
-  dismissed: boolean;
-}
-
-export function getNotifications(vendorId: string): AutoBidNotification[] {
-  try {
-    const all: AutoBidNotification[] = JSON.parse(localStorage.getItem(NOTIFICATIONS_KEY) ?? "[]");
-    return all.filter((n) => n.vendorId === vendorId && !n.dismissed);
-  } catch {
-    return [];
-  }
-}
-
-export function dismissNotification(notificationId: string): void {
-  try {
-    const all: AutoBidNotification[] = JSON.parse(localStorage.getItem(NOTIFICATIONS_KEY) ?? "[]");
-    const n = all.find((n) => n.id === notificationId);
-    if (n) {
-      n.dismissed = true;
-      localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(all));
-    }
-  } catch {}
-}
-
 // ── Demo seed data ──────────────────────────────────────────────────────────
 
-const DEMO_TEMPLATES_KEY = "auto_bid_templates_seeded";
+const DEMO_TEMPLATES_KEY = "auto_bid_templates_seeded_v2";
 
 export function seedDemoTemplates(): void {
   if (localStorage.getItem(DEMO_TEMPLATES_KEY)) return;
 
+  // Clear old v1 seed
+  localStorage.removeItem("auto_bid_templates_seeded");
+
   const templates: AutoBidTemplate[] = [
     {
-      id: "tpl_mm_100hr_verado",
+      id: "tpl_mm_100hr_verado300",
       vendorId: "MarineMax",
-      name: "100-Hour Service — Mercury Verado",
-      category: "Engine Service",
+      name: "100-Hour Service — Mercury Verado 300",
       engineType: "Outboard",
       engineMake: "Mercury",
-      engineModelKeywords: ["verado", "100-hour", "100 hour"],
-      titleKeywords: ["100-hour", "100 hour", "annual service", "engine service"],
+      engineModel: "Verado 300 (2021–present)",
+      serviceId: "out-100hr",
+      serviceName: "100-Hour Service",
       message: "MarineMax is a Mercury-certified service center. Our 100-hour service includes full oil & filter change, gear lube, impeller inspection, anodes check, and a 27-point safety inspection. All OEM parts included.",
       lineItems: [
         { description: "100-Hour Service Labor (per engine)", quantity: 1, unitPrice: 450 },
@@ -319,14 +303,14 @@ export function seedDemoTemplates(): void {
       createdAt: "2026-01-15T10:00:00Z",
     },
     {
-      id: "tpl_mm_100hr_yamaha",
+      id: "tpl_mm_100hr_yamaha_f300b",
       vendorId: "MarineMax",
-      name: "100-Hour Service — Yamaha 4-Stroke",
-      category: "Engine Service",
+      name: "100-Hour Service — Yamaha F300B",
       engineType: "Outboard",
       engineMake: "Yamaha",
-      engineModelKeywords: ["yamaha", "100-hour", "100 hour"],
-      titleKeywords: ["100-hour", "100 hour", "annual service", "engine service"],
+      engineModel: "F300B (2021–present)",
+      serviceId: "out-100hr",
+      serviceName: "100-Hour Service",
       message: "MarineMax is an authorized Yamaha service dealer. Our 100-hour service follows Yamaha's factory maintenance schedule, with OEM parts and certified technicians.",
       lineItems: [
         { description: "100-Hour Service Labor (per engine)", quantity: 1, unitPrice: 425 },
@@ -345,14 +329,14 @@ export function seedDemoTemplates(): void {
       createdAt: "2026-01-15T10:30:00Z",
     },
     {
-      id: "tpl_mm_winterize",
+      id: "tpl_mm_winterize_merc_verado250",
       vendorId: "MarineMax",
-      name: "Winterization — Outboard",
-      category: "Engine Service",
+      name: "Winterization — Mercury Verado 250",
       engineType: "Outboard",
-      engineMake: null,
-      engineModelKeywords: [],
-      titleKeywords: ["winterize", "winterization", "winter prep", "lay-up"],
+      engineMake: "Mercury",
+      engineModel: "Verado 250 (2021–present)",
+      serviceId: "out-winterize",
+      serviceName: "Winterization",
       message: "Full winterization service: engine fogging, fuel stabilizer, coolant flush, battery disconnect, and shrink-wrap available. Protect your investment over the off-season.",
       lineItems: [
         { description: "Winterization Labor (per engine)", quantity: 1, unitPrice: 275 },
@@ -369,21 +353,22 @@ export function seedDemoTemplates(): void {
       createdAt: "2026-02-01T09:00:00Z",
     },
     {
-      id: "tpl_bs_electronics",
+      id: "tpl_bs_100hr_volvo_d4300",
       vendorId: "Boat Specialists",
-      name: "Electronics Install — Garmin/Simrad",
-      category: "Electronics & AV",
-      engineType: null,
-      engineMake: null,
-      engineModelKeywords: [],
-      titleKeywords: ["garmin", "simrad", "chartplotter", "fishfinder", "mfd", "radar", "electronics"],
-      message: "NMEA-certified marine electronics installer with 15+ years experience. We handle full system design, wiring, and commissioning for Garmin and Simrad systems.",
+      name: "100-Hour Service — Volvo D4-300 IPS",
+      engineType: "Inboard",
+      engineMake: "Volvo",
+      engineModel: "D4-300 IPS (2021–present)",
+      serviceId: "in-100hr",
+      serviceName: "100-Hour Service",
+      message: "Volvo Penta certified dealer with factory-trained technicians. Our 100-hour service includes oil & filter, raw water impeller, belt inspection, coolant check, and full diagnostic scan.",
       lineItems: [
-        { description: "Electronics Installation Labor (hourly)", quantity: 4, unitPrice: 125 },
-        { description: "Wiring & Connectors", quantity: 1, unitPrice: 85 },
-        { description: "System Commissioning & Testing", quantity: 1, unitPrice: 150 },
+        { description: "100-Hour Service Labor", quantity: 1, unitPrice: 550 },
+        { description: "Volvo OEM Oil & Filter Kit", quantity: 1, unitPrice: 120 },
+        { description: "Raw Water Impeller", quantity: 1, unitPrice: 85 },
+        { description: "Diagnostic Scan & Report", quantity: 1, unitPrice: 0 },
       ],
-      mode: "notify",
+      mode: "auto",
       maxConcurrent: 3,
       active: true,
       bidCount: 2,
@@ -397,16 +382,3 @@ export function seedDemoTemplates(): void {
   localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
   localStorage.setItem(DEMO_TEMPLATES_KEY, "true");
 }
-
-// ── Available categories (must stay in sync with HeroSection) ───────────────
-
-export const SERVICE_CATEGORIES = [
-  "Engine Service",
-  "Detailing & Waxing",
-  "Decking & Upholstery",
-  "Electrical",
-  "Electronics & AV",
-  "Hull & Gelcoat",
-  "Mechanical",
-  "Other / Custom",
-];

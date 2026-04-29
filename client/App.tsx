@@ -27,6 +27,7 @@ import VendorBusinessHub from "./pages/vendor/VendorBusinessHub";
 import AuthPage from "./pages/AuthPage";
 import Onboarding from "./pages/Onboarding";
 import AdminPortal from "./pages/AdminPortal";
+import LandingPage from "./pages/LandingPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { RoleProvider } from "./context/RoleContext";
 
@@ -109,6 +110,10 @@ const App = () => (
                 <Route path="/vendor-revenue" element={<VendorRevenue />} />
                 <Route path="/vendor-business" element={<VendorBusinessHub />} />
               </Route>
+
+              {/* SEO landing page — public, no auth */}
+              <Route path="/welcome" element={<LandingPage />} />
+              <Route path="/landing" element={<LandingPage />} />
 
               {/* Admin portal — has its own password gate, outside AuthGuard */}
               <Route path="/admin" element={<AdminPortal />} />

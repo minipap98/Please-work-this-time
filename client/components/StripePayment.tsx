@@ -1,25 +1,35 @@
 import { useState } from "react";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { stripePromise } from "@/lib/stripe";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
+import type { CreatePaymentIntentResponse } from "@shared/api";
 
 interface PaymentFormProps {
   amount: number;
   label: string;
   vendorName: string;
   projectTitle: string;
+  projectId?: string;
+  bidId?: string;
   onSuccess: (paymentInfo: { amount: number; date: string; method: string }) => void;
   onCancel: () => void;
 }
 
-function PaymentForm({ amount, label, vendorName, projectTitle, onSuccess, onCancel }: PaymentFormProps) {
+function PaymentForm({ amount, label, vendorName, projectTitle, projectId, bidId, onSuccess, onCancel }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
+  const { profile } = useAuth();
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!stripe || !elements) return;
+    if (!projectId || !bidId) {
+      setError("Missing job or bid. Refresh and try again.");
+      return;
+    }
 
     setProcessing(true);
     setError(null);
@@ -31,32 +41,60 @@ function PaymentForm({ amount, label, vendorName, projectTitle, onSuccess, onCan
       return;
     }
 
-    // Create a payment method with Stripe
-    const { error: stripeError, paymentMethod } = await stripe.createPaymentMethod({
-      type: "card",
-      card: cardElement,
-      billing_details: {
-        name: "Dean", // In production, get from auth context
-      },
-    });
-
-    if (stripeError) {
-      setError(stripeError.message ?? "Payment failed");
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setError("Sign in again to pay.");
       setProcessing(false);
       return;
     }
 
-    // In production, you'd send paymentMethod.id to your backend to create a PaymentIntent
-    // For now, we simulate a successful payment since we're in test mode
-    if (paymentMethod) {
-      const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-      onSuccess({
-        amount,
-        date,
-        method: `•••• ${paymentMethod.card?.last4 ?? "0000"}`,
-      });
+    const intentRes = await fetch("/api/payments/create-intent", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        amountDollars: amount,
+        projectId,
+        bidId,
+        label,
+      }),
+    });
+    const intentJson = (await intentRes.json()) as CreatePaymentIntentResponse & { error?: string };
+    if (!intentRes.ok || !intentJson.clientSecret) {
+      setError(intentJson.error ?? "Could not start payment.");
+      setProcessing(false);
+      return;
     }
 
+    const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(intentJson.clientSecret, {
+      payment_method: {
+        card: cardElement,
+        billing_details: {
+          name: profile?.name ?? undefined,
+          email: profile?.email ?? undefined,
+        },
+      },
+    });
+
+    if (confirmError || paymentIntent?.status !== "succeeded") {
+      setError(confirmError?.message ?? "Payment was not completed.");
+      setProcessing(false);
+      return;
+    }
+
+    const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const last4 =
+      paymentIntent.payment_method && typeof paymentIntent.payment_method !== "string"
+        ? paymentIntent.payment_method.card?.last4
+        : undefined;
+    onSuccess({
+      amount,
+      date,
+      method: `•••• ${last4 ?? "card"}`,
+    });
     setProcessing(false);
   }
 
@@ -104,9 +142,11 @@ function PaymentForm({ amount, label, vendorName, projectTitle, onSuccess, onCan
             <p className="mt-2 text-sm text-red-600">{error}</p>
           )}
 
-          <p className="text-xs text-muted-foreground mt-3">
-            Test mode — use card <span className="font-mono">4242 4242 4242 4242</span>, any future date, any CVC.
-          </p>
+          {import.meta.env.DEV && (
+            <p className="text-xs text-muted-foreground mt-3">
+              Test mode — use card <span className="font-mono">4242 4242 4242 4242</span>, any future date, any CVC.
+            </p>
+          )}
 
           <div className="flex gap-3 mt-4">
             <button
@@ -135,6 +175,8 @@ interface StripePaymentProps {
   label: string;
   vendorName: string;
   projectTitle: string;
+  projectId?: string;
+  bidId?: string;
   onSuccess: (paymentInfo: { amount: number; date: string; method: string }) => void;
   onCancel: () => void;
 }

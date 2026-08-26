@@ -2,10 +2,11 @@ import { useState, useMemo, useEffect } from "react";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
 import {
-  getVendorBidProjects, getAllMessages, sendVendorMessage,
+  getAllMessages, sendVendorMessage,
   isBidAccepted, sendVendorQuote, getBidAdjustment, saveBidAdjustment,
   getRescindedBidIds, rescindBid,
 } from "@/data/bidUtils";
+import { useVendorBidProjects } from "@/hooks/use-marketplace";
 import { Bid, BidMessage, Project } from "@/data/projectData";
 import { getEscrowStatus } from "@/data/vendorRetentionUtils";
 
@@ -165,6 +166,7 @@ function CongratsBanner({
 
 export default function VendorMyBids() {
   const { vendorId } = useRole();
+  const { data: vendorProjects = [] } = useVendorBidProjects(vendorId);
   const [selectedBidId, setSelectedBidId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
   const [replyText, setReplyText] = useState("");
@@ -188,7 +190,11 @@ export default function VendorMyBids() {
   // ── Rescind bid state ────────────────────────────────────────────────────────
   const [showRescindConfirm, setShowRescindConfirm] = useState(false);
 
-  const myBids = vendorId ? getVendorBidProjects(vendorId) : [];
+  const myBids = vendorProjects.flatMap((project) => {
+    const bid =
+      project.bids.find((b) => b.vendorProfileId === vendorId) ?? project.bids[0];
+    return bid ? [{ project, bid }] : [];
+  });
 
   // ── Detect newly accepted bids and show congrats once ───────────────────────
   useEffect(() => {

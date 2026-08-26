@@ -14,13 +14,14 @@ import {
   LogOut,
   Eye,
 } from "lucide-react";
-import { getAugmentedProjects } from "@/data/bidUtils";
 import { supabase, supabaseMissing } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
+import { useAdminMarketplace } from "@/hooks/use-marketplace";
+import { Navigate } from "react-router-dom";
 import type { Project } from "@/data/projectData";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const ADMIN_PASSWORD = "bosun2026";
 const PLATFORM_FEE_RATE = 0.07;
 
 // ── Mock data generators ─────────────────────────────────────────────────────
@@ -187,65 +188,31 @@ function SimpleBarChart({ data }: { data: typeof MONTHLY_REVENUE }) {
   );
 }
 
-// ── Password Gate ────────────────────────────────────────────────────────────
-
-function PasswordGate({ onSuccess }: { onSuccess: () => void }) {
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      localStorage.setItem("bosun_admin_auth", "true");
-      onSuccess();
-    } else {
-      setError(true);
-      setPassword("");
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 mb-4">
-            <Shield className="w-8 h-8 text-sky-400" />
-          </div>
-          <h1 className="text-2xl font-bold text-white">Bosun Admin</h1>
-          <p className="text-slate-400 text-sm mt-1">Enter admin password to continue</p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => { setPassword(e.target.value); setError(false); }}
-              placeholder="Password"
-              autoFocus
-              className={`w-full px-4 py-3 rounded-lg bg-slate-800 border text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors ${
-                error ? "border-red-500" : "border-slate-700"
-              }`}
-            />
-            {error && <p className="text-red-400 text-xs mt-1.5">Incorrect password. Try again.</p>}
-          </div>
-          <button
-            type="submit"
-            className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg text-sm transition-colors"
-          >
-            Access Dashboard
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// ── Main Admin Dashboard ─────────────────────────────────────────────────────
-
 function AdminDashboard() {
-  const projects = useMemo(() => getAugmentedProjects(), []);
-  const mockUsers = useMemo(() => generateMockUsers(), []);
+  const { data, isLoading } = useAdminMarketplace();
+  const projects = data?.projects ?? [];
+  const mockUsers = useMemo(() => {
+    if (data?.profiles?.length) {
+      return data.profiles.map((p, i) => ({
+        id: i + 1,
+        name: p.name,
+        email: p.email,
+        role: p.role as "owner" | "vendor",
+        signupDate: (p.created_at ?? "").slice(0, 10),
+        status: p.onboarding_complete ? "active" as const : "inactive" as const,
+        activity: 0,
+      }));
+    }
+    return generateMockUsers();
+  }, [data?.profiles]);
   const activityFeed = useMemo(() => generateActivityFeed(projects), [projects]);
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600" />
+      </div>
+    );
+  }
 
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | "owner" | "vendor">("all");
@@ -707,12 +674,28 @@ function AdminDashboard() {
 // ── Export ────────────────────────────────────────────────────────────────────
 
 export default function AdminPortal() {
-  const [authenticated, setAuthenticated] = useState(
-    () => localStorage.getItem("bosun_admin_auth") === "true"
-  );
+  const { user, profile, loading } = useAuth();
 
-  if (!authenticated) {
-    return <PasswordGate onSuccess={() => setAuthenticated(true)} />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-400" />
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (!profile?.is_admin) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
+        <div className="max-w-sm text-center space-y-3">
+          <h1 className="text-xl font-semibold text-white">Admin only</h1>
+          <p className="text-sm text-slate-400">
+            This account is not an admin. Ask an operator to set <code>is_admin</code> on your profile.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return <AdminDashboard />;

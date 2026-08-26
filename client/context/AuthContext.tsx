@@ -24,6 +24,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = useCallback(async (userId: string) => {
+    if (supabaseMissing) return;
     const { data } = await supabase
       .from("profiles")
       .select("*")
@@ -68,28 +69,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchProfile]);
 
   const signUp = async (email: string, password: string, name: string, role: "owner" | "vendor") => {
+    if (supabaseMissing) return { error: "Bosun is not configured. Missing Supabase keys." };
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { name, role },
+        emailRedirectTo: `${window.location.origin}/login`,
       },
     });
     return { error: error?.message ?? null };
   };
 
   const signIn = async (email: string, password: string) => {
+    if (supabaseMissing) return { error: "Bosun is not configured. Missing Supabase keys." };
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error?.message ?? null };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    if (!supabaseMissing) await supabase.auth.signOut();
     setProfile(null);
   };
 
   const updateProfile = async (patch: Partial<Tables<"profiles">>) => {
-    if (!user) return;
+    if (!user || supabaseMissing) return;
     await supabase.from("profiles").update(patch).eq("id", user.id);
     await fetchProfile(user.id);
   };

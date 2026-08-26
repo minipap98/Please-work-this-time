@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
-import { getAugmentedProjects } from "@/data/bidUtils";
 import type { BidMessage, Bid, Project } from "@/data/projectData";
+import { useOwnerMarketplaceProjects } from "@/hooks/use-marketplace";
+import { useRole } from "@/context/RoleContext";
+import { useVendorBidProjects } from "@/hooks/use-marketplace";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -43,8 +45,7 @@ interface InboxThread {
 
 // ─── Build thread list from project data ────────────────────────────────────
 
-function buildThreads(): InboxThread[] {
-  const projects = getAugmentedProjects();
+function buildThreads(projects: Project[]): InboxThread[] {
   const threads: InboxThread[] = [];
 
   for (const project of projects) {
@@ -115,17 +116,24 @@ function QuoteCard({
 
 export default function Inbox() {
   const navigate = useNavigate();
-  const [threads, setThreads] = useState<InboxThread[]>(() => buildThreads());
+  const { role, vendorId } = useRole();
+  const ownerQuery = useOwnerMarketplaceProjects();
+  const vendorQuery = useVendorBidProjects(role === "vendor" ? vendorId : null);
+  const liveProjects = (role === "vendor" ? vendorQuery.data : ownerQuery.data) ?? [];
+  const [threads, setThreads] = useState<InboxThread[]>([]);
   const [selectedBidId, setSelectedBidId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Refresh threads when localStorage changes (new messages, etc.)
   useEffect(() => {
-    const onFocus = () => setThreads(buildThreads());
+    setThreads(buildThreads(liveProjects));
+  }, [liveProjects]);
+
+  useEffect(() => {
+    const onFocus = () => setThreads(buildThreads(liveProjects));
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, []);
+  }, [liveProjects]);
 
   const selectedThread = threads.find((t) => t.bid.id === selectedBidId) ?? null;
 
@@ -133,7 +141,7 @@ export default function Inbox() {
   useEffect(() => {
     if (selectedBidId && selectedThread && selectedThread.unreadCount > 0) {
       localStorage.setItem(`msg_read_${selectedBidId}`, String(selectedThread.bid.thread.length));
-      setThreads(buildThreads());
+      setThreads(buildThreads(liveProjects));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBidId]);
@@ -160,7 +168,7 @@ export default function Inbox() {
     localStorage.setItem(key, JSON.stringify(existing));
 
     setReplyText("");
-    setThreads(buildThreads());
+    setThreads(buildThreads(liveProjects));
   }
 
   // Get messages: static thread + any localStorage additions

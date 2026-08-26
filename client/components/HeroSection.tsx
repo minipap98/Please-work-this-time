@@ -8,9 +8,10 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { ENGINE_DATA, type EngineType } from "@/data/engineData";
-import { saveLocalProject } from "@/data/bidUtils";
-import { runAutoBidMatching, seedDemoTemplates } from "@/data/autoBidTemplates";
-import { type Project, type ProjectBoat } from "@/data/projectData";
+import { type ProjectBoat } from "@/data/projectData";
+import { useBoats } from "@/hooks/use-supabase";
+import { useCreateMarketplaceProject } from "@/hooks/use-marketplace";
+import { toast } from "sonner";
 
 // ─── Icons ───────────────────────────────────────────────────
 function SvgIcon({ d, d2, className = "w-5 h-5" }: { d: string; d2?: string; className?: string }) {
@@ -91,15 +92,15 @@ const PROJECT_TEMPLATES: {
 
 const DEFAULT_HERO = "/hero-default.jpg";
 
-const DEFAULT_BOAT = {
-  id: "boat-1773000691182",
-  make: "Sea Ray",
-  model: "SDX 250 OB",
-  year: "2020",
-  name: "No Vacancy",
+const EMPTY_BOAT = {
+  id: "",
+  make: "",
+  model: "",
+  year: "",
+  name: "",
   engineType: "Outboard" as EngineType,
-  engineMake: "Mercury",
-  engineModel: "Verado 250 (2021–present)",
+  engineMake: "",
+  engineModel: "",
   engineCount: "Single",
   isPrimary: true,
 };
@@ -157,16 +158,19 @@ interface HeroSectionProps {
 
 export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) {
   const navigate = useNavigate();
+  const { data: boats } = useBoats();
+  const createProject = useCreateMarketplaceProject();
   const [open, setOpen] = useState(false);
+  const [posting, setPosting] = useState(false);
   const [heroImage, setHeroImage] = useState(
     () => localStorage.getItem("hero_image") ?? DEFAULT_HERO
   );
   const [boatInfo, setBoatInfo] = useState(() => {
     try {
       const stored = localStorage.getItem("my_boat");
-      return stored ? JSON.parse(stored) : DEFAULT_BOAT;
+      return stored ? JSON.parse(stored) : EMPTY_BOAT;
     } catch {
-      return DEFAULT_BOAT;
+      return EMPTY_BOAT;
     }
   });
   const [location, setLocation] = useState<string>(
@@ -190,7 +194,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
       setLocation(localStorage.getItem("user_location") ?? "");
       try {
         const stored = localStorage.getItem("my_boat");
-        setBoatInfo(stored ? JSON.parse(stored) : DEFAULT_BOAT);
+        setBoatInfo(stored ? JSON.parse(stored) : EMPTY_BOAT);
       } catch {}
     };
     window.addEventListener("focus", onFocus);
@@ -198,15 +202,31 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
   }, []);
 
   useEffect(() => {
-    const stored = localStorage.getItem("hero_image");
-    if (stored) {
-      fetch("/api/save-default-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl: stored }),
-      }).catch(() => {});
-    }
-  }, []);
+    const boat = boats?.[0] as {
+      id: string;
+      make: string;
+      model: string;
+      year: string;
+      name: string;
+      engine_type: string | null;
+      engine_make: string | null;
+      engine_model: string | null;
+      engine_count: number | null;
+    } | undefined;
+    if (!boat) return;
+    setBoatInfo({
+      id: boat.id,
+      make: boat.make,
+      model: boat.model,
+      year: boat.year,
+      name: boat.name,
+      engineType: (boat.engine_type as EngineType) || "Outboard",
+      engineMake: boat.engine_make ?? "",
+      engineModel: boat.engine_model ?? "",
+      engineCount: boat.engine_count && boat.engine_count > 1 ? "Twin" : "Single",
+      isPrimary: true,
+    });
+  }, [boats]);
 
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [engineType, setEngineType] = useState<EngineType | null>(null);
@@ -855,8 +875,8 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                       ← Back
                     </button>
                     <button
-                      disabled={!projectTitle.trim()}
-                      onClick={() => {
+                      disabled={!projectTitle.trim() || posting}
+                      onClick={async () => {
                         // Build propulsion from stored engine info
                         const engineModelClean =
                           boatInfo?.engineModel?.replace(/\s*\([\d–\-]+.*?\)$/, "") || null;
@@ -878,52 +898,47 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                           propulsion,
                         };
 
-                        const dateStr = new Date().toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        });
-
-                        const newProject: Project = {
-                          id: `local_${Date.now()}`,
-                          title: projectTitle.trim(),
-                          description: projectDescription.trim(),
-                          status: "bidding",
-                          date: dateStr,
-                          location: location || "Fort Lauderdale",
-                          category: selectedCategory || undefined,
-                          boat,
-                          bids: [],
-                          photos: projectPhotos.length > 0 ? projectPhotos : undefined,
-                          linkedEquipmentId: selectedEquipment ? selectedEquipment.id : undefined,
-                          isWarrantyClaim: selectedEquipment && isWarrantyClaim ? true : undefined,
-                          workLocation: workLocation as Project["workLocation"] || undefined,
-                          haulOutRequired: haulOutRequired || undefined,
-                          haulOutArrangedBy: (haulOutRequired && haulOutArrangedBy) as Project["haulOutArrangedBy"] || undefined,
-                          marinaCOIRequired: marinaCOIRequired || undefined,
-                          linkedEquipment: selectedEquipment
-                            ? {
-                                manufacturer: selectedEquipment.manufacturer,
-                                model: selectedEquipment.model,
-                                category: EQUIPMENT_CATEGORY_LABELS[selectedEquipment.category] || selectedEquipment.category,
-                                serialNumber: selectedEquipment.serialNumber,
-                                warrantyExpiry: selectedEquipment.warrantyExpiry,
-                                warrantyStatus: selectedWarrantyStatus || "expired",
-                                dealer: selectedEquipment.dealer,
-                              }
-                            : undefined,
-                        };
-
-                        saveLocalProject(newProject);
-                        // Run auto-bid matching against vendor templates
-                        seedDemoTemplates();
-                        runAutoBidMatching(newProject);
-                        setPostSubmitted(true);
-                        onProjectPosted?.();
+                        setPosting(true);
+                        try {
+                          await createProject.mutateAsync({
+                            title: projectTitle.trim(),
+                            description: projectDescription.trim(),
+                            category: selectedCategory || undefined,
+                            location: location || undefined,
+                            boatId: boatInfo?.id || undefined,
+                            photos: projectPhotos,
+                            metadata: {
+                              workLocation: workLocation || undefined,
+                              haulOutRequired,
+                              haulOutArrangedBy: haulOutRequired ? haulOutArrangedBy : undefined,
+                              marinaCOIRequired,
+                              isWarrantyClaim: Boolean(selectedEquipment && isWarrantyClaim),
+                              linkedEquipmentId: selectedEquipment?.id,
+                              linkedEquipment: selectedEquipment
+                                ? {
+                                    manufacturer: selectedEquipment.manufacturer,
+                                    model: selectedEquipment.model,
+                                    category: EQUIPMENT_CATEGORY_LABELS[selectedEquipment.category] || selectedEquipment.category,
+                                    serialNumber: selectedEquipment.serialNumber,
+                                    warrantyExpiry: selectedEquipment.warrantyExpiry,
+                                    warrantyStatus: selectedWarrantyStatus || "expired",
+                                    dealer: selectedEquipment.dealer,
+                                  }
+                                : undefined,
+                              boat,
+                            },
+                          });
+                          setPostSubmitted(true);
+                          onProjectPosted?.();
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Could not post this job.");
+                        } finally {
+                          setPosting(false);
+                        }
                       }}
                       className="px-4 py-2 rounded-md bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
                     >
-                      Post Project
+                      {posting ? "Posting…" : "Post Project"}
                     </button>
                   </div>
                 </div>

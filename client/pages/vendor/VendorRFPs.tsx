@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Shield, Anchor, MapPin } from "lucide-react";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
-import { submitBid, vendorHasBid, getAllProjects } from "@/data/bidUtils";
+import { useOpenRfps, useSubmitMarketplaceBid, useVendorBidProjects } from "@/hooks/use-marketplace";
+import { toast } from "sonner";
 
 interface LineItem {
   description: string;
@@ -24,7 +25,10 @@ function bidTotal(items: LineItem[]): number {
 
 export default function VendorRFPs() {
   const { vendorId } = useRole();
-  const [, forceUpdate] = useState(0);
+  const { data: allProjects = [], refetch } = useOpenRfps();
+  const { data: myBidProjects = [] } = useVendorBidProjects(vendorId);
+  const submitBid = useSubmitMarketplaceBid();
+  const myBidIds = new Set(myBidProjects.map((p) => p.id));
 
   // Dialog state
   const [dialogProjectId, setDialogProjectId] = useState<string | null>(null);
@@ -34,9 +38,8 @@ export default function VendorRFPs() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<string[]>([]);
 
-  const allProjects = getAllProjects();
   const openProjects = allProjects.filter(
-    (p) => p.status === "gathering" || p.status === "bidding"
+    (p) => p.status === "gathering" || p.status === "bidding" || p.status === "active"
   );
 
   const dialogProject = dialogProjectId
@@ -75,48 +78,33 @@ export default function VendorRFPs() {
     setLineItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!isValid || !dialogProject || !vendorId) return;
     setSubmitting(true);
-
-    const now = new Date();
-    const submittedDate = now.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-
     const validItems = lineItems.filter(
       (item) => item.description.trim() && parseFloat(item.unitPrice) > 0
     );
-
-    submitBid(dialogProject.id, {
-      id: `local_${Date.now()}`,
-      vendorName: vendorId,
-      vendorInitials: vendorId
-        .split(" ")
-        .map((w) => w[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase(),
-      rating: 0,
-      reviewCount: 0,
-      message: bidMessage.trim(),
-      price: total,
-      lineItems: validItems.map((item) => ({
-        description: item.description.trim(),
-        quantity: parseFloat(item.quantity) || 1,
-        unitPrice: parseFloat(item.unitPrice) || 0,
-      })),
-      submittedDate,
-      expiryDate: bidExpiry || "TBD",
-      thread: [],
-    });
-
-    setSubmitted((prev) => [...prev, dialogProject.id]);
-    setSubmitting(false);
-    closeDialog();
-    forceUpdate((n) => n + 1);
+    try {
+      await submitBid.mutateAsync({
+        projectId: dialogProject.id,
+        vendorProfileId: vendorId,
+        price: total,
+        message: bidMessage.trim(),
+        expiryDate: bidExpiry || undefined,
+        lineItems: validItems.map((item) => ({
+          description: item.description.trim(),
+          quantity: parseFloat(item.quantity) || 1,
+          unitPrice: parseFloat(item.unitPrice) || 0,
+        })),
+      });
+      setSubmitted((prev) => [...prev, dialogProject.id]);
+      closeDialog();
+      refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not submit bid.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -135,9 +123,7 @@ export default function VendorRFPs() {
         ) : (
           <div className="space-y-4">
             {openProjects.map((project) => {
-              const alreadyBid =
-                submitted.includes(project.id) ||
-                (vendorId ? vendorHasBid(project.id, vendorId) : false);
+              const alreadyBid = submitted.includes(project.id) || myBidIds.has(project.id);
               return (
                 <div
                   key={project.id}

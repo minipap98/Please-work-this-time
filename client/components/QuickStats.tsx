@@ -1,11 +1,6 @@
 import { useMemo } from "react";
-import { getAugmentedProjects, getCancelledProjectIds, getLocalProjectStatus } from "@/data/bidUtils";
-
-const MAX_STATIC_ACTIVE = 3;
-
-function isActiveStatus(status: string) {
-  return status === "active" || status === "bidding" || status === "in-progress" || status === "gathering";
-}
+import type { Project } from "@/data/projectData";
+import { isActiveProjectStatus } from "@shared/api";
 
 interface StatCardProps {
   label: string;
@@ -31,21 +26,10 @@ function StatCard({ label, value, icon, sublabel }: StatCardProps) {
   );
 }
 
-export default function QuickStats() {
+export default function QuickStats({ projects = [] }: { projects?: Project[] }) {
   const stats = useMemo(() => {
-    const allProjects = getAugmentedProjects();
-    const cancelledIds = getCancelledProjectIds();
-
-    // Active projects count — match the same logic as the Index page tabs
-    const isLocal = (id: string) => id.startsWith("local_");
-    const staticActive = Math.min(
-      allProjects.filter((p) => !isLocal(p.id) && p.status !== "expired" && isActiveStatus(getLocalProjectStatus(p.id, p.status)) && !cancelledIds.includes(p.id)).length,
-      MAX_STATIC_ACTIVE
-    );
-    const localAndReinstated = allProjects.filter(
-      (p) => (isLocal(p.id) || p.status === "expired") && isActiveStatus(getLocalProjectStatus(p.id, p.status)) && !cancelledIds.includes(p.id)
-    ).length;
-    const activeCount = staticActive + localAndReinstated;
+    const allProjects = projects;
+    const activeCount = allProjects.filter((p) => isActiveProjectStatus(p.status)).length;
 
     // Total bids across all projects
     const totalBids = allProjects.reduce((sum, p) => sum + p.bids.length, 0);
@@ -57,14 +41,10 @@ export default function QuickStats() {
         ? ratedBids.reduce((sum, b) => sum + b.rating, 0) / ratedBids.length
         : 0;
 
-    // Completed projects count
-    const completedCount = allProjects.filter((p) => {
-      const effective = getLocalProjectStatus(p.id, p.status);
-      return effective === "completed" && !cancelledIds.includes(p.id);
-    }).length;
+    const completedCount = allProjects.filter((p) => p.status === "completed").length;
 
     return { activeCount, totalBids, avgRating, completedCount };
-  }, []);
+  }, [projects]);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3">

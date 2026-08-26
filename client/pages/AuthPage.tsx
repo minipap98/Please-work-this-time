@@ -2,6 +2,7 @@ import { useState, FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
+import { supabaseMissing } from "@/lib/supabase";
 
 type Mode = "signin" | "signup";
 
@@ -48,8 +49,7 @@ export default function AuthPage() {
         if (err) {
           setError(err);
         } else {
-          // Profile will be loaded by AuthContext; redirect to home
-          navigate("/");
+          navigate("/app");
         }
       } else {
         if (!name.trim()) {
@@ -82,6 +82,9 @@ export default function AuthPage() {
       <div className="mb-8 text-center">
         <span className="text-2xl font-bold tracking-tight text-foreground">Bosun</span>
         <p className="text-sm text-muted-foreground mt-1">Marine services, simplified</p>
+        {supabaseMissing && (
+          <p className="text-xs text-red-600 mt-2">Supabase keys are missing. Sign-in will not work until they are set.</p>
+        )}
       </div>
 
       {/* Card */}

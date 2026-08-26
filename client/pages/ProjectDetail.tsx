@@ -4,7 +4,8 @@ import Header from "@/components/Header";
 import ReviewForm from "@/components/ReviewForm";
 import StripePayment from "@/components/StripePayment";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
-import { getAugmentedProjects, getRejectedBidIds, rejectBid, unrejectBid, getBidAdjustment, getRescindedBidIds } from "@/data/bidUtils";
+import { getRejectedBidIds, rejectBid, unrejectBid, getBidAdjustment, getRescindedBidIds } from "@/data/bidUtils";
+import { useMarketplaceProject, useAcceptMarketplaceBid } from "@/hooks/use-marketplace";
 import { VENDOR_PROFILES } from "@/data/vendorData";
 import { getVendorInsuranceStatus } from "@/data/vendorProfileUtils";
 import { useRole } from "@/context/RoleContext";
@@ -43,28 +44,8 @@ export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { role, vendorId } = useRole();
-
-  const project = getAugmentedProjects().find((p) => p.id === id);
-
-  if (!project) {
-    return (
-      <div className="min-h-screen bg-white">
-        <Header />
-        <main className="max-w-4xl mx-auto px-4 py-10">
-          <p className="text-muted-foreground">Project not found.</p>
-        </main>
-      </div>
-    );
-  }
-
-  const chosenBid = project.chosenBidId
-    ? project.bids.find((b) => b.id === project.chosenBidId)
-    : null;
-
-  const invoiceTotal = project.invoice
-    ? project.invoice.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
-    : 0;
-
+  const { data: project, isLoading } = useMarketplaceProject(id);
+  const acceptBid = useAcceptMarketplaceBid();
   const [expandedBid, setExpandedBid] = useState<string | null>(null);
   const [rejectedIds, setRejectedIds] = useState<string[]>(() => getRejectedBidIds());
   const [rescindedIds] = useState<string[]>(() => getRescindedBidIds());
@@ -89,7 +70,7 @@ export default function ProjectDetail() {
   });
 
   const serviceDialogBid = serviceDialogBidId
-    ? project.bids.find((b) => b.id === serviceDialogBidId)
+    ? project?.bids.find((b) => b.id === serviceDialogBidId)
     : null;
 
   // Generate next 6 week options starting from next Monday
@@ -130,7 +111,7 @@ export default function ProjectDetail() {
   }
 
   function handleConfirmBooking() {
-    if (selectedWeek === null || !selectedTime) return;
+    if (selectedWeek === null || !selectedTime || !serviceDialogBidId || !id) return;
     const booking = {
       bidId: serviceDialogBidId,
       vendorName: serviceDialogBid?.vendorName,
@@ -138,9 +119,15 @@ export default function ProjectDetail() {
       time: TIME_OPTIONS.find((t) => t.id === selectedTime)?.label,
       notes: serviceNotes,
     };
-    localStorage.setItem(`booking_${id}`, JSON.stringify(booking));
-    setBookingConfirmed(booking);
-    setServiceDialogBidId(null);
+    acceptBid.mutate(
+      { projectId: id, bidId: serviceDialogBidId, booking },
+      {
+        onSuccess: () => {
+          setBookingConfirmed(booking);
+          setServiceDialogBidId(null);
+        },
+      }
+    );
   }
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -208,7 +195,7 @@ export default function ProjectDetail() {
   // Project status progression (stored locally for demo)
   const statusKey = `project_status_${id}`;
   const [projectStatus, setProjectStatus] = useState<string>(() => {
-    try { return localStorage.getItem(statusKey) ?? project.status; } catch { return project.status; }
+    try { return localStorage.getItem(statusKey) ?? ""; } catch { return ""; }
   });
 
   function advanceStatus() {
@@ -225,7 +212,40 @@ export default function ProjectDetail() {
   }
 
 
-  const allPhotos = useMemo(() => [...(project.photos ?? []), ...getProjectPhotos(project.id)], [project]);
+  const allPhotos = useMemo(
+    () => [...(project?.photos ?? []), ...getProjectPhotos(id ?? "")],
+    [project, id]
+  );
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Header />
+        <main className="max-w-4xl mx-auto px-4 py-10">
+          <p className="text-muted-foreground">Loading job…</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Header />
+        <main className="max-w-4xl mx-auto px-4 py-10">
+          <p className="text-muted-foreground">Project not found.</p>
+        </main>
+      </div>
+    );
+  }
+
+  const chosenBid = project.chosenBidId
+    ? project.bids.find((b) => b.id === project.chosenBidId)
+    : null;
+
+  const invoiceTotal = project.invoice
+    ? project.invoice.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+    : 0;
 
   return (
     <div className="min-h-screen bg-white">
@@ -1139,6 +1159,8 @@ export default function ProjectDetail() {
           label={paymentModal.label}
           vendorName={bookingConfirmed.vendorName}
           projectTitle={project.title}
+          projectId={project.id}
+          bidId={bookingConfirmed.bidId}
           onSuccess={(info) => {
             localStorage.setItem(depositKey, JSON.stringify(info));
             setDepositPaid(info);

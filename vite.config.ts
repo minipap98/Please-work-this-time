@@ -2,38 +2,19 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { fileURLToPath } from "url";
-import { writeFileSync } from "fs";
+import { createServer } from "./server";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const saveDefaultImagePlugin = {
-  name: "save-default-image",
-  configureServer(server: any) {
-    server.middlewares.use("/api/save-default-image", (req: any, res: any, next: any) => {
-      if (req.method !== "POST") { next(); return; }
-      let body = "";
-      req.on("data", (chunk: Buffer) => { body += chunk.toString(); });
-      req.on("end", () => {
-        try {
-          const { dataUrl } = JSON.parse(body);
-          const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, "");
-          writeFileSync(
-            path.resolve(__dirname, "public/hero-default.jpg"),
-            Buffer.from(base64, "base64")
-          );
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ ok: true }));
-        } catch {
-          res.writeHead(500);
-          res.end(JSON.stringify({ ok: false }));
-        }
-      });
-    });
+const expressPlugin = {
+  name: "bosun-express",
+  configureServer(server: { middlewares: { use: (app: unknown) => void } }) {
+    server.middlewares.use(createServer());
   },
 };
 
 export default defineConfig({
-  plugins: [react(), saveDefaultImagePlugin],
+  plugins: [react(), expressPlugin],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./client"),

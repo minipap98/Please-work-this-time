@@ -1,4 +1,14 @@
-# Fusion Starter
+# Bosun
+
+Bosun is a marine services marketplace (React + Express + Supabase + Stripe).
+
+Auth is required. The public marketing page lives at `/`. The owner dashboard is `/app`. Vendors land on `/vendor-dashboard`. Admin is `/admin` and requires `profiles.is_admin`.
+
+Jobs and bids persist in Supabase (`client/lib/marketplace.ts`). Payments go through `POST /api/payments/create-intent`. Do not store a shared admin password in the client.
+
+Prefer pnpm. After schema.sql, also run `supabase/migrations/20260825_go_to_market.sql`.
+
+# Fusion Starter (template notes below)
 
 A production-ready full-stack React application template with integrated Express server, featuring React Router 6 SPA mode, TypeScript, Vitest, Zod and modern tooling.
 

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getCurrentUser, markOnboardingComplete, updateCurrentUser } from "@/data/authUtils";
 import { useRole } from "@/context/RoleContext";
+import { useAuth } from "@/context/AuthContext";
+import { supabase, supabaseMissing } from "@/lib/supabase";
+import { toast } from "sonner";
 import { BOAT_MAKES, BOAT_MODELS, type BoatMake } from "@/data/boatData";
 import { ENGINE_DATA, ENGINE_TYPES, OUTBOARD_COUNTS, type EngineType } from "@/data/engineData";
 import { VENDOR_SPECIALTIES, VENDOR_CERTIFICATIONS } from "@/data/onboardingData";
@@ -34,8 +36,12 @@ const YEARS = Array.from({ length: CURRENT_YEAR - 2009 }, (_, i) => String(CURRE
 export default function Onboarding() {
   const navigate = useNavigate();
   const { setVendorMode, setOwnerMode } = useRole();
-  const user = getCurrentUser()!;
-  const isVendor = user.role === "vendor";
+  const { user: authUser, profile, updateProfile } = useAuth();
+  const isVendor = (profile?.role ?? "owner") === "vendor";
+  const user = {
+    name: profile?.name ?? authUser?.email ?? "",
+    role: profile?.role ?? "owner",
+  };
   const steps: Step[] = isVendor ? VENDOR_STEPS : OWNER_STEPS;
 
   const [stepIndex, setStepIndex] = useState(0);
@@ -75,61 +81,83 @@ export default function Onboarding() {
     setCustomCert("");
   }
 
-  function handleComplete() {
-    if (isVendor) {
-      // Build initials from business name
-      const initials = businessName
-        .split(" ")
-        .map((w) => w[0]?.toUpperCase() ?? "")
-        .join("")
-        .slice(0, 2);
+  async function handleComplete() {
+    try {
+      if (isVendor) {
+        const initials = businessName
+          .split(" ")
+          .map((w) => w[0]?.toUpperCase() ?? "")
+          .join("")
+          .slice(0, 2);
 
-      const profile = createVendorProfileFromOnboarding({
-        name: businessName.trim(),
-        initials,
-        yearsInBusiness: parseInt(yearsInBusiness) || 0,
-        insured,
-        licensed,
-        specialties,
-        certifications,
-        serviceArea: serviceArea.trim(),
-        bio: bio.trim(),
-      });
-      saveCustomVendorProfile(profile);
-
-      // Update user record if business name changed
-      if (businessName.trim() !== user.name) {
-        updateCurrentUser({
-          name: businessName.trim(),
-          initials,
-          vendorId: businessName.trim(),
-        });
+        if (!supabaseMissing && authUser) {
+          const { data, error } = await supabase.from("vendor_profiles").insert({
+            user_id: authUser.id,
+            business_name: businessName.trim(),
+            initials,
+            years_in_business: parseInt(yearsInBusiness) || 0,
+            insured,
+            licensed,
+            specialties,
+            certifications,
+            service_area: serviceArea.trim(),
+            bio: bio.trim(),
+          }).select("id").single();
+          if (error) throw error;
+          if (data?.id) setVendorMode(data.id);
+          await updateProfile({ name: businessName.trim(), initials, onboarding_complete: true });
+        } else {
+          const localProfile = createVendorProfileFromOnboarding({
+            name: businessName.trim(),
+            initials,
+            yearsInBusiness: parseInt(yearsInBusiness) || 0,
+            insured,
+            licensed,
+            specialties,
+            certifications,
+            serviceArea: serviceArea.trim(),
+            bio: bio.trim(),
+          });
+          saveCustomVendorProfile(localProfile);
+          setVendorMode(businessName.trim());
+        }
+      } else {
+        const hasBoat = boat.make || boat.model || boat.name;
+        if (hasBoat && !supabaseMissing && authUser) {
+          await supabase.from("boats").insert({
+            owner_id: authUser.id,
+            name: boat.name || "My Boat",
+            make: boat.make || "Unknown",
+            model: boat.model || "Unknown",
+            year: boat.year || String(new Date().getFullYear()),
+            engine_type: (boat.engineType || null) as "Outboard" | "Inboard" | "I/O (Sterndrive)" | null,
+            engine_make: boat.engineMake || null,
+            engine_model: boat.engineModel || null,
+            engine_count: boat.engineCount === "Twin" ? 2 : 1,
+            home_port: location.trim() || null,
+          });
+        } else if (hasBoat) {
+          const savedBoat = {
+            id: `boat-${Date.now()}`,
+            ...boat,
+            isPrimary: true,
+          };
+          localStorage.setItem("my_fleet", JSON.stringify([savedBoat]));
+          localStorage.setItem("my_boat", JSON.stringify(savedBoat));
+        }
+        if (location.trim()) {
+          localStorage.setItem("user_location", location.trim());
+          await updateProfile({ location: location.trim(), onboarding_complete: true });
+        } else {
+          await updateProfile({ onboarding_complete: true });
+        }
+        setOwnerMode();
       }
 
-      setVendorMode(businessName.trim());
-    } else {
-      // Save boat if any fields were filled
-      const hasBoat = boat.make || boat.model || boat.name;
-      if (hasBoat) {
-        const savedBoat = {
-          id: `boat-${Date.now()}`,
-          ...boat,
-          isPrimary: true,
-        };
-        localStorage.setItem("my_fleet", JSON.stringify([savedBoat]));
-        localStorage.setItem("my_boat", JSON.stringify(savedBoat));
-      }
-
-      // Save location
-      if (location.trim()) {
-        localStorage.setItem("user_location", location.trim());
-      }
-
-      setOwnerMode();
+      navigate(isVendor ? "/vendor-dashboard" : "/app");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not finish setup.");
     }
-
-    markOnboardingComplete();
-    navigate(isVendor ? "/vendor-dashboard" : "/");
   }
 
   // ── Shared form classes ──────────────────────────────────────────────────

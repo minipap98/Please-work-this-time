@@ -2,8 +2,10 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
-import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
-import { submitBid, vendorHasBid, getAllProjects, getLocalProjectStatus, getVendorBidProjects, isBidAccepted } from "@/data/bidUtils";
+import { useMyVendorProfile } from "@/hooks/use-supabase";
+import { getLocalProjectStatus, isBidAccepted } from "@/data/bidUtils";
+import { useOpenRfps, useSubmitMarketplaceBid, useVendorBidProjects } from "@/hooks/use-marketplace";
+import { toast } from "sonner";
 import { getVendorRevenueWithTiers, getVendorScorecard, getVendorAnalytics } from "@/data/vendorRetentionUtils";
 import { Shield, Anchor, MapPin } from "lucide-react";
 // Insurance + Templates moved to Business Hub
@@ -36,7 +38,7 @@ function fmtShort(n: number) {
 export default function VendorDashboard() {
   const { vendorId } = useRole();
   const navigate = useNavigate();
-  const [, forceUpdate] = useState(0);
+
 
   // Detail panel state
   const [detailProjectId, setDetailProjectId] = useState<string | null>(null);
@@ -73,13 +75,27 @@ export default function VendorDashboard() {
     });
   }
 
-  const vendor = vendorId ? getAllVendorProfiles()[vendorId] : null;
+  const { data: myVendor } = useMyVendorProfile();
+  const vendorRow = myVendor as { business_name?: string; response_time?: string | null } | null | undefined;
+  const vendor = vendorRow
+    ? {
+        name: vendorRow.business_name ?? "Your shop",
+        responseTime: vendorRow.response_time ?? "—",
+      }
+    : vendorId
+      ? { name: "Your shop", responseTime: "—" }
+      : null;
   const revenue = vendorId ? getVendorRevenueWithTiers(vendorId) : null;
   const scorecard = vendorId ? getVendorScorecard(vendorId) : null;
   const analytics = vendorId ? getVendorAnalytics(vendorId) : null;
 
-  const allProjects = getAllProjects();
-  const bidProjects = vendorId ? getVendorBidProjects(vendorId) : [];
+  const { data: allProjects = [] } = useOpenRfps();
+  const { data: vendorProjects = [], refetch } = useVendorBidProjects(vendorId);
+  const submitBid = useSubmitMarketplaceBid();
+  const bidProjects = vendorProjects.flatMap((project) => {
+    const bid = project.bids.find((b) => b.vendorProfileId === vendorId) ?? project.bids[0];
+    return bid ? [{ project, bid }] : [];
+  });
 
   // Active jobs = accepted bids on in-progress projects
   const activeJobs = bidProjects.filter(({ project, bid }) => {
@@ -108,7 +124,7 @@ export default function VendorDashboard() {
     const effective = getLocalProjectStatus(p.id, p.status);
     if (effective !== "gathering" && effective !== "bidding") return false;
     // Hide already-bid
-    if (vendorId && vendorHasBid(p.id, vendorId)) return false;
+    if (vendorProjects.some((vp) => vp.id === p.id)) return false;
     if (submitted.includes(p.id)) return false;
     // Hide declined
     if (declinedIds.has(p.id)) return false;
@@ -201,47 +217,33 @@ export default function VendorDashboard() {
     setLineItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!isValid || !dialogProject || !vendorId) return;
     setSubmitting(true);
-
-    const submittedDate = new Date().toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-
     const validItems = lineItems.filter(
       (item) => item.description.trim() && parseFloat(item.unitPrice) > 0
     );
-
-    submitBid(dialogProject.id, {
-      id: `local_${Date.now()}`,
-      vendorName: vendorId,
-      vendorInitials: vendorId
-        .split(" ")
-        .map((w) => w[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase(),
-      rating: 0,
-      reviewCount: 0,
-      message: bidMessage.trim(),
-      price: total,
-      lineItems: validItems.map((item) => ({
-        description: item.description.trim(),
-        quantity: parseFloat(item.quantity) || 1,
-        unitPrice: parseFloat(item.unitPrice) || 0,
-      })),
-      submittedDate,
-      expiryDate: bidExpiry || "TBD",
-      thread: [],
-    });
-
-    setSubmitted((prev) => [...prev, dialogProject.id]);
-    setSubmitting(false);
-    closeDialog();
-    forceUpdate((n) => n + 1);
+    try {
+      await submitBid.mutateAsync({
+        projectId: dialogProject.id,
+        vendorProfileId: vendorId,
+        price: total,
+        message: bidMessage.trim(),
+        expiryDate: bidExpiry || undefined,
+        lineItems: validItems.map((item) => ({
+          description: item.description.trim(),
+          quantity: parseFloat(item.quantity) || 1,
+          unitPrice: parseFloat(item.unitPrice) || 0,
+        })),
+      });
+      setSubmitted((prev) => [...prev, dialogProject.id]);
+      closeDialog();
+      refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not submit bid.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (!vendor) {
@@ -561,7 +563,7 @@ export default function VendorDashboard() {
       {detailProject && (() => {
         const alreadyBid =
           submitted.includes(detailProject.id) ||
-          (vendorId ? vendorHasBid(detailProject.id, vendorId) : false);
+          vendorProjects.some((vp) => vp.id === detailProject.id);
         return (
           <>
             <div className="fixed inset-0 bg-black/40 z-40" onClick={closeDetail} />

@@ -14,6 +14,7 @@ export interface Database {
           phone: string | null;
           location: string | null;
           onboarding_complete: boolean;
+          is_admin: boolean;
           stripe_customer_id: string | null;
           stripe_account_id: string | null;
           push_subscription: Json | null;
@@ -30,6 +31,7 @@ export interface Database {
           phone?: string | null;
           location?: string | null;
           onboarding_complete?: boolean;
+          is_admin?: boolean;
           stripe_customer_id?: string | null;
           stripe_account_id?: string | null;
           push_subscription?: Json | null;
@@ -46,6 +48,7 @@ export interface Database {
           phone?: string | null;
           location?: string | null;
           onboarding_complete?: boolean;
+          is_admin?: boolean;
           stripe_customer_id?: string | null;
           stripe_account_id?: string | null;
           push_subscription?: Json | null;
@@ -221,6 +224,7 @@ export interface Database {
           chosen_bid_id: string | null;
           date: string;
           expires_at: string | null;
+          metadata: Json;
           created_at: string;
           updated_at: string;
         };
@@ -236,6 +240,7 @@ export interface Database {
           chosen_bid_id?: string | null;
           date?: string;
           expires_at?: string | null;
+          metadata?: Json;
         };
         Update: {
           boat_id?: string | null;
@@ -246,6 +251,7 @@ export interface Database {
           location?: string | null;
           chosen_bid_id?: string | null;
           expires_at?: string | null;
+          metadata?: Json;
         };
         Relationships: [];
       };
@@ -282,6 +288,7 @@ export interface Database {
           submitted_at: string;
           expiry_date: string | null;
           accepted: boolean | null;
+          rejected: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -294,12 +301,14 @@ export interface Database {
           submitted_at?: string;
           expiry_date?: string | null;
           accepted?: boolean | null;
+          rejected?: boolean;
         };
         Update: {
           price?: number;
           message?: string | null;
           expiry_date?: string | null;
           accepted?: boolean | null;
+          rejected?: boolean;
         };
         Relationships: [];
       };
@@ -422,9 +431,11 @@ export interface Database {
       payments: {
         Row: {
           id: string;
-          invoice_id: string;
-          payer_id: string;
-          payee_id: string;
+          invoice_id: string | null;
+          project_id: string | null;
+          bid_id: string | null;
+          payer_id: string | null;
+          payee_id: string | null;
           amount: number;
           platform_fee: number;
           stripe_payment_intent_id: string | null;
@@ -435,9 +446,11 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          invoice_id: string;
-          payer_id: string;
-          payee_id: string;
+          invoice_id?: string | null;
+          project_id?: string | null;
+          bid_id?: string | null;
+          payer_id?: string | null;
+          payee_id?: string | null;
           amount: number;
           platform_fee?: number;
           stripe_payment_intent_id?: string | null;

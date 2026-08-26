@@ -12,6 +12,7 @@ export interface BidMessage {
 
 export interface Bid {
   id: string;
+  vendorProfileId?: string;
   vendorName: string;
   vendorInitials: string;
   rating: number;

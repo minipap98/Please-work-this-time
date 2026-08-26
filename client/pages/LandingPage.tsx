@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Anchor, Shield, Zap, Star, ChevronRight, ArrowRight, Check, MapPin, Clock, Users } from "lucide-react";
+import { Anchor, Shield, Zap, ChevronRight, ArrowRight, Check, MapPin, Clock, Users } from "lucide-react";
 
 const STATS = [
-  { value: "2,400+", label: "Boats Serviced" },
-  { value: "350+", label: "Verified Vendors" },
-  { value: "4.8★", label: "Average Rating" },
-  { value: "$2.1M+", label: "Jobs Completed" },
+  { value: "South Florida", label: "Launch market" },
+  { value: "Free to post", label: "For boat owners" },
+  { value: "$0 to join", label: "For vendors" },
+  { value: "Line-item bids", label: "No hidden fees" },
 ];
 
 const HOW_IT_WORKS_OWNER = [
@@ -90,30 +90,6 @@ const FEATURES = [
   },
 ];
 
-const TESTIMONIALS = [
-  {
-    name: "Mike R.",
-    role: "2023 Boston Whaler 280 Outrage",
-    location: "Fort Lauderdale, FL",
-    text: "Got three bids for my twin Verado 300 annual service within 24 hours. Ended up saving $400 compared to my old shop, and the work was flawless.",
-    rating: 5,
-  },
-  {
-    name: "Captain Dave L.",
-    role: "2021 Grady-White 376 Canyon",
-    location: "Miami, FL",
-    text: "The auto-bid feature is genius. I posted a 100-hour service and had a certified Mercury dealer's bid before I finished my coffee.",
-    rating: 5,
-  },
-  {
-    name: "Sarah K.",
-    role: "Marine Diesel Specialists",
-    location: "Palm Beach, FL",
-    text: "As a vendor, Bosun has been a game-changer. The auto-bid templates save me hours. I've picked up 12 new clients in 3 months.",
-    rating: 5,
-  },
-];
-
 const SERVICE_CATEGORIES = [
   "Engine Service",
   "Detailing & Waxing",
@@ -142,7 +118,7 @@ export default function LandingPage() {
           <div className="hidden sm:flex items-center gap-6">
             <a href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors">How It Works</a>
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
-            <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Reviews</a>
+            <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Why Bosun</a>
             <a href="#vendors" className="text-sm text-muted-foreground hover:text-foreground transition-colors">For Vendors</a>
           </div>
           <div className="flex items-center gap-2">
@@ -173,7 +149,7 @@ export default function LandingPage() {
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-sky-50 border border-sky-200 mb-6">
               <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
-              <span className="text-xs font-semibold text-sky-700">South Florida's #1 Marine Services Marketplace</span>
+              <span className="text-xs font-semibold text-sky-700">Now launching in South Florida</span>
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground tracking-tight leading-[1.1]">
@@ -342,33 +318,13 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Testimonials ─────────────────────────────────────── */}
       <section id="testimonials" className="py-16 sm:py-20 bg-gray-50/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Trusted by boat owners & vendors</h2>
-          </div>
-
-          <div className="grid sm:grid-cols-3 gap-5">
-            {TESTIMONIALS.map((t) => (
-              <div key={t.name} className="bg-white rounded-2xl border border-border p-6">
-                <div className="flex items-center gap-0.5 mb-3">
-                  {Array.from({ length: t.rating }).map((_, i) => (
-                    <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                  ))}
-                </div>
-                <p className="text-sm text-foreground leading-relaxed mb-4">"{t.text}"</p>
-                <div className="border-t border-border pt-3">
-                  <p className="text-sm font-semibold text-foreground">{t.name}</p>
-                  <p className="text-xs text-muted-foreground">{t.role}</p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-0.5 mt-0.5">
-                    <MapPin className="w-3 h-3" />
-                    {t.location}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Built on the dock, not in a boardroom</h2>
+          <p className="mt-4 text-base text-muted-foreground leading-relaxed">
+            Bosun is launching with boat owners and marine vendors in South Florida.
+            We’re collecting real jobs and real bids first — no fake review counts.
+          </p>
         </div>
       </section>
 
@@ -420,8 +376,8 @@ export default function LandingPage() {
                   <p className="text-xs text-slate-400 mt-0.5">To join</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-white">24hr</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Avg. response</p>
+                  <p className="text-2xl font-bold text-white">Instant</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Job alerts</p>
                 </div>
               </div>
             </div>
@@ -490,10 +446,10 @@ export default function LandingPage() {
             <div>
               <h4 className="text-sm font-semibold text-white mb-3">Company</h4>
               <ul className="space-y-2">
-                <li><span className="text-sm text-slate-400">About</span></li>
-                <li><span className="text-sm text-slate-400">Contact</span></li>
-                <li><span className="text-sm text-slate-400">Terms of Service</span></li>
-                <li><span className="text-sm text-slate-400">Privacy Policy</span></li>
+                <li><button onClick={() => navigate("/login")} className="text-sm text-slate-400 hover:text-white transition-colors">Log in</button></li>
+                <li><a href="mailto:hello@bosun.app" className="text-sm text-slate-400 hover:text-white transition-colors">Contact</a></li>
+                <li><button onClick={() => navigate("/terms")} className="text-sm text-slate-400 hover:text-white transition-colors">Terms of Service</button></li>
+                <li><button onClick={() => navigate("/privacy")} className="text-sm text-slate-400 hover:text-white transition-colors">Privacy Policy</button></li>
               </ul>
             </div>
           </div>

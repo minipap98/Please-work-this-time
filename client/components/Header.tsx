@@ -3,6 +3,8 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useRole } from "@/context/RoleContext";
 import { useAuth } from "@/context/AuthContext";
 import NotificationCenter from "@/components/NotificationCenter";
+import { DEMO_VENDOR_ID, useDemoMode } from "@/lib/demoMode";
+import { VENDOR_PROFILES } from "@/data/vendorData";
 
 const OWNER_MENU_ITEMS = [
   { label: "My Boats", to: "/my-boats" },
@@ -19,31 +21,76 @@ const VENDOR_MENU_ITEMS = [
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { role, vendorId, vendorName } = useRole();
+  const { role, vendorId, vendorName, setVendorMode, setOwnerMode } = useRole();
   const { user: supabaseUser, profile, signOut: supabaseSignOut } = useAuth();
+  const { demo, exit: exitDemo } = useDemoMode();
 
   const isAuthenticated = !!supabaseUser;
   const isVendor = role === "vendor";
+  const demoVendor = demo && vendorId ? VENDOR_PROFILES[vendorId] : null;
 
-  const displayName = isVendor
-    ? (vendorName?.split(" ")[0] ?? profile?.name.split(" ")[0] ?? "Vendor")
-    : (profile?.name.split(" ")[0] ?? "Me");
-  const displayInitials = isVendor
-    ? (vendorName ?? profile?.name ?? "V").slice(0, 2).toUpperCase()
-    : (profile?.initials || profile?.name?.slice(0, 1) || "?").toUpperCase();
+  const displayName = demo
+    ? (isVendor ? (demoVendor?.name.split(" ")[0] ?? "Vendor") : "Demo")
+    : isVendor
+      ? (vendorName?.split(" ")[0] ?? profile?.name.split(" ")[0] ?? "Vendor")
+      : (profile?.name.split(" ")[0] ?? "Me");
+  const displayInitials = demo
+    ? (isVendor ? (demoVendor?.initials ?? "V") : "D")
+    : isVendor
+      ? (vendorName ?? profile?.name ?? "V").slice(0, 2).toUpperCase()
+      : (profile?.initials || profile?.name?.slice(0, 1) || "?").toUpperCase();
 
   function handleSignOut() {
     setMenuOpen(false);
+    if (demo) {
+      exitDemo();
+      setOwnerMode();
+      navigate("/");
+      return;
+    }
     supabaseSignOut();
     navigate("/login");
+  }
+
+  function handleSwitchToVendor() {
+    setMenuOpen(false);
+    setPickerOpen(true);
+  }
+
+  function handleSwitchToOwner() {
+    setMenuOpen(false);
+    setOwnerMode();
+    navigate("/app");
+  }
+
+  function handlePickVendor(name: string) {
+    setVendorMode(name);
+    setPickerOpen(false);
+    navigate("/vendor-dashboard");
   }
 
   const unreadCount = 0;
 
   return (
     <>
+      {demo && (
+        <div className={`bg-amber-50 border-b border-amber-200 text-amber-900 ${isVendor ? "mt-[3px]" : ""}`}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-between gap-3">
+            <p className="text-xs font-medium">
+              Demo mode — sample services and RFPs. Live jobs stay behind Log In.
+            </p>
+            <button
+              onClick={handleSignOut}
+              className="text-xs font-semibold text-amber-800 hover:text-amber-950 whitespace-nowrap"
+            >
+              Exit demo
+            </button>
+          </div>
+        </div>
+      )}
       {/* Amber stripe for vendor mode */}
       {isVendor && <div className="h-[3px] bg-sky-400 fixed top-0 left-0 right-0 z-50" />}
 
@@ -88,9 +135,14 @@ export default function Header() {
           {/* Right side */}
           <div className="flex items-center gap-2">
             {/* Logged-in user info */}
-            {isAuthenticated && (
+            {isAuthenticated && !demo && (
               <span className="hidden sm:inline text-xs text-muted-foreground mr-1">
                 {supabaseUser.email}
+              </span>
+            )}
+            {demo && (
+              <span className="hidden sm:inline text-xs font-medium text-amber-700 mr-1">
+                Demo
               </span>
             )}
 
@@ -172,12 +224,20 @@ export default function Header() {
                             My Profile
                           </button>
                         )}
+                        {demo && (
+                          <button
+                            onClick={handleSwitchToOwner}
+                            className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                          >
+                            View as owner
+                          </button>
+                        )}
                         <div className="border-t border-border my-1" />
                         <button
                           onClick={handleSignOut}
                           className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
                         >
-                          Sign Out
+                          {demo ? "Exit demo" : "Sign Out"}
                         </button>
                       </>
                     ) : (
@@ -191,12 +251,20 @@ export default function Header() {
                             {item.label}
                           </button>
                         ))}
+                        {demo && (
+                          <button
+                            onClick={handleSwitchToVendor}
+                            className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                          >
+                            View as vendor
+                          </button>
+                        )}
                         <div className="border-t border-border my-1" />
                         <button
                           onClick={handleSignOut}
                           className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
                         >
-                          Sign Out
+                          {demo ? "Exit demo" : "Sign Out"}
                         </button>
                       </>
                     )}
@@ -207,6 +275,52 @@ export default function Header() {
           </div>
         </div>
       </header>
+
+      {pickerOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 z-50"
+            onClick={() => setPickerOpen(false)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+              <div className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
+                <h2 className="text-lg font-semibold text-foreground">Switch to Vendor View</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">Browse the sample RFPs as a South Florida shop</p>
+              </div>
+
+              <div className="overflow-y-auto flex-1 py-2">
+                {Object.values(VENDOR_PROFILES).filter((v) => v.name === DEMO_VENDOR_ID).map((vendor) => (
+                  <button
+                    key={vendor.name}
+                    onClick={() => handlePickVendor(vendor.name)}
+                    className="w-full text-left px-5 py-3.5 hover:bg-sky-50 transition-colors flex items-center gap-3 border-b border-border/40 last:border-0"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-sky-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-bold text-sky-700">{vendor.initials}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-foreground truncate">{vendor.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {vendor.specialties[0]} · {vendor.serviceArea.split(" · ")[0]}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="px-6 py-4 border-t border-border flex-shrink-0">
+                <button
+                  onClick={() => setPickerOpen(false)}
+                  className="w-full py-2 rounded-md border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── Mobile bottom navigation (vendor only) ─────────────────── */}
       {isVendor && (

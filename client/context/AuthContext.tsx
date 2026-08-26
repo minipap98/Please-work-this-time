@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { supabase, supabaseMissing } from "@/lib/supabase";
+import { persistDemoMode } from "@/lib/demoMode";
 import type { Tables } from "@/lib/database.types";
 
 interface AuthContextValue {
@@ -70,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, name: string, role: "owner" | "vendor") => {
     if (supabaseMissing) return { error: "Bosun is not configured. Missing Supabase keys." };
+    persistDemoMode(false);
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -83,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     if (supabaseMissing) return { error: "Bosun is not configured. Missing Supabase keys." };
+    persistDemoMode(false);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error?.message ?? null };
   };

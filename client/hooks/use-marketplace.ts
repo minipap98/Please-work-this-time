@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { supabase, supabaseMissing } from "@/lib/supabase";
+import { isDemoMode } from "@/lib/demoMode";
 import {
   PROJECT_DETAIL_SELECT,
   PROJECT_LIST_SELECT,
@@ -14,7 +15,17 @@ import {
   type ProjectRow,
   type SubmitBidInput,
 } from "@/lib/marketplace";
-import type { Project } from "@/data/projectData";
+import type { Project, ProjectBoat } from "@/data/projectData";
+import {
+  cancelProject,
+  getAugmentedProjects,
+  getVendorBidProjects,
+  reinstateProject,
+  saveLocalProject,
+  submitBid,
+} from "@/data/bidUtils";
+import { runAutoBidMatching, seedDemoTemplates } from "@/data/autoBidTemplates";
+import { VENDOR_PROFILES } from "@/data/vendorData";
 
 function assertClient() {
   if (supabaseMissing || !supabase) {
@@ -23,11 +34,17 @@ function assertClient() {
   return supabase;
 }
 
+function demoProjects(): Project[] {
+  return getAugmentedProjects();
+}
+
 export function useOwnerMarketplaceProjects() {
   const { user } = useAuth();
+  const demo = isDemoMode();
   return useQuery({
-    queryKey: ["marketplace-projects", "owner", user?.id],
+    queryKey: ["marketplace-projects", demo ? "demo" : "owner", user?.id],
     queryFn: async (): Promise<Project[]> => {
+      if (isDemoMode()) return demoProjects();
       const client = assertClient();
       const { data, error } = await client
         .from("projects")
@@ -37,15 +54,21 @@ export function useOwnerMarketplaceProjects() {
       if (error) throw error;
       return ((data ?? []) as unknown as ProjectRow[]).map(mapProject);
     },
-    enabled: !!user && !supabaseMissing,
+    enabled: demo || (!!user && !supabaseMissing),
   });
 }
 
 export function useOpenRfps() {
   const { user } = useAuth();
+  const demo = isDemoMode();
   return useQuery({
-    queryKey: ["marketplace-projects", "open-rfps"],
+    queryKey: ["marketplace-projects", demo ? "demo-open-rfps" : "open-rfps"],
     queryFn: async (): Promise<Project[]> => {
+      if (isDemoMode()) {
+        return demoProjects().filter(
+          (p) => p.status === "active" || p.status === "bidding" || p.status === "gathering"
+        );
+      }
       const client = assertClient();
       const { data, error } = await client
         .from("projects")
@@ -55,14 +78,22 @@ export function useOpenRfps() {
       if (error) throw error;
       return ((data ?? []) as unknown as ProjectRow[]).map(mapProject);
     },
-    enabled: !!user && !supabaseMissing,
+    enabled: demo || (!!user && !supabaseMissing),
   });
 }
 
 export function useVendorBidProjects(vendorProfileId: string | null) {
+  const demo = isDemoMode();
   return useQuery({
-    queryKey: ["marketplace-projects", "vendor-bids", vendorProfileId],
+    queryKey: ["marketplace-projects", demo ? "demo-vendor-bids" : "vendor-bids", vendorProfileId],
     queryFn: async (): Promise<Project[]> => {
+      if (isDemoMode()) {
+        if (!vendorProfileId) return [];
+        const rows = getVendorBidProjects(vendorProfileId);
+        const byId = new Map<string, Project>();
+        for (const { project } of rows) byId.set(project.id, project);
+        return [...byId.values()];
+      }
       const client = assertClient();
       const { data: bidRows, error: bidError } = await client
         .from("bids")
@@ -79,14 +110,20 @@ export function useVendorBidProjects(vendorProfileId: string | null) {
       if (error) throw error;
       return ((data ?? []) as unknown as ProjectRow[]).map(mapProject);
     },
-    enabled: !!vendorProfileId && !supabaseMissing,
+    enabled: !!vendorProfileId && (demo || !supabaseMissing),
   });
 }
 
 export function useMarketplaceProject(id: string | undefined) {
+  const demo = isDemoMode();
   return useQuery({
-    queryKey: ["marketplace-project", id],
+    queryKey: ["marketplace-project", demo ? "demo" : "live", id],
     queryFn: async (): Promise<Project> => {
+      if (isDemoMode()) {
+        const project = demoProjects().find((p) => p.id === id);
+        if (!project) throw new Error("Project not found.");
+        return project;
+      }
       const client = assertClient();
       const { data, error } = await client
         .from("projects")
@@ -96,7 +133,7 @@ export function useMarketplaceProject(id: string | undefined) {
       if (error) throw error;
       return mapProject(data as unknown as ProjectRow);
     },
-    enabled: !!id && !supabaseMissing,
+    enabled: !!id && (demo || !supabaseMissing),
   });
 }
 
@@ -105,6 +142,38 @@ export function useCreateMarketplaceProject() {
   const { user } = useAuth();
   return useMutation({
     mutationFn: (input: CreateProjectInput) => {
+      if (isDemoMode()) {
+        const dateStr = new Date().toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+        const meta = input.metadata ?? {};
+        const boat = (meta.boat as ProjectBoat | undefined) ?? undefined;
+        const newProject: Project = {
+          id: `local_${Date.now()}`,
+          title: input.title,
+          description: input.description,
+          status: "bidding",
+          date: dateStr,
+          location: input.location,
+          category: input.category,
+          boat,
+          bids: [],
+          photos: input.photos?.length ? input.photos : undefined,
+          linkedEquipmentId: (meta.linkedEquipmentId as string | undefined) ?? undefined,
+          isWarrantyClaim: Boolean(meta.isWarrantyClaim),
+          workLocation: (meta.workLocation as Project["workLocation"]) || undefined,
+          haulOutRequired: Boolean(meta.haulOutRequired) || undefined,
+          haulOutArrangedBy: (meta.haulOutArrangedBy as Project["haulOutArrangedBy"]) || undefined,
+          marinaCOIRequired: Boolean(meta.marinaCOIRequired) || undefined,
+          linkedEquipment: (meta.linkedEquipment as Project["linkedEquipment"]) || undefined,
+        };
+        saveLocalProject(newProject);
+        seedDemoTemplates();
+        runAutoBidMatching(newProject);
+        return Promise.resolve(newProject);
+      }
       if (!user) throw new Error("You must be signed in to post a job.");
       return createMarketplaceProject(user.id, input);
     },
@@ -118,7 +187,32 @@ export function useCreateMarketplaceProject() {
 export function useSubmitMarketplaceBid() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: SubmitBidInput) => submitMarketplaceBid(input),
+    mutationFn: (input: SubmitBidInput) => {
+      if (isDemoMode()) {
+        const vendor = VENDOR_PROFILES[input.vendorProfileId];
+        const now = new Date();
+        submitBid(input.projectId, {
+          id: `local_bid_${Date.now()}`,
+          vendorProfileId: input.vendorProfileId,
+          vendorName: vendor?.name ?? input.vendorProfileId,
+          vendorInitials: vendor?.initials ?? "V",
+          rating: vendor?.rating ?? 5,
+          reviewCount: vendor?.reviewCount ?? 0,
+          message: input.message,
+          price: input.price,
+          lineItems: input.lineItems,
+          submittedDate: now.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          }),
+          expiryDate: input.expiryDate || "",
+          thread: [],
+        });
+        return Promise.resolve();
+      }
+      return submitMarketplaceBid(input);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["marketplace-projects"] });
       qc.invalidateQueries({ queryKey: ["marketplace-project"] });
@@ -130,8 +224,15 @@ export function useSubmitMarketplaceBid() {
 export function useUpdateProjectStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ projectId, status }: { projectId: string; status: Project["status"] }) =>
-      updateProjectStatus(projectId, status),
+    mutationFn: ({ projectId, status }: { projectId: string; status: Project["status"] }) => {
+      if (isDemoMode()) {
+        if (status === "expired") cancelProject(projectId);
+        else if (status === "bidding") reinstateProject(projectId);
+        else localStorage.setItem(`project_status_${projectId}`, status);
+        return Promise.resolve();
+      }
+      return updateProjectStatus(projectId, status);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["marketplace-projects"] });
       qc.invalidateQueries({ queryKey: ["marketplace-project"] });
@@ -150,7 +251,14 @@ export function useAcceptMarketplaceBid() {
       projectId: string;
       bidId: string;
       booking?: Record<string, unknown>;
-    }) => acceptMarketplaceBid(projectId, bidId, booking),
+    }) => {
+      if (isDemoMode()) {
+        localStorage.setItem(`booking_${projectId}`, JSON.stringify(booking ?? { bidId }));
+        localStorage.setItem(`project_status_${projectId}`, "in-progress");
+        return Promise.resolve();
+      }
+      return acceptMarketplaceBid(projectId, bidId, booking);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["marketplace-projects"] });
       qc.invalidateQueries({ queryKey: ["marketplace-project"] });

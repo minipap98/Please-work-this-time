@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Anchor, Shield, Zap, ChevronRight, ArrowRight, Check, MapPin, Clock, Users } from "lucide-react";
+import { useDemoMode } from "@/lib/demoMode";
 
 const STATS = [
   { value: "South Florida", label: "Launch market" },
@@ -102,7 +103,13 @@ const SERVICE_CATEGORIES = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { enter: enterDemo } = useDemoMode();
   const [activeTab, setActiveTab] = useState<"owner" | "vendor">("owner");
+
+  function startDemo() {
+    enterDemo();
+    navigate("/app");
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -122,6 +129,12 @@ export default function LandingPage() {
             <a href="#vendors" className="text-sm text-muted-foreground hover:text-foreground transition-colors">For Vendors</a>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={startDemo}
+              className="hidden sm:inline text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-2"
+            >
+              Try demo
+            </button>
             <button
               onClick={() => navigate("/login")}
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-2"
@@ -172,13 +185,10 @@ export default function LandingPage() {
                 <ArrowRight className="w-4 h-4" />
               </button>
               <button
-                onClick={() => {
-                  const el = document.getElementById("vendors");
-                  el?.scrollIntoView({ behavior: "smooth" });
-                }}
+                onClick={startDemo}
                 className="flex items-center gap-2 px-6 py-3.5 rounded-xl border border-border text-base font-semibold text-foreground hover:bg-gray-50 transition-colors"
               >
-                I'm a Vendor
+                Try the demo
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>

@@ -2,7 +2,9 @@
 
 Bosun is a marine services marketplace (React + Express + Supabase + Stripe).
 
-Auth is required. The public marketing page lives at `/`. The owner dashboard is `/app`. Vendors land on `/vendor-dashboard`. Admin is `/admin` and requires `profiles.is_admin`.
+Auth is required for live accounts. The public marketing page lives at `/`. The owner dashboard is `/app`. Vendors land on `/vendor-dashboard`. Admin is `/admin` and requires `profiles.is_admin`.
+
+Demo mode (`/demo` or landing “Try the demo”) restores canned owner services and vendor RFPs from `client/data/projectData.ts` without a login. It does not write to Supabase. Live jobs stay behind Log In.
 
 Jobs and bids persist in Supabase (`client/lib/marketplace.ts`). Payments go through `POST /api/payments/create-intent`. Do not store a shared admin password in the client.
 

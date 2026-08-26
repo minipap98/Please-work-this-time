@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useNavigate } from "react-router-dom";
 import { postLoginPath } from "@shared/api";
 import { supabaseMissing } from "@/lib/supabase";
 import Index from "./pages/Index";
@@ -33,8 +33,10 @@ import LandingPage from "./pages/LandingPage";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import { RoleProvider } from "./context/RoleContext";
+import { RoleProvider, useRole } from "./context/RoleContext";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { DemoModeProvider, isDemoMode, useDemoMode } from "./lib/demoMode";
+import { useEffect } from "react";
 
 function LoadingScreen() {
   return (
@@ -58,8 +60,19 @@ function ConfigScreen() {
   );
 }
 
+function DemoEnter() {
+  const { enter } = useDemoMode();
+  const navigate = useNavigate();
+  useEffect(() => {
+    enter();
+    navigate("/app", { replace: true });
+  }, [enter, navigate]);
+  return <LoadingScreen />;
+}
+
 function AuthGuard() {
   const { user, profile, loading } = useAuth();
+  if (isDemoMode()) return <Outlet />;
   if (supabaseMissing) return <ConfigScreen />;
   if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
@@ -69,6 +82,11 @@ function AuthGuard() {
 
 function OwnerGuard() {
   const { profile, loading } = useAuth();
+  const { role } = useRole();
+  if (isDemoMode()) {
+    if (role === "vendor") return <Navigate to="/vendor-dashboard" replace />;
+    return <Outlet />;
+  }
   if (loading) return <LoadingScreen />;
   if (profile?.role === "vendor") return <Navigate to="/vendor-dashboard" replace />;
   return <Outlet />;
@@ -76,6 +94,11 @@ function OwnerGuard() {
 
 function VendorGuard() {
   const { profile, loading } = useAuth();
+  const { role } = useRole();
+  if (isDemoMode()) {
+    if (role === "owner") return <Navigate to="/app" replace />;
+    return <Outlet />;
+  }
   if (loading) return <LoadingScreen />;
   if (profile?.role === "owner") return <Navigate to="/app" replace />;
   return <Outlet />;
@@ -84,6 +107,7 @@ function VendorGuard() {
 // Requires login but NOT completed onboarding (for the onboarding page itself)
 function OnboardingGuard() {
   const { user, profile, loading } = useAuth();
+  if (isDemoMode()) return <Navigate to="/app" replace />;
   if (supabaseMissing) return <ConfigScreen />;
   if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
@@ -95,6 +119,7 @@ function OnboardingGuard() {
 
 function PublicOnlyGuard() {
   const { user, profile, loading } = useAuth();
+  if (isDemoMode()) return <Outlet />;
   if (loading) return <LoadingScreen />;
   if (user && profile?.onboarding_complete) {
     return <Navigate to={postLoginPath(profile.role, true)} replace />;
@@ -111,12 +136,14 @@ const App = () => (
         <Toaster />
         <Sonner />
         <AuthProvider>
+          <DemoModeProvider>
           <RoleProvider>
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/welcome" element={<Navigate to="/" replace />} />
                 <Route path="/landing" element={<Navigate to="/" replace />} />
+                <Route path="/demo" element={<DemoEnter />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/privacy" element={<Privacy />} />
 
@@ -154,6 +181,7 @@ const App = () => (
               </Routes>
             </BrowserRouter>
           </RoleProvider>
+          </DemoModeProvider>
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>

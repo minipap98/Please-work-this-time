@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { isActiveProjectStatus } from "@shared/api";
 import { useOwnerMarketplaceProjects, useUpdateProjectStatus } from "@/hooks/use-marketplace";
 import { supabaseMissing } from "@/lib/supabase";
+import { isDemoMode } from "@/lib/demoMode";
+import { getCancelledProjectIds, getLocalProjectStatus } from "@/data/bidUtils";
 
 type Tab = "active" | "expired" | "completed";
 
@@ -18,11 +20,19 @@ const TABS: { label: string; value: Tab }[] = [
   { label: "Completed", value: "completed" },
 ];
 
+const MAX_STATIC_ACTIVE = 3;
+
+function effectiveStatus(projectId: string, rawStatus: string) {
+  return getLocalProjectStatus(projectId, rawStatus);
+}
+
 export default function Index() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("active");
+  const demo = isDemoMode();
   const { data: allProjects = [], isLoading, refetch } = useOwnerMarketplaceProjects();
   const updateStatus = useUpdateProjectStatus();
+  const cancelledIds = demo ? getCancelledProjectIds() : [];
 
   function handleCancel(projectId: string) {
     updateStatus.mutate({ projectId, status: "expired" });
@@ -32,14 +42,54 @@ export default function Index() {
     updateStatus.mutate({ projectId, status: "bidding" });
   }
 
-  const visibleProjects = allProjects.filter((p) => {
-    if (tab === "active") return isActiveProjectStatus(p.status);
-    return p.status === tab;
-  });
+  const visibleProjects = (() => {
+    if (!demo) {
+      if (tab === "active") return allProjects.filter((p) => isActiveProjectStatus(p.status));
+      return allProjects.filter((p) => p.status === tab);
+    }
+    if (tab === "active") {
+      const isLocal = (id: string) => id.startsWith("local_");
+      const staticActive = allProjects
+        .filter((p) => !isLocal(p.id) && p.status !== "expired" && isActiveProjectStatus(effectiveStatus(p.id, p.status)) && !cancelledIds.includes(p.id))
+        .slice(0, MAX_STATIC_ACTIVE);
+      const localAndReinstated = allProjects.filter(
+        (p) => (isLocal(p.id) || p.status === "expired") && isActiveProjectStatus(effectiveStatus(p.id, p.status)) && !cancelledIds.includes(p.id)
+      );
+      return [...staticActive, ...localAndReinstated];
+    }
+    if (tab === "expired") {
+      const normalExpired = allProjects.filter(
+        (p) => p.status === "expired" && !cancelledIds.includes(p.id) && effectiveStatus(p.id, p.status) === "expired"
+      );
+      const cancelled = allProjects.filter((p) => cancelledIds.includes(p.id));
+      return [...normalExpired, ...cancelled];
+    }
+    return allProjects.filter((p) => effectiveStatus(p.id, p.status) === tab);
+  })();
 
   function tabCount(value: Tab): number {
-    if (value === "active") return allProjects.filter((p) => isActiveProjectStatus(p.status)).length;
-    return allProjects.filter((p) => p.status === value).length;
+    if (!demo) {
+      if (value === "active") return allProjects.filter((p) => isActiveProjectStatus(p.status)).length;
+      return allProjects.filter((p) => p.status === value).length;
+    }
+    if (value === "active") {
+      const isLocal = (id: string) => id.startsWith("local_");
+      const staticCount = Math.min(
+        allProjects.filter((p) => !isLocal(p.id) && p.status !== "expired" && isActiveProjectStatus(effectiveStatus(p.id, p.status)) && !cancelledIds.includes(p.id)).length,
+        MAX_STATIC_ACTIVE
+      );
+      const localAndReinstatedCount = allProjects.filter(
+        (p) => (isLocal(p.id) || p.status === "expired") && isActiveProjectStatus(effectiveStatus(p.id, p.status)) && !cancelledIds.includes(p.id)
+      ).length;
+      return staticCount + localAndReinstatedCount;
+    }
+    if (value === "expired") {
+      const normalExpired = allProjects.filter(
+        (p) => p.status === "expired" && !cancelledIds.includes(p.id) && effectiveStatus(p.id, p.status) === "expired"
+      ).length;
+      return normalExpired + cancelledIds.length;
+    }
+    return allProjects.filter((p) => effectiveStatus(p.id, p.status) === value).length;
   }
 
   return (
@@ -83,7 +133,7 @@ export default function Index() {
           {/* Project card row */}
           {isLoading ? (
             <p className="px-4 sm:px-6 lg:px-8 text-sm text-muted-foreground py-8">Loading your jobs…</p>
-          ) : supabaseMissing ? (
+          ) : !demo && supabaseMissing ? (
             <p className="px-4 sm:px-6 lg:px-8 text-sm text-muted-foreground py-8">Connect Supabase to load live jobs.</p>
           ) : visibleProjects.length > 0 ? (
             <div className="flex overflow-x-auto gap-3 pb-2 px-4 sm:px-6 lg:px-8 [&::-webkit-scrollbar]:hidden">

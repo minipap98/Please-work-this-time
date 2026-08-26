@@ -195,7 +195,7 @@ export default function VendorMyBids() {
 
   const myBids = vendorProjects.flatMap((project) => {
     const bid =
-      project.bids.find((b) => b.vendorProfileId === vendorId) ?? project.bids[0];
+      project.bids.find((b) => b.vendorProfileId === vendorId || b.vendorName === vendorId) ?? project.bids[0];
     return bid ? [{ project, bid }] : [];
   });
 

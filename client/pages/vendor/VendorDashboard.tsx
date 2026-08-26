@@ -6,6 +6,8 @@ import { useMyVendorProfile } from "@/hooks/use-supabase";
 import { getLocalProjectStatus, isBidAccepted } from "@/data/bidUtils";
 import { useOpenRfps, useSubmitMarketplaceBid, useVendorBidProjects } from "@/hooks/use-marketplace";
 import { toast } from "sonner";
+import { isDemoMode } from "@/lib/demoMode";
+import { VENDOR_PROFILES } from "@/data/vendorData";
 import { useSendMessage } from "@/hooks/use-supabase";
 import { getVendorRevenueWithTiers, getVendorScorecard, getVendorAnalytics } from "@/data/vendorRetentionUtils";
 import { Shield, Anchor, MapPin } from "lucide-react";
@@ -78,14 +80,20 @@ export default function VendorDashboard() {
 
   const { data: myVendor } = useMyVendorProfile();
   const vendorRow = myVendor as { business_name?: string; response_time?: string | null } | null | undefined;
-  const vendor = vendorRow
+  const demoVendor = isDemoMode() && vendorId ? VENDOR_PROFILES[vendorId] : null;
+  const vendor = demoVendor
     ? {
-        name: vendorRow.business_name ?? "Your shop",
-        responseTime: vendorRow.response_time ?? "—",
+        name: demoVendor.name,
+        responseTime: demoVendor.responseTime,
       }
-    : vendorId
-      ? { name: "Your shop", responseTime: "—" }
-      : null;
+    : vendorRow
+      ? {
+          name: vendorRow.business_name ?? "Your shop",
+          responseTime: vendorRow.response_time ?? "—",
+        }
+      : vendorId
+        ? { name: "Your shop", responseTime: "—" }
+        : null;
   const revenue = vendorId ? getVendorRevenueWithTiers(vendorId) : null;
   const scorecard = vendorId ? getVendorScorecard(vendorId) : null;
   const analytics = vendorId ? getVendorAnalytics(vendorId) : null;
@@ -95,7 +103,7 @@ export default function VendorDashboard() {
   const submitBid = useSubmitMarketplaceBid();
   const sendMessage = useSendMessage();
   const bidProjects = vendorProjects.flatMap((project) => {
-    const bid = project.bids.find((b) => b.vendorProfileId === vendorId) ?? project.bids[0];
+    const bid = project.bids.find((b) => b.vendorProfileId === vendorId || b.vendorName === vendorId) ?? project.bids[0];
     return bid ? [{ project, bid }] : [];
   });
 
@@ -178,7 +186,7 @@ export default function VendorDashboard() {
       return;
     }
     try {
-      const existingBid = detailProject.bids.find((b) => b.vendorProfileId === vendorId);
+      const existingBid = detailProject.bids.find((b) => b.vendorProfileId === vendorId || b.vendorName === vendorId);
       await sendMessage.mutateAsync({
         bid_id: existingBid?.id,
         recipient_id: detailProject.ownerId,

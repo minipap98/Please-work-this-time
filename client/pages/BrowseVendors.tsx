@@ -4,6 +4,8 @@ import Header from "@/components/Header";
 import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 import type { VendorProfile } from "@/data/vendorData";
+import { useVendorProfiles } from "@/hooks/use-supabase";
+import type { Tables } from "@/lib/database.types";
 
 const VendorMap = lazy(() => import("@/components/VendorMap"));
 
@@ -49,8 +51,29 @@ export default function BrowseVendors() {
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
-  // All vendor profiles
-  const allVendors = useMemo(() => Object.values(getAllVendorProfiles()), []);
+  const { data: liveVendors } = useVendorProfiles();
+  const allVendors = useMemo(() => {
+    if (liveVendors && liveVendors.length > 0) {
+      return (liveVendors as Tables<"vendor_profiles">[]).map((v) => ({
+        id: v.id,
+        name: v.business_name,
+        initials: v.initials || v.business_name.slice(0, 2).toUpperCase(),
+        rating: 0,
+        reviewCount: 0,
+        responseTime: v.response_time ?? "—",
+        insured: v.insured,
+        licensed: v.licensed,
+        yearsInBusiness: v.years_in_business,
+        specialties: v.specialties ?? [],
+        certifications: v.certifications ?? [],
+        serviceArea: v.service_area ?? "",
+        bio: v.bio ?? "",
+        completedJobs: v.completed_jobs ?? 0,
+        phone: v.phone ?? undefined,
+      }));
+    }
+    return Object.values(getAllVendorProfiles()).map((v) => ({ ...v, id: v.name }));
+  }, [liveVendors]);
 
   // Unique specialties
   const specialties = useMemo(
@@ -346,7 +369,10 @@ export default function BrowseVendors() {
             }>
               <VendorMap
                 vendors={vendors}
-                onVendorClick={(name) => navigate(`/vendor/${encodeURIComponent(name)}`)}
+                onVendorClick={(name) => {
+                  const match = allVendors.find((v) => v.name === name);
+                  navigate(`/vendor/${encodeURIComponent(match?.id ?? name)}`);
+                }}
                 height="450px"
               />
             </Suspense>
@@ -398,7 +424,7 @@ function VendorCard({ vendor, navigate }: { vendor: VendorProfile; navigate: (pa
   return (
     <div
       className="bg-white border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group"
-      onClick={() => navigate(`/vendor/${encodeURIComponent(vendor.name)}`)}
+      onClick={() => navigate(`/vendor/${encodeURIComponent((vendor as VendorProfile & { id?: string }).id ?? vendor.name)}`)}
     >
       <div className="flex items-start gap-4">
         {/* Avatar */}

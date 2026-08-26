@@ -1,6 +1,19 @@
 import { useState, useRef, useEffect } from "react";
 
-type NotificationType = "project_update" | "bid_received" | "message" | "review" | "system";
+import { useNavigate } from "react-router-dom";
+import { useNotifications, useMarkNotificationsRead } from "@/hooks/use-supabase";
+import { useAuth } from "@/context/AuthContext";
+
+type NotificationType =
+  | "project_update"
+  | "bid_received"
+  | "bid_accepted"
+  | "bid_rejected"
+  | "message"
+  | "payment"
+  | "maintenance_due"
+  | "review"
+  | "system";
 
 interface Notification {
   id: string;
@@ -9,43 +22,12 @@ interface Notification {
   message: string;
   timestamp: string;
   read: boolean;
+  href?: string;
 }
 
-const INITIAL_NOTIFICATIONS: Notification[] = [
+const FALLBACK_WELCOME: Notification[] = [
   {
-    id: "1",
-    type: "bid_received",
-    title: "New Bid Received",
-    message: "MarineMax submitted a bid of $4,200 for hull cleaning on Sea Breeze.",
-    timestamp: "2 min ago",
-    read: false,
-  },
-  {
-    id: "2",
-    type: "message",
-    title: "New Message",
-    message: "Chris from AquaCare replied to your thread about engine maintenance.",
-    timestamp: "18 min ago",
-    read: false,
-  },
-  {
-    id: "3",
-    type: "project_update",
-    title: "Project Status Updated",
-    message: "Bottom paint job on Velocity has moved to In Progress.",
-    timestamp: "1 hr ago",
-    read: false,
-  },
-  {
-    id: "4",
-    type: "review",
-    title: "Review Submitted",
-    message: "You left a 5-star review for MarineMax Service Center.",
-    timestamp: "3 hr ago",
-    read: true,
-  },
-  {
-    id: "5",
+    id: "welcome",
     type: "system",
     title: "Welcome to Bosun",
     message: "Your account is set up. Start by adding your first boat!",
@@ -54,7 +36,12 @@ const INITIAL_NOTIFICATIONS: Notification[] = [
   },
 ];
 
-const TYPE_ICONS: Record<NotificationType, JSX.Element> = {
+const TYPE_ICONS: Record<string, JSX.Element> = {
+  bid_accepted: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+    </svg>
+  ),
   bid_received: (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 10v1m9-9a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -82,18 +69,62 @@ const TYPE_ICONS: Record<NotificationType, JSX.Element> = {
   ),
 };
 
-const TYPE_COLORS: Record<NotificationType, string> = {
+const TYPE_COLORS: Record<string, string> = {
   bid_received: "text-emerald-600 bg-emerald-50",
+  bid_accepted: "text-emerald-600 bg-emerald-50",
   message: "text-blue-600 bg-blue-50",
   project_update: "text-amber-600 bg-amber-50",
   review: "text-yellow-500 bg-yellow-50",
+  payment: "text-emerald-600 bg-emerald-50",
   system: "text-muted-foreground bg-muted",
 };
 
+function relativeTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const minutes = Math.max(0, Math.floor(diff / 60000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 export default function NotificationCenter() {
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
   const panelRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  const { data: rawRows } = useNotifications();
+  const rows = (rawRows ?? []) as Array<{
+    id: string;
+    type: string;
+    title: string;
+    body: string | null;
+    created_at: string;
+    read: boolean;
+    data: { project_id?: string; bid_id?: string } | null;
+  }>;
+  const markRead = useMarkNotificationsRead();
+
+  const notifications: Notification[] =
+    user && rows.length
+      ? rows.map((n) => {
+          const data = n.data ?? {};
+          const href = data.project_id
+            ? `/project/${data.project_id}`
+            : profile?.role === "vendor"
+              ? "/vendor-my-bids"
+              : "/inbox";
+          return {
+            id: n.id,
+            type: n.type as NotificationType,
+            title: n.title,
+            message: n.body ?? "",
+            timestamp: relativeTime(n.created_at),
+            read: n.read,
+            href,
+          };
+        })
+      : FALLBACK_WELCOME;
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -109,14 +140,16 @@ export default function NotificationCenter() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
-  function markAsRead(id: string) {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+  function markAsRead(id: string, href?: string) {
+    if (id !== "welcome") markRead.mutate(id);
+    if (href) {
+      setOpen(false);
+      navigate(href);
+    }
   }
 
   function markAllAsRead() {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    markRead.mutate(undefined);
   }
 
   return (
@@ -171,16 +204,16 @@ export default function NotificationCenter() {
               notifications.map((n) => (
                 <button
                   key={n.id}
-                  onClick={() => markAsRead(n.id)}
+                  onClick={() => markAsRead(n.id, n.href)}
                   className={`w-full text-left px-4 py-3 flex gap-3 border-b border-border/50 last:border-0 transition-colors ${
                     n.read ? "bg-white hover:bg-muted/50" : "bg-primary/[0.03] hover:bg-primary/[0.06]"
                   }`}
                 >
                   {/* Icon */}
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${TYPE_COLORS[n.type]}`}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${TYPE_COLORS[n.type] ?? TYPE_COLORS.system}`}
                   >
-                    {TYPE_ICONS[n.type]}
+                    {TYPE_ICONS[n.type] ?? TYPE_ICONS.system}
                   </div>
 
                   {/* Content */}

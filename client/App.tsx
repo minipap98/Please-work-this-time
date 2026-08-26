@@ -131,10 +131,10 @@ const App = () => (
                 <Route element={<AuthGuard />}>
                   <Route element={<OwnerGuard />}>
                     <Route path="/app" element={<Index />} />
-                    <Route path="/inbox" element={<Inbox />} />
                     <Route path="/my-boats" element={<MyBoats />} />
                     <Route path="/maintenance" element={<MaintenancePage />} />
                   </Route>
+                  <Route path="/inbox" element={<Inbox />} />
                   <Route path="/project/:id" element={<ProjectDetail />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/vendors" element={<BrowseVendors />} />

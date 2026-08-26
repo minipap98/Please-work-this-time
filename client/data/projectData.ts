@@ -13,6 +13,8 @@ export interface BidMessage {
 export interface Bid {
   id: string;
   vendorProfileId?: string;
+  vendorUserId?: string;
+  vendorPhone?: string;
   vendorName: string;
   vendorInitials: string;
   rating: number;
@@ -49,6 +51,13 @@ export interface Project {
   location?: string;
   category?: string;
   owner?: string;
+  ownerId?: string;
+  ownerContact?: {
+    name: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+  };
   boat?: ProjectBoat;
   bids: Bid[];
   chosenBidId?: string;

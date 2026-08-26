@@ -286,6 +286,31 @@ export default function ProjectDetail() {
           </p>
         </div>
 
+        {role === "vendor" &&
+          project.chosenBidId &&
+          project.bids.some((b) => b.id === project.chosenBidId && b.vendorProfileId === vendorId) &&
+          project.ownerContact && (
+            <div className="mb-8 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-semibold text-emerald-900">Owner details — job is yours</p>
+              <p className="text-sm text-emerald-900 mt-1">{project.ownerContact.name}</p>
+              {project.ownerContact.phone && (
+                <p className="text-sm text-emerald-800">
+                  <a className="underline" href={`tel:${project.ownerContact.phone}`}>{project.ownerContact.phone}</a>
+                </p>
+              )}
+              {project.ownerContact.email && (
+                <p className="text-sm text-emerald-800">
+                  <a className="underline" href={`mailto:${project.ownerContact.email}`}>{project.ownerContact.email}</a>
+                </p>
+              )}
+              <p className="text-xs text-emerald-800 mt-2">
+                {[project.location, project.boat?.name, project.workLocation].filter(Boolean).join(" · ")}
+                {project.haulOutRequired ? " · Haul-out required" : ""}
+              </p>
+              <p className="text-xs text-emerald-800 mt-2">Bosun does not pay shops yet — collect payment from the owner directly.</p>
+            </div>
+          )}
+
         {/* Status progression */}
         <div className="mb-10 border border-border rounded-lg px-5 py-4">
           <div className="flex items-center justify-between relative">
@@ -575,7 +600,7 @@ export default function ProjectDetail() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <button
-                            onClick={() => navigate(`/vendor/${encodeURIComponent(bid.vendorName)}`)}
+                            onClick={() => navigate(`/vendor/${encodeURIComponent(bid.vendorProfileId ?? bid.vendorName)}`)}
                             className="text-sm font-semibold text-foreground hover:text-primary transition-colors"
                           >
                             {bid.vendorName}
@@ -843,52 +868,19 @@ export default function ProjectDetail() {
                 </div>
               </div>
 
-              {depositPaid ? (
-                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <div>
-                    <p className="text-sm font-semibold text-green-700">Deposit paid</p>
-                    <p className="text-xs text-green-600">${depositPaid.amount} · {depositPaid.date}{depositPaid.method ? ` · ${depositPaid.method}` : ""} · Remaining balance due at completion</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="bg-muted/40 rounded-lg p-3">
-                      <p className="text-xs text-muted-foreground mb-0.5">25% Deposit</p>
-                      <p className="font-bold text-foreground">
-                        ${Math.round((project.bids.find((b) => b.id === bookingConfirmed.bidId)?.price ?? 0) * 0.25).toLocaleString()}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Due now to confirm</p>
-                    </div>
-                    <div className="bg-muted/40 rounded-lg p-3">
-                      <p className="text-xs text-muted-foreground mb-0.5">Remaining Balance</p>
-                      <p className="font-bold text-foreground">
-                        ${Math.round((project.bids.find((b) => b.id === bookingConfirmed.bidId)?.price ?? 0) * 0.75).toLocaleString()}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Due at completion</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      const price = project.bids.find((b) => b.id === bookingConfirmed.bidId)?.price ?? 0;
-                      setPaymentModal({ amount: Math.round(price * 0.25), label: "25% Deposit" });
-                    }}
-                    className="w-full px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
-                  >
-                    Pay 25% Deposit
-                  </button>
-                  <button
-                    onClick={() => {
-                      const price = project.bids.find((b) => b.id === bookingConfirmed.bidId)?.price ?? 0;
-                      setPaymentModal({ amount: price, label: "Pay in Full" });
-                    }}
-                    className="w-full px-4 py-2.5 rounded-md border border-border text-sm font-semibold text-foreground hover:border-primary hover:bg-primary/5 transition-colors"
-                  >
-                    Pay in Full
-                  </button>
+              <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 space-y-1">
+                <p className="text-sm font-semibold text-sky-900">Pay this shop directly</p>
+                <p className="text-xs text-sky-800 leading-relaxed">
+                  Bosun does not collect or pay out job money yet. Call or email {bookingConfirmed.vendorName} to arrange payment.
+                  {project.bids.find((b) => b.id === bookingConfirmed.bidId)?.vendorPhone
+                    ? ` Phone: ${project.bids.find((b) => b.id === bookingConfirmed.bidId)?.vendorPhone}.`
+                    : ""}
+                </p>
+              </div>
+              {depositPaid && (
+                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 mt-3">
+                  <p className="text-sm font-semibold text-green-700">Recorded a Bosun test payment</p>
+                  <p className="text-xs text-green-600">${depositPaid.amount} · {depositPaid.date}{depositPaid.method ? ` · ${depositPaid.method}` : ""}</p>
                 </div>
               )}
             </div>

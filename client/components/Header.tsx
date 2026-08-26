@@ -12,6 +12,7 @@ const OWNER_MENU_ITEMS = [
 
 const VENDOR_MENU_ITEMS = [
   { label: "Dashboard", to: "/vendor-dashboard" },
+  { label: "Inbox", to: "/inbox" },
   { label: "Business Hub", to: "/vendor-business" },
   { label: "Analytics", to: "/vendor-revenue" },
 ];

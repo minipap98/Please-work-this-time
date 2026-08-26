@@ -321,7 +321,7 @@ export function useMyVendorProfile() {
         .from("vendor_profiles")
         .select("*")
         .eq("user_id", user!.id)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -527,6 +527,36 @@ export function useMarkMessagesRead() {
     onSuccess: (_, bidId) => {
       qc.invalidateQueries({ queryKey: ["messages", bidId] });
       qc.invalidateQueries({ queryKey: ["inbox-threads"] });
+    },
+  });
+}
+
+export function useMarkNotificationsRead() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (id?: string) => {
+      let q = supabase.from("notifications").update({ read: true }).eq("user_id", user!.id);
+      if (id) q = q.eq("id", id);
+      const { error } = await q;
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+}
+
+export function useUpdateMyVendorProfile() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (patch: UpdateTables<"vendor_profiles">) => {
+      const { error } = await supabase.from("vendor_profiles").update(patch).eq("user_id", user!.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-vendor-profile"] });
+      qc.invalidateQueries({ queryKey: ["vendor-profiles"] });
+      qc.invalidateQueries({ queryKey: ["vendor-profile"] });
     },
   });
 }

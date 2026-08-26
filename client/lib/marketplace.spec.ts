@@ -52,7 +52,7 @@ describe("mapProject", () => {
           rejected: false,
           created_at: "2026-08-25T01:00:00.000Z",
           updated_at: "2026-08-25T01:00:00.000Z",
-          vendor: { id: "vendor-1", business_name: "Harbor Marine", initials: "HM", completed_jobs: 12 },
+          vendor: { id: "vendor-1", user_id: "user-vendor-1", business_name: "Harbor Marine", initials: "HM", completed_jobs: 12, phone: "305-555-0100" },
           line_items: [{ description: "Labor", quantity: 4, unit_price: 150 }],
           messages: [],
         },

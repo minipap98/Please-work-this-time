@@ -5,6 +5,8 @@ import ReviewsList from "@/components/ReviewsList";
 import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 import { useRole } from "@/context/RoleContext";
+import { useVendorProfile } from "@/hooks/use-supabase";
+import type { Tables } from "@/lib/database.types";
 
 const VendorMap = lazy(() => import("@/components/VendorMap"));
 
@@ -16,9 +18,44 @@ export default function VendorProfile() {
   const navigate = useNavigate();
   const { role, vendorId } = useRole();
   const decodedName = decodeURIComponent(name ?? "");
-  const vendor = getAllVendorProfiles()[decodedName];
-  const pastWork = VENDOR_PAST_PROJECTS[decodedName] ?? [];
-  const isOwnProfile = role === "vendor" && vendorId === decodedName;
+  const looksLikeId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decodedName);
+  const { data: live, isLoading: liveLoading } = useVendorProfile(looksLikeId ? decodedName : undefined);
+  const canned = getAllVendorProfiles()[decodedName];
+  const liveVendor = live as Tables<"vendor_profiles"> | null | undefined;
+  const vendor = liveVendor
+    ? {
+        name: liveVendor.business_name,
+        initials: liveVendor.initials || liveVendor.business_name.slice(0, 2).toUpperCase(),
+        rating: 0,
+        reviewCount: 0,
+        responseTime: liveVendor.response_time ?? "—",
+        insured: liveVendor.insured,
+        licensed: liveVendor.licensed,
+        yearsInBusiness: liveVendor.years_in_business,
+        specialties: liveVendor.specialties ?? [],
+        certifications: liveVendor.certifications ?? [],
+        serviceArea: liveVendor.service_area ?? "",
+        bio: liveVendor.bio ?? "",
+        completedJobs: liveVendor.completed_jobs ?? 0,
+        phone: liveVendor.phone,
+        coiUrl: liveVendor.coi_url,
+        lat: undefined as number | undefined,
+        lng: undefined as number | undefined,
+      }
+    : canned;
+  const pastWork = VENDOR_PAST_PROJECTS[decodedName] ?? VENDOR_PAST_PROJECTS[vendor?.name ?? ""] ?? [];
+  const isOwnProfile = role === "vendor" && (vendorId === decodedName || vendorId === liveVendor?.id);
+
+  if (liveLoading && !vendor) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Header />
+        <main className="max-w-4xl mx-auto px-4 py-10">
+          <p className="text-muted-foreground">Loading vendor…</p>
+        </main>
+      </div>
+    );
+  }
 
   if (!vendor) {
     return (

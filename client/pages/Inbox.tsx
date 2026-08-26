@@ -2,9 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import type { BidMessage, Bid, Project } from "@/data/projectData";
-import { useOwnerMarketplaceProjects } from "@/hooks/use-marketplace";
+import { useOwnerMarketplaceProjects, useVendorBidProjects } from "@/hooks/use-marketplace";
 import { useRole } from "@/context/RoleContext";
-import { useVendorBidProjects } from "@/hooks/use-marketplace";
+import { useAuth } from "@/context/AuthContext";
+import { useSendMessage } from "@/hooks/use-supabase";
+import { toast } from "sonner";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -117,6 +119,8 @@ function QuoteCard({
 export default function Inbox() {
   const navigate = useNavigate();
   const { role, vendorId } = useRole();
+  const { user } = useAuth();
+  const sendMessage = useSendMessage();
   const ownerQuery = useOwnerMarketplaceProjects();
   const vendorQuery = useVendorBidProjects(role === "vendor" ? vendorId : null);
   const liveProjects = (role === "vendor" ? vendorQuery.data : ownerQuery.data) ?? [];
@@ -151,24 +155,26 @@ export default function Inbox() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [selectedBidId, selectedThread?.bid.thread.length]);
 
-  function handleSend() {
-    if (!replyText.trim() || !selectedThread) return;
-
-    // Add message to the bid's thread in localStorage
-    const newMsg: BidMessage = {
-      from: "user",
-      text: replyText.trim(),
-      time: new Date().toISOString(),
-    };
-
-    // Save to localStorage
-    const key = `bid_messages_${selectedThread.bid.id}`;
-    const existing: BidMessage[] = JSON.parse(localStorage.getItem(key) ?? "[]");
-    existing.push(newMsg);
-    localStorage.setItem(key, JSON.stringify(existing));
-
-    setReplyText("");
-    setThreads(buildThreads(liveProjects));
+  async function handleSend() {
+    if (!replyText.trim() || !selectedThread || !user) return;
+    const recipientId =
+      role === "vendor"
+        ? selectedThread.project.ownerId
+        : selectedThread.bid.vendorUserId;
+    if (!recipientId) {
+      toast.error("Can't find the other person on this thread yet.");
+      return;
+    }
+    try {
+      await sendMessage.mutateAsync({
+        bid_id: selectedThread.bid.id,
+        recipient_id: recipientId,
+        text: replyText.trim(),
+      });
+      setReplyText("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Message failed.");
+    }
   }
 
   // Get messages: static thread + any localStorage additions

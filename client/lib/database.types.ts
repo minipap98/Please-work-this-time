@@ -170,6 +170,12 @@ export interface Database {
           website: string | null;
           phone: string | null;
           logo_url: string | null;
+          coi_url: string | null;
+          coi_file_name: string | null;
+          insurance_provider: string | null;
+          insurance_policy_number: string | null;
+          insurance_expiry: string | null;
+          insurance_coverage: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -191,6 +197,12 @@ export interface Database {
           website?: string | null;
           phone?: string | null;
           logo_url?: string | null;
+          coi_url?: string | null;
+          coi_file_name?: string | null;
+          insurance_provider?: string | null;
+          insurance_policy_number?: string | null;
+          insurance_expiry?: string | null;
+          insurance_coverage?: string | null;
         };
         Update: {
           business_name?: string;
@@ -208,6 +220,12 @@ export interface Database {
           website?: string | null;
           phone?: string | null;
           logo_url?: string | null;
+          coi_url?: string | null;
+          coi_file_name?: string | null;
+          insurance_provider?: string | null;
+          insurance_policy_number?: string | null;
+          insurance_expiry?: string | null;
+          insurance_coverage?: string | null;
         };
         Relationships: [];
       };

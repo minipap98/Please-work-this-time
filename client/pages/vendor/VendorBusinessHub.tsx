@@ -1,7 +1,9 @@
 import { useState, useRef } from "react";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
-import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
+import { useMyVendorProfile } from "@/hooks/use-supabase";
+import { useVendorBidProjects } from "@/hooks/use-marketplace";
+import type { Tables } from "@/lib/database.types";
 import {
   getVendorClients,
   getVendorBoatHistory,
@@ -37,20 +39,72 @@ export default function VendorBusinessHub() {
   const [expandedBoats, setExpandedBoats] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
 
-  const vendor = vendorId ? getAllVendorProfiles()[vendorId] : null;
+  const { data: myVendor } = useMyVendorProfile();
+  const { data: liveJobs = [] } = useVendorBidProjects(vendorId);
+  const mine = myVendor as Tables<"vendor_profiles"> | null | undefined;
+  const vendor = mine
+    ? {
+        name: mine.business_name,
+        initials: mine.initials,
+        insured: mine.insured,
+        licensed: mine.licensed,
+        specialties: mine.specialties ?? [],
+        serviceArea: mine.service_area ?? "",
+        bio: mine.bio ?? "",
+        completedJobs: mine.completed_jobs ?? 0,
+        yearsInBusiness: mine.years_in_business,
+        rating: 0,
+      }
+    : null;
 
   if (!vendor || !vendorId) {
     return (
       <>
         <Header />
         <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-          <p className="text-muted-foreground">Switch to vendor mode to access the Business Hub.</p>
+          <p className="text-muted-foreground">Finish vendor onboarding to open the Business Hub.</p>
         </main>
       </>
     );
   }
 
-  const clients = getVendorClients(vendorId);
+  const bookedJobs = liveJobs.filter(
+    (p) => p.chosenBidId && p.bids.some((b) => b.id === p.chosenBidId && b.vendorProfileId === vendorId)
+  );
+  const clients: VendorClient[] =
+    bookedJobs.length > 0
+      ? bookedJobs.map((p) => {
+          const amount = p.bids.find((b) => b.id === p.chosenBidId)?.price ?? 0;
+          return {
+            ownerName: p.ownerContact?.name ?? p.owner ?? "Boat owner",
+            totalJobs: 1,
+            totalRevenue: amount,
+            firstJobDate: p.date,
+            lastJobDate: p.date,
+            boats: [
+              {
+                name: p.boat?.name ?? "Boat",
+                make: p.boat?.make ?? "",
+                model: p.boat?.model ?? "",
+                year: p.boat?.year ?? "",
+                propulsion: p.boat?.propulsion ?? "",
+                label: p.boat ? `${p.boat.year} ${p.boat.make} ${p.boat.model}` : p.title,
+                totalRevenue: amount,
+                services: [
+                  {
+                    projectId: p.id,
+                    title: p.title,
+                    date: p.date,
+                    price: amount,
+                    status: p.status === "completed" ? "paid" : p.status === "in-progress" ? "in-progress" : "pending",
+                    isOtherVendor: false,
+                  },
+                ],
+              },
+            ],
+          };
+        })
+      : getVendorClients(vendorId);
   const boatHistory = getVendorBoatHistory(vendorId);
   const reminders = getMaintenanceReminders(vendorId);
 

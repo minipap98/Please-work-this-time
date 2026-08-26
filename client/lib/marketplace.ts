@@ -4,6 +4,7 @@ import type { Tables } from "@/lib/database.types";
 
 export const PROJECT_DETAIL_SELECT = `
   *,
+  owner:profiles!owner_id(id, name, email, phone, location),
   boat:boats(*),
   photos:project_photos(*),
   bids(
@@ -16,6 +17,19 @@ export const PROJECT_DETAIL_SELECT = `
 
 export const PROJECT_LIST_SELECT = `
   *,
+  owner:profiles!owner_id(id, name, email, phone, location),
+  boat:boats(*),
+  photos:project_photos(*),
+  bids(
+    *,
+    line_items:bid_line_items(*),
+    vendor:vendor_profiles(*),
+    messages(*)
+  )
+`;
+
+export const OPEN_RFP_SELECT = `
+  *,
   boat:boats(*),
   photos:project_photos(*),
   bids(
@@ -27,8 +41,10 @@ export const PROJECT_LIST_SELECT = `
 
 type VendorRow = Pick<
   Tables<"vendor_profiles">,
-  "id" | "business_name" | "initials" | "completed_jobs"
+  "id" | "user_id" | "business_name" | "initials" | "completed_jobs" | "phone"
 >;
+
+type OwnerRow = Pick<Tables<"profiles">, "id" | "name" | "email" | "phone" | "location">;
 
 type LineItemRow = Pick<
   Tables<"bid_line_items">,
@@ -55,6 +71,7 @@ export type ProjectRow = Tables<"projects"> & {
   photos?: PhotoRow[] | null;
   bids?: BidRow[] | null;
   metadata?: Record<string, unknown> | null;
+  owner?: OwnerRow | null;
 };
 
 export function formatProjectDate(iso: string | null | undefined): string {
@@ -105,6 +122,8 @@ export function mapBid(row: BidRow): Bid {
   return {
     id: row.id,
     vendorProfileId: row.vendor_id,
+    vendorUserId: vendor?.user_id,
+    vendorPhone: vendor?.phone ?? undefined,
     vendorName: vendor?.business_name ?? "Vendor",
     vendorInitials: vendor?.initials || (vendor?.business_name ?? "V").slice(0, 2).toUpperCase(),
     rating: 0,
@@ -136,6 +155,16 @@ export function mapProject(row: ProjectRow): Project {
     date: formatProjectDate(row.date ?? row.created_at),
     location: row.location ?? undefined,
     category: row.category ?? undefined,
+    owner: row.owner?.name,
+    ownerId: row.owner_id,
+    ownerContact: row.owner
+      ? {
+          name: row.owner.name,
+          email: row.owner.email ?? undefined,
+          phone: row.owner.phone ?? undefined,
+          location: row.owner.location ?? undefined,
+        }
+      : undefined,
     boat: mapBoat(row.boat),
     bids: (row.bids ?? []).map(mapBid),
     chosenBidId: row.chosen_bid_id ?? undefined,
@@ -233,6 +262,22 @@ export async function createMarketplaceProject(
   const project = mapProject(data as unknown as ProjectRow);
   if (input.photos?.length) {
     await uploadProjectPhotos(userId, project.id, input.photos);
+  }
+  try {
+    const { data: session } = await client.auth.getSession();
+    const token = session.session?.access_token;
+    if (token) {
+      await fetch("/api/jobs/notify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ projectId: project.id }),
+      });
+    }
+  } catch {
+    // In-app notifications still fire from the database trigger.
   }
   return project;
 }

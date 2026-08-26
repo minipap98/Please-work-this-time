@@ -4,6 +4,7 @@ import { supabase, supabaseMissing } from "@/lib/supabase";
 import {
   PROJECT_DETAIL_SELECT,
   PROJECT_LIST_SELECT,
+  OPEN_RFP_SELECT,
   acceptMarketplaceBid,
   createMarketplaceProject,
   mapProject,
@@ -48,7 +49,7 @@ export function useOpenRfps() {
       const client = assertClient();
       const { data, error } = await client
         .from("projects")
-        .select(PROJECT_LIST_SELECT)
+        .select(OPEN_RFP_SELECT)
         .in("status", ["active", "bidding", "gathering"])
         .order("created_at", { ascending: false });
       if (error) throw error;

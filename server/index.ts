@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import { handleDemo } from "./routes/demo";
 import { handleCreatePaymentIntent, handleStripeWebhook } from "./routes/payments";
+import { handleNotifyJob } from "./routes/notify";
 
 export function createServer() {
   const app = express();
@@ -33,6 +34,7 @@ export function createServer() {
 
   app.get("/api/demo", handleDemo);
   app.post("/api/payments/create-intent", handleCreatePaymentIntent);
+  app.post("/api/jobs/notify", handleNotifyJob);
 
   return app;
 }

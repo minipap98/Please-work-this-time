@@ -6,6 +6,7 @@ import { useMyVendorProfile } from "@/hooks/use-supabase";
 import { getLocalProjectStatus, isBidAccepted } from "@/data/bidUtils";
 import { useOpenRfps, useSubmitMarketplaceBid, useVendorBidProjects } from "@/hooks/use-marketplace";
 import { toast } from "sonner";
+import { useSendMessage } from "@/hooks/use-supabase";
 import { getVendorRevenueWithTiers, getVendorScorecard, getVendorAnalytics } from "@/data/vendorRetentionUtils";
 import { Shield, Anchor, MapPin } from "lucide-react";
 // Insurance + Templates moved to Business Hub
@@ -92,6 +93,7 @@ export default function VendorDashboard() {
   const { data: allProjects = [] } = useOpenRfps();
   const { data: vendorProjects = [], refetch } = useVendorBidProjects(vendorId);
   const submitBid = useSubmitMarketplaceBid();
+  const sendMessage = useSendMessage();
   const bidProjects = vendorProjects.flatMap((project) => {
     const bid = project.bids.find((b) => b.vendorProfileId === vendorId) ?? project.bids[0];
     return bid ? [{ project, bid }] : [];
@@ -169,20 +171,25 @@ export default function VendorDashboard() {
     setDetailProjectId(null);
   }
 
-  function sendQuestion() {
-    if (!questionText.trim() || !vendorId || !detailProject) return;
-    const key = `rfp_questions_${detailProject.id}`;
-    const existing = JSON.parse(localStorage.getItem(key) ?? "[]");
-    existing.push({
-      vendorId,
-      vendorName: vendorId,
-      message: questionText.trim(),
-      timestamp: new Date().toISOString(),
-    });
-    localStorage.setItem(key, JSON.stringify(existing));
-    setQuestionText("");
-    setQuestionSent(true);
-    setTimeout(() => setQuestionSent(false), 3000);
+  async function sendQuestion() {
+    if (!questionText.trim() || !detailProject) return;
+    if (!detailProject.ownerId) {
+      toast.error("Submit a bid first so the owner can reply in Inbox.");
+      return;
+    }
+    try {
+      const existingBid = detailProject.bids.find((b) => b.vendorProfileId === vendorId);
+      await sendMessage.mutateAsync({
+        bid_id: existingBid?.id,
+        recipient_id: detailProject.ownerId,
+        text: questionText.trim(),
+      });
+      setQuestionText("");
+      setQuestionSent(true);
+      setTimeout(() => setQuestionSent(false), 3000);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send.");
+    }
   }
 
   const total = bidTotal(lineItems);

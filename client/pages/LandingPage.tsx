@@ -24,8 +24,8 @@ const HOW_IT_WORKS_OWNER = [
   },
   {
     step: "3",
-    title: "Book & Pay Securely",
-    description: "Choose the best vendor, pay through Bosun's secure platform, and track the job from start to completion.",
+    title: "Book the shop",
+    description: "Choose the best vendor and coordinate payment directly with them. Bosun introduces you — it does not hold the money yet.",
     icon: "✅",
   },
 ];

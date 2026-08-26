@@ -7,6 +7,8 @@ import {
   getRescindedBidIds, rescindBid,
 } from "@/data/bidUtils";
 import { useVendorBidProjects } from "@/hooks/use-marketplace";
+import { useSendMessage } from "@/hooks/use-supabase";
+import { toast } from "sonner";
 import { Bid, BidMessage, Project } from "@/data/projectData";
 import { getEscrowStatus } from "@/data/vendorRetentionUtils";
 
@@ -166,7 +168,8 @@ function CongratsBanner({
 
 export default function VendorMyBids() {
   const { vendorId } = useRole();
-  const { data: vendorProjects = [] } = useVendorBidProjects(vendorId);
+  const sendMessage = useSendMessage();
+  const { data: vendorProjects = [], refetch } = useVendorBidProjects(vendorId);
   const [selectedBidId, setSelectedBidId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
   const [replyText, setReplyText] = useState("");
@@ -249,13 +252,26 @@ export default function VendorMyBids() {
   const adjustment = selected ? getBidAdjustment(selected.bid.id) : null;
   const displayPrice = adjustment?.price ?? selected?.bid.price;
 
-  function sendReply() {
+  async function sendReply() {
     if (!replyText.trim() || !selected) return;
-    sendVendorMessage(selected.bid.id, replyText.trim());
-    const allMsgs = getAllMessages(selected.bid);
-    localStorage.setItem(`vendor_msg_read_${selected.bid.id}`, String(allMsgs.length));
-    setReplyText("");
-    forceUpdate((n) => n + 1);
+    const recipientId = selected.project.ownerId;
+    if (!recipientId) {
+      toast.error("Owner contact is not available on this job yet.");
+      return;
+    }
+    try {
+      await sendMessage.mutateAsync({
+        bid_id: selected.bid.id,
+        recipient_id: recipientId,
+        text: replyText.trim(),
+      });
+      sendVendorMessage(selected.bid.id, replyText.trim());
+      setReplyText("");
+      forceUpdate((n) => n + 1);
+      refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Message failed.");
+    }
   }
 
   function submitQuote() {
@@ -446,6 +462,27 @@ export default function VendorMyBids() {
 
             {selected ? (
               <>
+                {bidAccepted && selected.project.ownerContact && (
+                  <div className="px-4 py-3 border-b border-emerald-200 bg-emerald-50 text-sm">
+                    <p className="font-semibold text-emerald-900">Owner: {selected.project.ownerContact.name}</p>
+                    {selected.project.ownerContact.phone && (
+                      <a className="text-emerald-800 underline" href={`tel:${selected.project.ownerContact.phone}`}>
+                        {selected.project.ownerContact.phone}
+                      </a>
+                    )}
+                    {selected.project.ownerContact.email && (
+                      <p>
+                        <a className="text-emerald-800 underline" href={`mailto:${selected.project.ownerContact.email}`}>
+                          {selected.project.ownerContact.email}
+                        </a>
+                      </p>
+                    )}
+                    <p className="text-xs text-emerald-800 mt-1">
+                      {[selected.project.location, selected.project.boat?.name].filter(Boolean).join(" · ")}
+                      {" · Pay collected directly from the owner"}
+                    </p>
+                  </div>
+                )}
                 {/* Chat header */}
                 <div className="px-4 py-3 border-b border-border flex-shrink-0">
                   <div className="flex items-start justify-between gap-2">
@@ -478,10 +515,7 @@ export default function VendorMyBids() {
                         <BidStatusBadge bid={selected.bid} project={selected.project} />
                         {bidAccepted && (
                           <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
-                            Escrow
+                            Booked
                           </span>
                         )}
                       </div>

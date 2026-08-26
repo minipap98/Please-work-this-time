@@ -53,6 +53,7 @@ export default function Onboarding() {
 
   // Vendor state
   const [businessName, setBusinessName] = useState(user.name);
+  const [vendorPhone, setVendorPhone] = useState("");
   const [yearsInBusiness, setYearsInBusiness] = useState("");
   const [insured, setInsured] = useState(false);
   const [licensed, setLicensed] = useState(false);
@@ -102,10 +103,16 @@ export default function Onboarding() {
             certifications,
             service_area: serviceArea.trim(),
             bio: bio.trim(),
+            phone: vendorPhone.trim() || null,
           }).select("id").single();
           if (error) throw error;
           if (data?.id) setVendorMode(data.id);
-          await updateProfile({ name: businessName.trim(), initials, onboarding_complete: true });
+          await updateProfile({
+            name: businessName.trim(),
+            initials,
+            phone: vendorPhone.trim() || null,
+            onboarding_complete: true,
+          });
         } else {
           const localProfile = createVendorProfileFromOnboarding({
             name: businessName.trim(),
@@ -354,6 +361,16 @@ export default function Onboarding() {
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
                     placeholder="e.g. Smith Marine Services"
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Shop phone</label>
+                  <input
+                    type="tel"
+                    value={vendorPhone}
+                    onChange={(e) => setVendorPhone(e.target.value)}
+                    placeholder="So owners can reach you after they book"
                     className={inputCls}
                   />
                 </div>

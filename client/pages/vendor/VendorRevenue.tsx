@@ -2,11 +2,11 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
-import { VENDOR_PROFILES } from "@/data/vendorData";
 import {
   getVendorBidProjects,
-  VendorTransaction,
+  type VendorTransaction,
 } from "@/data/bidUtils";
+import { useVendorBidProjects } from "@/hooks/use-marketplace";
 import { Bid } from "@/data/projectData";
 import {
   getVendorRevenueWithTiers,
@@ -192,16 +192,23 @@ export default function VendorRevenue() {
   const { vendorId } = useRole();
   const navigate = useNavigate();
 
-  const vendor = vendorId ? VENDOR_PROFILES[vendorId] : null;
+  const { data: liveJobs = [] } = useVendorBidProjects(vendorId);
   const revenue = vendorId ? getVendorRevenueWithTiers(vendorId) : null;
   const analytics = vendorId ? getVendorAnalytics(vendorId) : null;
   const scorecard = vendorId ? getVendorScorecard(vendorId) : null;
+  const liveBooked = liveJobs.filter(
+    (p) => p.chosenBidId && p.bids.some((b) => b.id === p.chosenBidId && b.vendorProfileId === vendorId)
+  );
+  const liveGross = liveBooked.reduce((s, p) => s + (p.bids.find((b) => b.id === p.chosenBidId)?.price ?? 0), 0);
 
   const bidMap: Record<string, Bid> = {};
   if (vendorId) {
     for (const { bid } of getVendorBidProjects(vendorId)) {
       bidMap[bid.id] = bid;
     }
+  }
+  for (const p of liveJobs) {
+    for (const bid of p.bids) bidMap[bid.id] = bid;
   }
 
   const paidTxInit = revenue?.transactions.filter((tx) => tx.status === "paid") ?? [];
@@ -213,7 +220,7 @@ export default function VendorRevenue() {
   );
   const [activeTab, setActiveTab] = useState<"analytics" | "payments">("analytics");
 
-  if (!vendor || !revenue) {
+  if (!vendorId || !revenue) {
     return (
       <div className="min-h-screen bg-white">
         <Header />
@@ -324,6 +331,12 @@ export default function VendorRevenue() {
             Performance insights and financial data for your business.
           </p>
         </div>
+        {liveBooked.length > 0 && (
+          <div className="mb-6 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+            {liveBooked.length} booked job{liveBooked.length === 1 ? "" : "s"} in Bosun · ${liveGross.toLocaleString()} quoted.
+            Bosun does not pay shops yet — collect from the owner.
+          </div>
+        )}
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">

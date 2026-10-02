@@ -4,6 +4,7 @@ import cors from "cors";
 import { handleDemo } from "./routes/demo";
 import { handleCreatePaymentIntent, handleStripeWebhook } from "./routes/payments";
 import { handleNotifyJob } from "./routes/notify";
+import { handleInboundPartsEmail } from "./routes/inbound-email";
 
 export function createServer() {
   const app = express();
@@ -20,7 +21,7 @@ export function createServer() {
     handleStripeWebhook
   );
 
-  app.use(express.json({ limit: "1mb" }));
+  app.use(express.json({ limit: "5mb" }));
   app.use(express.urlencoded({ extended: true }));
 
   app.get("/api/health", (_req, res) => {
@@ -35,6 +36,7 @@ export function createServer() {
   app.get("/api/demo", handleDemo);
   app.post("/api/payments/create-intent", handleCreatePaymentIntent);
   app.post("/api/jobs/notify", handleNotifyJob);
+  app.post("/api/inbound/parts-email", handleInboundPartsEmail);
 
   return app;
 }

@@ -26,6 +26,8 @@ import VendorRFPs from "./pages/vendor/VendorRFPs";
 import VendorMyBids from "./pages/vendor/VendorMyBids";
 import VendorRevenue from "./pages/vendor/VendorRevenue";
 import VendorBusinessHub from "./pages/vendor/VendorBusinessHub";
+import VendorShop from "./pages/vendor/VendorShop";
+import BoatLog from "./pages/BoatLog";
 import AuthPage from "./pages/AuthPage";
 import Onboarding from "./pages/Onboarding";
 import AdminPortal from "./pages/AdminPortal";
@@ -160,6 +162,7 @@ const App = () => (
                     <Route path="/app" element={<Index />} />
                     <Route path="/my-boats" element={<MyBoats />} />
                     <Route path="/maintenance" element={<MaintenancePage />} />
+                    <Route path="/boat-log" element={<BoatLog />} />
                   </Route>
                   <Route path="/inbox" element={<Inbox />} />
                   <Route path="/project/:id" element={<ProjectDetail />} />
@@ -173,6 +176,7 @@ const App = () => (
                     <Route path="/vendor-my-bids" element={<VendorMyBids />} />
                     <Route path="/vendor-revenue" element={<VendorRevenue />} />
                     <Route path="/vendor-business" element={<VendorBusinessHub />} />
+                    <Route path="/vendor-shop" element={<VendorShop />} />
                   </Route>
                 </Route>
 

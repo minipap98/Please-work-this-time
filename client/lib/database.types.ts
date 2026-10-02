@@ -611,6 +611,12 @@ export interface Database {
           cost: number | null;
           vendor_name: string | null;
           notes: string | null;
+          source: string;
+          vendor_id: string | null;
+          project_id: string | null;
+          work_order_id: string | null;
+          labor_hours: number | null;
+          line_items: Json;
           created_at: string;
         };
         Insert: {
@@ -634,6 +640,262 @@ export interface Database {
           cost?: number | null;
           vendor_name?: string | null;
           notes?: string | null;
+        };
+        Relationships: [];
+      };
+      shop_settings: {
+        Row: {
+          vendor_id: string;
+          inbound_email_token: string;
+          labor_rate: number;
+          tax_rate: number;
+          bays: string[];
+          techs: string[];
+          qb_labor_item: string;
+          qb_parts_item: string;
+          qb_fee_item: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          vendor_id: string;
+          inbound_email_token?: string;
+          labor_rate?: number;
+          tax_rate?: number;
+          bays?: string[];
+          techs?: string[];
+          qb_labor_item?: string;
+          qb_parts_item?: string;
+          qb_fee_item?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          vendor_id?: string;
+          inbound_email_token?: string;
+          labor_rate?: number;
+          tax_rate?: number;
+          bays?: string[];
+          techs?: string[];
+          qb_labor_item?: string;
+          qb_parts_item?: string;
+          qb_fee_item?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      shop_inventory: {
+        Row: {
+          id: string;
+          vendor_id: string;
+          sku: string;
+          name: string;
+          category: string;
+          bin_location: string;
+          qty_on_hand: number;
+          reorder_point: number;
+          unit_cost: number;
+          unit_price: number;
+          supplier: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          vendor_id: string;
+          sku?: string;
+          name: string;
+          category?: string;
+          bin_location?: string;
+          qty_on_hand?: number;
+          reorder_point?: number;
+          unit_cost?: number;
+          unit_price?: number;
+          supplier?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          vendor_id?: string;
+          sku?: string;
+          name?: string;
+          category?: string;
+          bin_location?: string;
+          qty_on_hand?: number;
+          reorder_point?: number;
+          unit_cost?: number;
+          unit_price?: number;
+          supplier?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      shop_work_orders: {
+        Row: {
+          id: string;
+          vendor_id: string;
+          number: string;
+          project_id: string | null;
+          title: string;
+          description: string;
+          status: string;
+          customer_name: string;
+          customer_email: string;
+          boat_label: string;
+          assigned_to: string;
+          bay: string;
+          scheduled_start: string | null;
+          scheduled_end: string | null;
+          engine_hours: number | null;
+          tax_rate: number;
+          completed_at: string | null;
+          exported_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          vendor_id: string;
+          number: string;
+          project_id?: string | null;
+          title: string;
+          description?: string;
+          status?: string;
+          customer_name?: string;
+          customer_email?: string;
+          boat_label?: string;
+          assigned_to?: string;
+          bay?: string;
+          scheduled_start?: string | null;
+          scheduled_end?: string | null;
+          engine_hours?: number | null;
+          tax_rate?: number;
+          completed_at?: string | null;
+          exported_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          vendor_id?: string;
+          number?: string;
+          project_id?: string | null;
+          title?: string;
+          description?: string;
+          status?: string;
+          customer_name?: string;
+          customer_email?: string;
+          boat_label?: string;
+          assigned_to?: string;
+          bay?: string;
+          scheduled_start?: string | null;
+          scheduled_end?: string | null;
+          engine_hours?: number | null;
+          tax_rate?: number;
+          completed_at?: string | null;
+          exported_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      shop_work_order_lines: {
+        Row: {
+          id: string;
+          work_order_id: string;
+          kind: string;
+          description: string;
+          quantity: number;
+          unit_price: number;
+          inventory_item_id: string | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          work_order_id: string;
+          kind?: string;
+          description: string;
+          quantity?: number;
+          unit_price?: number;
+          inventory_item_id?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          work_order_id?: string;
+          kind?: string;
+          description?: string;
+          quantity?: number;
+          unit_price?: number;
+          inventory_item_id?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shop_work_order_lines_work_order_id_fkey";
+            columns: ["work_order_id"];
+            isOneToOne: false;
+            referencedRelation: "shop_work_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      shop_parts_shipments: {
+        Row: {
+          id: string;
+          vendor_id: string;
+          work_order_id: string | null;
+          inventory_item_id: string | null;
+          quantity: number;
+          supplier: string;
+          description: string;
+          carrier: string;
+          tracking_number: string;
+          status: string;
+          eta: string | null;
+          source: string;
+          email_subject: string | null;
+          received_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          vendor_id: string;
+          work_order_id?: string | null;
+          inventory_item_id?: string | null;
+          quantity?: number;
+          supplier?: string;
+          description?: string;
+          carrier?: string;
+          tracking_number?: string;
+          status?: string;
+          eta?: string | null;
+          source?: string;
+          email_subject?: string | null;
+          received_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          vendor_id?: string;
+          work_order_id?: string | null;
+          inventory_item_id?: string | null;
+          quantity?: number;
+          supplier?: string;
+          description?: string;
+          carrier?: string;
+          tracking_number?: string;
+          status?: string;
+          eta?: string | null;
+          source?: string;
+          email_subject?: string | null;
+          received_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -695,7 +957,12 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      shop_adjust_inventory: {
+        Args: { item_id: string; delta: number };
+        Returns: number;
+      };
+    };
     Enums: {
       user_role: "owner" | "vendor";
       project_status: "active" | "bidding" | "in-progress" | "completed" | "expired" | "gathering";

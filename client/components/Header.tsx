@@ -8,12 +8,14 @@ import { VENDOR_PROFILES } from "@/data/vendorData";
 
 const OWNER_MENU_ITEMS = [
   { label: "My Boats", to: "/my-boats" },
+  { label: "Boat Log", to: "/boat-log" },
   { label: "Maintenance", to: "/maintenance" },
   { label: "Settings", to: "/settings" },
 ];
 
 const VENDOR_MENU_ITEMS = [
   { label: "Dashboard", to: "/vendor-dashboard" },
+  { label: "Shop", to: "/vendor-shop" },
   { label: "Inbox", to: "/inbox" },
   { label: "Business Hub", to: "/vendor-business" },
   { label: "Analytics", to: "/vendor-revenue" },
@@ -117,6 +119,12 @@ export default function Header() {
                       {unreadCount}
                     </span>
                   )}
+                </Link>
+                <Link
+                  to="/vendor-shop"
+                  className="px-3 py-1.5 text-sm font-medium text-foreground hover:opacity-70 transition-opacity"
+                >
+                  Shop
                 </Link>
                 <Link
                   to="/vendor-business"
@@ -325,7 +333,7 @@ export default function Header() {
       {/* ── Mobile bottom navigation (vendor only) ─────────────────── */}
       {isVendor && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border pb-[env(safe-area-inset-bottom)]">
-          <div className="grid grid-cols-4 h-14">
+          <div className="grid grid-cols-5 h-14">
             {([
               {
                 to: "/vendor-dashboard",
@@ -343,6 +351,15 @@ export default function Header() {
                 icon: (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                ),
+              },
+              {
+                to: "/vendor-shop",
+                label: "Shop",
+                icon: (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437" />
                   </svg>
                 ),
               },

@@ -35,18 +35,31 @@ interface DemoShop {
 }
 
 function loadDemo(): DemoShop {
+  let shop: DemoShop | null = null;
   try {
     const raw = localStorage.getItem(DEMO_KEY);
-    if (raw) return JSON.parse(raw) as DemoShop;
+    if (raw) shop = JSON.parse(raw) as DemoShop;
   } catch {
     // fall through to seed
   }
-  return {
+  shop ??= {
     settings: DEFAULT_SHOP_SETTINGS,
     inventory: demoInventory(),
     workOrders: demoWorkOrders(),
     shipments: demoShipments(),
   };
+  shop.shipments = shop.shipments.map((sh) => pairWithBoat({ ...sh, boatLabel: sh.boatLabel ?? "", customerName: sh.customerName ?? "" }, shop!.workOrders));
+  return shop;
+}
+
+/** Same rule as the DB trigger: a shipment on a work order carries that order's boat and customer. */
+function pairWithBoat<T extends Pick<PartsShipment, "workOrderId" | "boatLabel" | "customerName">>(
+  sh: T,
+  orders: WorkOrder[]
+): T {
+  const wo = sh.workOrderId ? orders.find((o) => o.id === sh.workOrderId) : undefined;
+  if (sh.workOrderId && !wo) return { ...sh, workOrderId: null };
+  return wo ? { ...sh, boatLabel: wo.boatLabel, customerName: wo.customerName } : sh;
 }
 
 function saveDemo(next: DemoShop) {
@@ -159,6 +172,8 @@ function mapShipment(r: Tables<"shop_parts_shipments">): PartsShipment {
     status: r.status as ShipmentStatus,
     eta: r.eta,
     workOrderId: r.work_order_id,
+    boatLabel: r.boat_label ?? "",
+    customerName: r.customer_name ?? "",
     inventoryItemId: r.inventory_item_id,
     quantity: Number(r.quantity) || 0,
     source: r.source as "manual" | "email",
@@ -419,6 +434,7 @@ export function useSaveWorkOrder(vendorId: string | null) {
           } else {
             s.workOrders.unshift({ ...draft, id, lines, createdAt: now, completedAt, exportedAt: null });
           }
+          s.shipments = s.shipments.map((sh) => pairWithBoat(sh, s.workOrders));
         });
         return id;
       }
@@ -597,15 +613,16 @@ export function useSaveShipment(vendorId: string | null) {
           const existing = s.shipments.find(
             (x) => x.id === draft.id || (draft.trackingNumber && x.trackingNumber === draft.trackingNumber)
           );
+          const paired = pairWithBoat(draft, s.workOrders);
           if (existing) {
             Object.assign(existing, {
-              ...draft,
+              ...paired,
               id: existing.id,
               status: draft.id ? draft.status : advanceStatus(existing.status, draft.status),
               eta: draft.eta ?? existing.eta,
             });
           } else {
-            s.shipments.unshift({ ...draft, id: newId("sh"), createdAt: now, receivedAt: null });
+            s.shipments.unshift({ ...paired, id: newId("sh"), createdAt: now, receivedAt: null });
           }
         });
         return;
@@ -620,6 +637,8 @@ export function useSaveShipment(vendorId: string | null) {
         status: draft.status,
         eta: draft.eta,
         work_order_id: draft.workOrderId,
+        boat_label: draft.boatLabel,
+        customer_name: draft.customerName,
         inventory_item_id: draft.inventoryItemId,
         quantity: draft.quantity,
         source: draft.source,

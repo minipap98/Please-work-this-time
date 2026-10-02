@@ -89,6 +89,9 @@ export interface PartsShipment {
   status: ShipmentStatus;
   eta: string | null; // YYYY-MM-DD
   workOrderId: string | null;
+  /** Boat the part was ordered for. Empty = shop stock. Copied from the work order when linked. */
+  boatLabel: string;
+  customerName: string;
   inventoryItemId: string | null;
   quantity: number;
   source: "manual" | "email";
@@ -241,6 +244,8 @@ export interface ParsedShippingEmail {
   eta: string | null;
   orderNumber: string | null;
   supplier: string | null;
+  /** Digits of a WO/PO reference the shop put on the order, e.g. "1042" from "PO: WO-1042". */
+  workOrderRef: string | null;
 }
 
 const MONTHS = [
@@ -383,7 +388,50 @@ export function parseShippingEmail(
     eta: parseEta(text, now),
     orderNumber,
     supplier,
+    workOrderRef: (text.match(/\b(?:WO|PO|work\s*order)\s*(?:#|no\.?|number)?\s*[:#-]?\s*(?:WO-?)?(\d{3,7})\b/i) ?? [])[1] ?? null,
   };
+}
+
+/** The open work order a WO/PO reference on a supplier email points at. */
+export function matchWorkOrderRef<T extends Pick<WorkOrder, "number" | "status">>(
+  ref: string | null,
+  orders: T[]
+): T | null {
+  if (!ref) return null;
+  const hits = orders.filter((o) => o.number.replace(/\D/g, "") === ref);
+  return hits.find((o) => o.status !== "invoiced") ?? hits[0] ?? null;
+}
+
+export interface PartsProgress {
+  total: number;
+  received: number;
+  open: number;
+  problems: number;
+  nextEta: string | null;
+}
+
+/** How the parts ordered for one work order are coming along. */
+export function partsProgress(
+  workOrderId: string,
+  shipments: Pick<PartsShipment, "workOrderId" | "receivedAt" | "status" | "eta">[]
+): PartsProgress {
+  const mine = shipments.filter((s) => s.workOrderId === workOrderId);
+  const open = mine.filter((s) => !s.receivedAt);
+  const etas = open.map((s) => s.eta).filter((e): e is string => !!e).sort();
+  return {
+    total: mine.length,
+    received: mine.length - open.length,
+    open: open.length,
+    problems: open.filter((s) => s.status === "exception").length,
+    nextEta: etas[0] ?? null,
+  };
+}
+
+/** Group label for a shipment on the parts board: the boat it's for, or shop stock. */
+export function shipmentBoatKey(s: Pick<PartsShipment, "workOrderId" | "boatLabel" | "customerName">): string {
+  if (s.workOrderId) return `wo:${s.workOrderId}`;
+  if (s.boatLabel.trim()) return `boat:${s.boatLabel.trim().toLowerCase()}`;
+  return "stock";
 }
 
 const STATUS_RANK: Record<ShipmentStatus, number> = {

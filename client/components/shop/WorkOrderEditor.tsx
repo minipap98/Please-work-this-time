@@ -4,6 +4,7 @@ import {
   WORK_ORDER_STATUSES,
   workOrderTotals,
   type InventoryItem,
+  type PartsShipment,
   type LineKind,
   type WorkOrder,
   type WorkOrderLine,
@@ -11,13 +12,15 @@ import {
 } from "@shared/shop";
 import type { ShopSettings } from "@/data/shopDemoData";
 import type { WorkOrderDraft } from "@/hooks/use-shop";
-import { fromLocalInput, inputCls, labelCls, money, toLocalInput } from "./shopUi";
+import { ShipmentBadge, fromLocalInput, inputCls, labelCls, money, shortDate, toLocalInput } from "./shopUi";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initial: WorkOrderDraft;
   inventory: InventoryItem[];
+  shipments: PartsShipment[];
+  onOrderPart?: (draft: WorkOrderDraft) => void;
   settings: ShopSettings;
   saving: boolean;
   onSave: (draft: WorkOrderDraft) => void;
@@ -55,8 +58,9 @@ export function draftFromOrder(o: WorkOrder): WorkOrderDraft {
 }
 
 export default function WorkOrderEditor({
-  open, onOpenChange, initial, inventory, settings, saving, onSave, onDelete,
+  open, onOpenChange, initial, inventory, shipments, onOrderPart, settings, saving, onSave, onDelete,
 }: Props) {
+  const partsForBoat = initial.id ? shipments.filter((s) => s.workOrderId === initial.id) : [];
   const [d, setD] = useState<WorkOrderDraft>(initial);
   useEffect(() => setD(initial), [initial]);
 
@@ -217,6 +221,40 @@ export default function WorkOrderEditor({
             {totals.tax > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span className="tabular-nums">{money(totals.tax)}</span></div>}
             <div className="flex justify-between font-semibold border-t border-border pt-1"><span>Total</span><span className="tabular-nums">{money(totals.total)}</span></div>
           </div>
+        </div>
+
+        <div className="border border-border rounded-lg p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold">Parts on order for this boat</p>
+            {onOrderPart && (
+              <button
+                type="button"
+                onClick={() => onOrderPart(d)}
+                className="text-xs font-medium border border-border rounded-md px-2 py-1 hover:bg-muted"
+              >
+                + Track a part order
+              </button>
+            )}
+          </div>
+          {partsForBoat.length === 0 ? (
+            <p className="text-xs text-muted-foreground mt-1">
+              {initial.id ? "Nothing on order. Special-order parts you track here stay tied to this boat." : "Save the work order, then track parts ordered for this boat."}
+            </p>
+          ) : (
+            <ul className="mt-2 space-y-1.5">
+              {partsForBoat.map((s) => (
+                <li key={s.id} className="flex items-center gap-2 text-xs">
+                  {s.receivedAt ? (
+                    <span className="text-[11px] font-semibold text-emerald-700 w-24">✓ Received {shortDate(s.receivedAt)}</span>
+                  ) : (
+                    <span className="w-24"><ShipmentBadge status={s.status} /></span>
+                  )}
+                  <span className="flex-1 truncate">{s.description || "Shipment"}{s.supplier && <span className="text-muted-foreground"> · {s.supplier}</span>}</span>
+                  {!s.receivedAt && s.eta && <span className="text-muted-foreground">ETA {shortDate(s.eta)}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {d.projectId && (

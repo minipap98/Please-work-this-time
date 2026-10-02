@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   advanceStatus,
+  matchWorkOrderRef,
+  partsProgress,
+  shipmentBoatKey,
   carrierTrackingUrl,
   inboundTokenFromAddress,
   inventoryDelta,
@@ -166,5 +169,35 @@ describe("QuickBooks export", () => {
       .map((l) => Number(l.split("\t")[5]));
     expect(amounts.reduce((a, b) => a + b, 0)).toBeCloseTo(0, 6);
     expect(lines[lines.length - 1]).toBe("ENDTRNS");
+  });
+});
+
+describe("parts paired with boats", () => {
+  it("reads the shop's WO/PO reference off a supplier email and finds the work order", () => {
+    const parsed = parseShippingEmail(
+      "Defender order 4410923 has shipped",
+      "PO #: WO-1042\nUPS 1Z999AA10123456784",
+      "orders@defender.com",
+      now
+    );
+    expect(parsed.workOrderRef).toBe("1042");
+    const orders = [order({ id: "a", number: "WO-1041" }), order({ id: "b", number: "WO-1042", status: "waiting-parts" })];
+    expect(matchWorkOrderRef(parsed.workOrderRef, orders)?.id).toBe("b");
+    expect(matchWorkOrderRef(null, orders)).toBeNull();
+    expect(parseShippingEmail("Shipped", "Work order 1043 parts", "", now).workOrderRef).toBe("1043");
+  });
+
+  it("tracks parts progress per work order and groups by boat", () => {
+    const ships = [
+      { workOrderId: "b", receivedAt: "2026-10-01T00:00:00Z", status: "delivered" as const, eta: null },
+      { workOrderId: "b", receivedAt: null, status: "shipped" as const, eta: "2026-10-06" },
+      { workOrderId: "b", receivedAt: null, status: "exception" as const, eta: "2026-10-04" },
+      { workOrderId: null, receivedAt: null, status: "shipped" as const, eta: null },
+    ];
+    expect(partsProgress("b", ships)).toEqual({ total: 3, received: 1, open: 2, problems: 1, nextEta: "2026-10-04" });
+    expect(partsProgress("zzz", ships).total).toBe(0);
+    expect(shipmentBoatKey({ workOrderId: "b", boatLabel: "x", customerName: "" })).toBe("wo:b");
+    expect(shipmentBoatKey({ workOrderId: null, boatLabel: " Reel Therapy ", customerName: "" })).toBe("boat:reel therapy");
+    expect(shipmentBoatKey({ workOrderId: null, boatLabel: "", customerName: "" })).toBe("stock");
   });
 });

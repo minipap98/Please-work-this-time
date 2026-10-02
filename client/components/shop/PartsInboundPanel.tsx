@@ -3,7 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import {
   SHIPMENT_STATUSES,
   carrierTrackingUrl,
+  matchWorkOrderRef,
   parseShippingEmail,
+  shipmentBoatKey,
   type Carrier,
   type InventoryItem,
   type ParsedShippingEmail,
@@ -13,6 +15,7 @@ import {
 } from "@shared/shop";
 import type { ShipmentDraft } from "@/hooks/use-shop";
 import { EmptyState, ShipmentBadge, inputCls, labelCls, shortDate } from "./shopUi";
+import BoatPicker, { type BoatTarget } from "./BoatPicker";
 
 interface Props {
   shipments: PartsShipment[];
@@ -31,7 +34,7 @@ const CARRIERS: Carrier[] = ["UPS", "FedEx", "USPS", "DHL", "Other"];
 export function blankShipment(): ShipmentDraft {
   return {
     supplier: "", description: "", carrier: "UPS", trackingNumber: "", status: "ordered",
-    eta: null, workOrderId: null, inventoryItemId: null, quantity: 1, source: "manual", emailSubject: null,
+    eta: null, workOrderId: null, boatLabel: "", customerName: "", inventoryItemId: null, quantity: 1, source: "manual", emailSubject: null,
   };
 }
 
@@ -44,6 +47,9 @@ export default function PartsInboundPanel({
   const [body, setBody] = useState("");
   const [editing, setEditing] = useState<ShipmentDraft | null>(null);
   const [copied, setCopied] = useState(false);
+  const NO_BOAT: BoatTarget = { workOrderId: null, boatLabel: "", customerName: "" };
+  const [pasteFor, setPasteFor] = useState<BoatTarget>(NO_BOAT);
+  const [pasteForTouched, setPasteForTouched] = useState(false);
 
   useEffect(() => {
     if (!draftSeed) return;
@@ -56,12 +62,35 @@ export default function PartsInboundPanel({
     [subject, body, from]
   );
 
+  // A WO/PO number on the supplier email picks the boat automatically.
+  const refMatch = useMemo(
+    () => matchWorkOrderRef(parsed?.workOrderRef ?? null, workOrders),
+    [parsed?.workOrderRef, workOrders]
+  );
+  useEffect(() => {
+    if (pasteForTouched) return;
+    setPasteFor(refMatch
+      ? { workOrderId: refMatch.id, boatLabel: refMatch.boatLabel, customerName: refMatch.customerName }
+      : NO_BOAT);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refMatch, pasteForTouched]);
+
   const today = new Date().toLocaleDateString("en-CA");
   const open = shipments.filter((s) => !s.receivedAt);
   const arrivingToday = open.filter((s) => s.status === "out-for-delivery" || s.eta === today);
   const problems = open.filter((s) => s.status === "exception");
   const received = shipments.filter((s) => s.receivedAt).slice(0, 20);
   const woById = new Map(workOrders.map((w) => [w.id, w]));
+
+  // Open shipments grouped by the boat they're for; shop stock last.
+  const groups = useMemo(() => {
+    const m = new Map<string, PartsShipment[]>();
+    for (const s of open) {
+      const k = shipmentBoatKey(s);
+      m.set(k, [...(m.get(k) ?? []), s]);
+    }
+    return [...m.entries()].sort(([a], [b]) => (a === "stock" ? 1 : b === "stock" ? -1 : 0));
+  }, [open]);
 
   function importParsed() {
     if (!parsed) return;
@@ -76,8 +105,11 @@ export default function PartsInboundPanel({
         eta: parsed.eta,
         source: "email",
         emailSubject: subject || null,
+        ...pasteFor,
       });
     }
+    setPasteFor(NO_BOAT);
+    setPasteForTouched(false);
     setSubject("");
     setFrom("");
     setBody("");
@@ -132,7 +164,7 @@ export default function PartsInboundPanel({
           {arrivingToday.length > 0 && (
             <div className="border border-indigo-200 bg-indigo-50/50 rounded-xl p-3 text-sm">
               <p className="font-semibold text-indigo-900">Arriving today: {arrivingToday.length}</p>
-              <p className="text-indigo-800/80 text-xs mt-0.5">{arrivingToday.map((s) => s.description || s.supplier).join(" · ")}</p>
+              <p className="text-indigo-800/80 text-xs mt-0.5">{arrivingToday.map((s) => `${s.description || s.supplier} → ${s.boatLabel || "stock"}`).join(" · ")}</p>
             </div>
           )}
           {problems.length > 0 && (
@@ -147,36 +179,36 @@ export default function PartsInboundPanel({
       {open.length === 0 ? (
         <EmptyState title="Nothing inbound" body="Shipments show up here as soon as a forwarded email or pasted tracking number comes in." />
       ) : (
-        <div className="space-y-2">
-          {open.map((s) => {
-            const url = carrierTrackingUrl(s.carrier, s.trackingNumber);
-            const wo = s.workOrderId ? woById.get(s.workOrderId) : undefined;
-            const stock = s.inventoryItemId ? inventory.find((i) => i.id === s.inventoryItemId) : undefined;
+        <div className="space-y-4">
+          {groups.map(([key, list]) => {
+            const first = list[0];
+            const wo = first.workOrderId ? woById.get(first.workOrderId) : undefined;
+            const isStock = key === "stock";
             return (
-              <div key={s.id} className="border border-border rounded-xl p-3 bg-white flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <ShipmentBadge status={s.status} />
-                    <span className="text-xs text-muted-foreground">{s.carrier}</span>
-                    {s.source === "email" && <span className="text-[10px] font-semibold text-sky-700">FROM EMAIL</span>}
-                  </div>
-                  <p className="text-sm font-semibold mt-1 truncate">{s.description || "Shipment"}{s.supplier && <span className="font-normal text-muted-foreground"> · {s.supplier}</span>}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {s.trackingNumber ? (
-                      url ? <a href={url} target="_blank" rel="noreferrer" className="font-mono text-sky-700 hover:underline">{s.trackingNumber}</a> : <span className="font-mono">{s.trackingNumber}</span>
-                    ) : "No tracking yet"}
-                    {s.eta && ` · ETA ${shortDate(s.eta)}`}
-                    {wo && ` · for ${wo.number} ${wo.customerName}`}
-                    {stock && ` · restocks ${s.quantity}× ${stock.name}`}
-                  </p>
+              <section key={key}>
+                <div className="flex items-baseline gap-2 mb-1.5 flex-wrap">
+                  <h3 className="text-sm font-bold text-foreground">
+                    {isStock ? "Shop stock" : first.boatLabel || "Boat not named"}
+                  </h3>
+                  {!isStock && (
+                    <span className="text-xs text-muted-foreground">
+                      {[first.customerName, wo ? `${wo.number} · ${wo.title}` : "no work order yet"].filter(Boolean).join(" · ")}
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground ml-auto">{list.length} inbound</span>
                 </div>
-                <div className="flex gap-2 shrink-0">
-                  <button onClick={() => setEditing({ ...s })} className="px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-muted">Edit</button>
-                  <button onClick={() => onReceive(s.id)} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
-                    Check in
-                  </button>
+                <div className="space-y-2">
+                  {list.map((s) => (
+                    <ShipmentRow
+                      key={s.id}
+                      s={s}
+                      stockName={s.inventoryItemId ? inventory.find((i) => i.id === s.inventoryItemId)?.name : undefined}
+                      onEdit={() => setEditing({ ...s })}
+                      onReceive={() => onReceive(s.id)}
+                    />
+                  ))}
                 </div>
-              </div>
+              </section>
             );
           })}
         </div>
@@ -190,6 +222,7 @@ export default function PartsInboundPanel({
               <div key={s.id} className="text-xs text-muted-foreground flex gap-2">
                 <span>{shortDate(s.receivedAt)}</span>
                 <span className="text-foreground">{s.description || s.supplier}</span>
+                <span>{s.boatLabel ? `→ ${s.boatLabel}` : "→ stock"}</span>
                 <span className="font-mono">{s.trackingNumber}</span>
               </div>
             ))}
@@ -232,6 +265,16 @@ export default function PartsInboundPanel({
                 )}
               </div>
             )}
+            <div className="border-t border-border pt-3">
+              <BoatPicker
+                value={pasteFor}
+                onChange={(v) => { setPasteFor(v); setPasteForTouched(true); }}
+                workOrders={workOrders}
+              />
+              {refMatch && pasteFor.workOrderId === refMatch.id && (
+                <p className="text-[11px] text-emerald-700 mt-1">Matched {refMatch.number} from the PO/WO number on the email.</p>
+              )}
+            </div>
             <div className="flex justify-end">
               <button
                 disabled={!parsed || parsed.shipments.length === 0}
@@ -250,6 +293,13 @@ export default function PartsInboundPanel({
           <DialogHeader><DialogTitle>{editing?.id ? "Edit shipment" : "Track a shipment"}</DialogTitle></DialogHeader>
           {editing && (
             <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <BoatPicker
+                  value={{ workOrderId: editing.workOrderId, boatLabel: editing.boatLabel, customerName: editing.customerName }}
+                  onChange={(v) => setEditing({ ...editing, ...v })}
+                  workOrders={workOrders}
+                />
+              </div>
               <div className="col-span-2">
                 <label className={labelCls}>What's coming</label>
                 <input className={inputCls} value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
@@ -279,13 +329,6 @@ export default function PartsInboundPanel({
                 <input className={inputCls} type="date" value={editing.eta ?? ""} onChange={(e) => setEditing({ ...editing, eta: e.target.value || null })} />
               </div>
               <div>
-                <label className={labelCls}>For work order</label>
-                <select className={inputCls} value={editing.workOrderId ?? ""} onChange={(e) => setEditing({ ...editing, workOrderId: e.target.value || null })}>
-                  <option value="">— Stock —</option>
-                  {workOrders.filter((w) => w.status !== "invoiced").map((w) => <option key={w.id} value={w.id}>{w.number} · {w.title}</option>)}
-                </select>
-              </div>
-              <div>
                 <label className={labelCls}>Restocks part</label>
                 <select className={inputCls} value={editing.inventoryItemId ?? ""} onChange={(e) => setEditing({ ...editing, inventoryItemId: e.target.value || null })}>
                   <option value="">— None —</option>
@@ -311,6 +354,37 @@ export default function PartsInboundPanel({
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function ShipmentRow({
+  s, stockName, onEdit, onReceive,
+}: { s: PartsShipment; stockName?: string; onEdit: () => void; onReceive: () => void }) {
+  const url = carrierTrackingUrl(s.carrier, s.trackingNumber);
+  return (
+    <div className="border border-border rounded-xl p-3 bg-white flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <ShipmentBadge status={s.status} />
+          <span className="text-xs text-muted-foreground">{s.carrier}</span>
+          {s.source === "email" && <span className="text-[10px] font-semibold text-sky-700">FROM EMAIL</span>}
+        </div>
+        <p className="text-sm font-semibold mt-1 truncate">{s.description || "Shipment"}{s.supplier && <span className="font-normal text-muted-foreground"> · {s.supplier}</span>}</p>
+        <p className="text-xs text-muted-foreground">
+          {s.trackingNumber ? (
+            url ? <a href={url} target="_blank" rel="noreferrer" className="font-mono text-sky-700 hover:underline">{s.trackingNumber}</a> : <span className="font-mono">{s.trackingNumber}</span>
+          ) : "No tracking yet"}
+          {s.eta && ` · ETA ${shortDate(s.eta)}`}
+          {stockName && ` · restocks ${s.quantity}× ${stockName}`}
+        </p>
+      </div>
+      <div className="flex gap-2 shrink-0">
+        <button onClick={onEdit} className="px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-muted">Edit</button>
+        <button onClick={onReceive} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
+          Check in
+        </button>
+      </div>
     </div>
   );
 }

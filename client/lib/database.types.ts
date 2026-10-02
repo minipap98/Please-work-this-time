@@ -848,6 +848,8 @@ export interface Database {
           id: string;
           vendor_id: string;
           work_order_id: string | null;
+          boat_label: string;
+          customer_name: string;
           inventory_item_id: string | null;
           quantity: number;
           supplier: string;
@@ -866,6 +868,8 @@ export interface Database {
           id?: string;
           vendor_id: string;
           work_order_id?: string | null;
+          boat_label?: string;
+          customer_name?: string;
           inventory_item_id?: string | null;
           quantity?: number;
           supplier?: string;
@@ -883,6 +887,8 @@ export interface Database {
         Update: {
           vendor_id?: string;
           work_order_id?: string | null;
+          boat_label?: string;
+          customer_name?: string;
           inventory_item_id?: string | null;
           quantity?: number;
           supplier?: string;

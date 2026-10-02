@@ -4,8 +4,10 @@ import { timingSafeEqual } from "node:crypto";
 import {
   advanceStatus,
   inboundTokenFromAddress,
+  matchWorkOrderRef,
   parseShippingEmail,
   type ShipmentStatus,
+  type WorkOrderStatus,
 } from "../../shared/shop";
 
 function safeEqual(a: string, b: string): boolean {
@@ -76,11 +78,22 @@ export const handleInboundPartsEmail: RequestHandler = async (req, res) => {
     return;
   }
 
+  // Pair the parts with a boat when the shop put its WO number on the order.
+  let workOrderId: string | null = null;
+  if (parsed.workOrderRef) {
+    const { data: orders } = await admin
+      .from("shop_work_orders")
+      .select("id, number, status")
+      .eq("vendor_id", settings.vendor_id)
+      .ilike("number", `%${parsed.workOrderRef}`);
+    workOrderId = matchWorkOrderRef(parsed.workOrderRef, (orders ?? []) as { id: string; number: string; status: WorkOrderStatus }[])?.id ?? null;
+  }
+
   let upserted = 0;
   for (const s of parsed.shipments) {
     const { data: existing } = await admin
       .from("shop_parts_shipments")
-      .select("id, status, eta, supplier, description")
+      .select("id, status, eta, supplier, description, work_order_id")
       .eq("vendor_id", settings.vendor_id)
       .eq("tracking_number", s.trackingNumber)
       .maybeSingle();
@@ -92,6 +105,7 @@ export const handleInboundPartsEmail: RequestHandler = async (req, res) => {
           status: advanceStatus(existing.status as ShipmentStatus, parsed.status),
           eta: parsed.eta ?? existing.eta,
           supplier: existing.supplier || parsed.supplier || "",
+          work_order_id: existing.work_order_id ?? workOrderId,
           email_subject: subject.slice(0, 300),
           updated_at: new Date().toISOString(),
         })
@@ -108,10 +122,11 @@ export const handleInboundPartsEmail: RequestHandler = async (req, res) => {
         description: parsed.orderNumber ? `Order ${parsed.orderNumber}` : subject.slice(0, 120),
         source: "email",
         email_subject: subject.slice(0, 300),
+        work_order_id: workOrderId,
       });
       if (!error) upserted++;
     }
   }
 
-  res.json({ ok: true, routed: true, shipments: upserted });
+  res.json({ ok: true, routed: true, shipments: upserted, workOrderId });
 };

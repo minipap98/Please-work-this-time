@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
-import { WORK_ORDER_STATUSES, workOrderTotals, type WorkOrder, type WorkOrderStatus } from "@shared/shop";
+import { WORK_ORDER_STATUSES, partsProgress, workOrderTotals, type PartsShipment, type WorkOrder, type WorkOrderStatus } from "@shared/shop";
 import type { Project } from "@/data/projectData";
-import { EmptyState, WorkOrderBadge, money, timeRange } from "./shopUi";
+import { EmptyState, WorkOrderBadge, money, shortDate, timeRange } from "./shopUi";
 
 type Filter = "open" | "all" | WorkOrderStatus;
 
 interface Props {
   orders: WorkOrder[];
+  shipments: PartsShipment[];
   wonJobs: Project[];
   onOpen: (order: WorkOrder) => void;
   onNew: () => void;
@@ -16,7 +17,7 @@ interface Props {
 
 const OPEN: WorkOrderStatus[] = ["scheduled", "in-progress", "waiting-parts"];
 
-export default function WorkOrdersPanel({ orders, wonJobs, onOpen, onNew, onFromJob, onStatus }: Props) {
+export default function WorkOrdersPanel({ orders, shipments, wonJobs, onOpen, onNew, onFromJob, onStatus }: Props) {
   const [filter, setFilter] = useState<Filter>("open");
   const [q, setQ] = useState("");
 
@@ -85,6 +86,7 @@ export default function WorkOrdersPanel({ orders, wonJobs, onOpen, onNew, onFrom
         <div className="space-y-2">
           {shown.map((o) => {
             const t = workOrderTotals(o.lines, o.taxRate);
+            const parts = partsProgress(o.id, shipments);
             return (
               <div
                 key={o.id}
@@ -101,6 +103,24 @@ export default function WorkOrdersPanel({ orders, wonJobs, onOpen, onNew, onFrom
                       <WorkOrderBadge status={o.status} />
                       {o.projectId && <span className="text-[10px] font-semibold text-emerald-700">BOSUN JOB</span>}
                       {o.exportedAt && <span className="text-[10px] font-semibold text-violet-700">IN QUICKBOOKS</span>}
+                      {parts.total > 0 && (
+                        <span
+                          className={`text-[10px] font-semibold rounded-full px-2 py-0.5 border ${
+                            parts.problems > 0
+                              ? "text-red-700 bg-red-50 border-red-200"
+                              : parts.open === 0
+                                ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                                : "text-amber-700 bg-amber-50 border-amber-200"
+                          }`}
+                        >
+                          {parts.open === 0
+                            ? `All ${parts.total} parts in`
+                            : `Parts ${parts.received}/${parts.total} in${parts.problems ? " · delivery problem" : parts.nextEta ? ` · next ${shortDate(parts.nextEta)}` : ""}`}
+                        </span>
+                      )}
+                      {o.status === "waiting-parts" && parts.total > 0 && parts.open === 0 && (
+                        <span className="text-[10px] font-semibold text-emerald-700">READY TO START</span>
+                      )}
                     </div>
                     <p className="text-sm font-semibold text-foreground mt-1 truncate">{o.title}</p>
                     <p className="text-xs text-muted-foreground truncate">

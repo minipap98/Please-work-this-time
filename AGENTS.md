@@ -8,7 +8,9 @@ Demo mode (`/demo` or landing “Try the demo”) restores canned owner services
 
 Jobs and bids persist in Supabase (`client/lib/marketplace.ts`). Payments go through `POST /api/payments/create-intent`. Do not store a shared admin password in the client.
 
-Prefer pnpm. After schema.sql, run the migrations in `supabase/migrations/` in date order (`20260825_go_to_market.sql`, `20260826_vendor_loop.sql`, `20261002_shop_os.sql`).
+Prefer pnpm. After schema.sql, run the migrations in `supabase/migrations/` in date order (`20260825_go_to_market.sql`, `20260826_vendor_loop.sql`, `20261002_shop_os.sql`, `20261003_parts_for_boats.sql`).
+
+Every parts shipment is paired with a boat: linked to a work order (boat/customer copied by trigger and kept in sync), a named boat without a work order yet, or shop stock. A WO/PO number on a supplier email links it to the work order automatically.
 
 Shop OS (`/vendor-shop`, `client/hooks/use-shop.ts`, pure logic in `shared/shop.ts`) gives yards work orders, a bay/tech schedule, live inventory (Supabase realtime; part lines and received shipments move stock via DB triggers), inbound parts tracking, and QuickBooks Online CSV / Desktop IIF export. Inbound parts email is `POST /api/inbound/parts-email?secret=INBOUND_EMAIL_SECRET` (needs `SUPABASE_SERVICE_ROLE_KEY`); shops forward mail to `parts+<shop_settings.inbound_email_token>@VITE_INBOUND_EMAIL_DOMAIN`.
 

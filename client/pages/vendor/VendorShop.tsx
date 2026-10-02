@@ -201,6 +201,7 @@ export default function VendorShop() {
             {tab === "orders" && (
               <WorkOrdersPanel
                 orders={orders}
+                shipments={shipments}
                 wonJobs={wonJobs}
                 onOpen={(o: WorkOrder) => setEditor(draftFromOrder(o))}
                 onNew={() => openNew()}
@@ -279,6 +280,21 @@ export default function VendorShop() {
           onOpenChange={(o) => !o && setEditor(null)}
           initial={editor}
           inventory={inventory}
+          shipments={shipments}
+          onOrderPart={
+            editor.id
+              ? (d) => {
+                  setEditor(null);
+                  setShipmentSeed({
+                    ...blankShipment(),
+                    workOrderId: editor.id!,
+                    boatLabel: d.boatLabel,
+                    customerName: d.customerName,
+                  });
+                  setTab("parts");
+                }
+              : undefined
+          }
           settings={settings}
           saving={saveOrder.isPending}
           onSave={(d) =>

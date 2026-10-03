@@ -186,8 +186,11 @@ export default function StripePayment(props: StripePaymentProps) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
         <div className="bg-background border border-border rounded-xl p-6 max-w-sm mx-4 text-center">
-          <p className="text-sm text-muted-foreground">Stripe is not configured. Add VITE_STRIPE_PUBLISHABLE_KEY to your environment.</p>
-          <button onClick={props.onCancel} className="mt-4 px-4 py-2 rounded-md border border-border text-sm font-semibold">Close</button>
+          <p className="text-sm font-semibold text-foreground">Online payments are coming soon</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            For now, pay {props.vendorName} directly. Nothing has been charged.
+          </p>
+          <button onClick={props.onCancel} className="mt-4 px-4 py-2 rounded-md border border-border text-sm font-semibold">Got it</button>
         </div>
       </div>
     );

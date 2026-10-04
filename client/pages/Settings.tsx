@@ -1,8 +1,13 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import Header from "@/components/Header";
+import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
+import { useDemoMode } from "@/lib/demoMode";
+import { useMyBoats, uploadBoatPhoto } from "@/hooks/use-my-boat";
+import { useUpdateBoat } from "@/hooks/use-supabase";
 
 const STORAGE_KEY = "hero_image";
 const ASPECT = 2 / 1; // 2:1 landscape, matches the hero display
@@ -20,8 +25,10 @@ function getCroppedDataUrl(image: HTMLImageElement, crop: PixelCrop): string {
   const canvas = document.createElement("canvas");
   const scaleX = image.naturalWidth / image.width;
   const scaleY = image.naturalHeight / image.height;
-  canvas.width = crop.width * scaleX;
-  canvas.height = crop.height * scaleY;
+  // Cap the saved photo at 1600px wide so uploads stay small.
+  const scale = Math.min(1, 1600 / (crop.width * scaleX));
+  canvas.width = Math.round(crop.width * scaleX * scale);
+  canvas.height = Math.round(crop.height * scaleY * scale);
   const ctx = canvas.getContext("2d")!;
   ctx.drawImage(
     image,
@@ -42,9 +49,15 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
-  // Saved preview (what's committed to localStorage)
+  const { demo } = useDemoMode();
+  const { user, profile, updateProfile } = useAuth();
+  const { primary } = useMyBoats();
+  const updateBoat = useUpdateBoat();
+  const [saving, setSaving] = useState(false);
+
+  // Demo keeps the photo in this browser; live accounts store it on their primary boat.
   const [preview, setPreview] = useState<string>(
-    localStorage.getItem(STORAGE_KEY) ?? DEFAULT_IMAGE
+    demo ? localStorage.getItem(STORAGE_KEY) ?? DEFAULT_IMAGE : ""
   );
 
   // Crop state
@@ -53,8 +66,14 @@ export default function Settings() {
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
 
   const [location, setLocation] = useState<string>(
-    localStorage.getItem("user_location") ?? ""
+    demo ? localStorage.getItem("user_location") ?? "" : ""
   );
+
+  useEffect(() => {
+    if (demo) return;
+    setPreview((p) => p || primary?.photo_url || "");
+    setLocation((l) => l || profile?.location || "");
+  }, [demo, primary?.photo_url, profile?.location]);
   const [saved, setSaved] = useState(false);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -83,15 +102,38 @@ export default function Settings() {
     setCropSrc(null);
   }
 
-  function handleSave() {
-    localStorage.setItem(STORAGE_KEY, preview);
-    localStorage.setItem("user_location", location);
-    setSaved(true);
-    setTimeout(() => navigate("/"), 700);
+  async function handleSave() {
+    if (demo) {
+      localStorage.setItem(STORAGE_KEY, preview);
+      localStorage.setItem("user_location", location);
+      setSaved(true);
+      setTimeout(() => navigate("/app"), 700);
+      return;
+    }
+    if (!user) return;
+    setSaving(true);
+    try {
+      if (preview && preview.startsWith("data:")) {
+        if (!primary) throw new Error("Add your boat in My Boats first, then upload its photo.");
+        const url = await uploadBoatPhoto(user.id, preview);
+        await updateBoat.mutateAsync({ id: primary.id, photo_url: url });
+      } else if (!preview && primary?.photo_url) {
+        await updateBoat.mutateAsync({ id: primary.id, photo_url: null });
+      }
+      if (location.trim() !== (profile?.location ?? "")) {
+        await updateProfile({ location: location.trim() || null });
+      }
+      setSaved(true);
+      setTimeout(() => navigate("/app"), 700);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't save. Try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleReset() {
-    setPreview(DEFAULT_IMAGE);
+    setPreview(demo ? DEFAULT_IMAGE : "");
     setCropSrc(null);
     setSaved(false);
   }
@@ -164,11 +206,17 @@ export default function Settings() {
             <>
               {/* Preview */}
               <div className="w-full h-52 rounded-md overflow-hidden bg-gray-100 mb-4">
-                <img
-                  src={preview}
-                  alt="Hero preview"
-                  className="w-full h-full object-cover"
-                />
+                {preview ? (
+                  <img
+                    src={preview}
+                    alt="Hero preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
+                    No photo yet
+                  </div>
+                )}
               </div>
 
               {/* Actions */}
@@ -229,9 +277,10 @@ export default function Settings() {
             </button>
             <button
               onClick={handleSave}
+              disabled={saving}
               className="px-5 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
             >
-              {saved ? "Saved!" : "Save Changes"}
+              {saved ? "Saved!" : saving ? "Saving…" : "Save Changes"}
             </button>
           </div>
         )}

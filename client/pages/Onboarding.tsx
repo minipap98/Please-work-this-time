@@ -7,16 +7,18 @@ import { toast } from "sonner";
 import { BOAT_MAKES, BOAT_MODELS, type BoatMake } from "@/data/boatData";
 import { ENGINE_DATA, ENGINE_TYPES, OUTBOARD_COUNTS, type EngineType } from "@/data/engineData";
 import EngineModelField from "@/components/EngineModelField";
+import { uploadBoatPhoto } from "@/hooks/use-my-boat";
+import { resizePhoto } from "@/lib/photoUtils";
 import { VENDOR_SPECIALTIES, VENDOR_CERTIFICATIONS } from "@/data/onboardingData";
 import { createVendorProfileFromOnboarding, saveCustomVendorProfile } from "@/data/vendorProfileUtils";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type OwnerStep = "welcome" | "location" | "boat" | "done";
+type OwnerStep = "welcome" | "location" | "boat" | "photo" | "done";
 type VendorStep = "welcome" | "business" | "services" | "area-bio" | "done";
 type Step = OwnerStep | VendorStep;
 
-const OWNER_STEPS: OwnerStep[] = ["welcome", "location", "boat", "done"];
+const OWNER_STEPS: OwnerStep[] = ["welcome", "location", "boat", "photo", "done"];
 const VENDOR_STEPS: VendorStep[] = ["welcome", "business", "services", "area-bio", "done"];
 
 interface BoatForm {
@@ -30,7 +32,7 @@ const EMPTY_BOAT: BoatForm = {
 };
 
 const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: CURRENT_YEAR - 2009 }, (_, i) => String(CURRENT_YEAR - i));
+const YEARS = Array.from({ length: CURRENT_YEAR - 1969 }, (_, i) => String(CURRENT_YEAR - i));
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
@@ -51,6 +53,7 @@ export default function Onboarding() {
   // Owner state
   const [location, setLocation] = useState("");
   const [finishing, setFinishing] = useState(false);
+  const [photo, setPhoto] = useState<string | null>(null);
   const [boat, setBoat] = useState<BoatForm>({ ...EMPTY_BOAT });
 
   // Vendor state
@@ -135,7 +138,7 @@ export default function Onboarding() {
       } else {
         const hasBoat = boat.make || boat.model || boat.name;
         if (hasBoat && !supabaseMissing && authUser) {
-          const { error: boatError } = await supabase.from("boats").insert({
+          const { data: newBoat, error: boatError } = await supabase.from("boats").insert({
             owner_id: authUser.id,
             name: boat.name || "My Boat",
             make: boat.make || "Unknown",
@@ -146,8 +149,16 @@ export default function Onboarding() {
             engine_model: boat.engineModel || null,
             engine_count: boat.engineCount === "Twin" ? 2 : 1,
             home_port: location.trim() || null,
-          });
+          }).select("id").single();
           if (boatError) throw boatError;
+          if (photo && newBoat?.id) {
+            try {
+              const url = await uploadBoatPhoto(authUser.id, photo);
+              await supabase.from("boats").update({ photo_url: url }).eq("id", newBoat.id);
+            } catch {
+              toast.error("Your boat is saved, but the photo didn't upload. Add it again in Settings.");
+            }
+          }
         } else if (hasBoat) {
           const savedBoat = {
             id: `boat-${Date.now()}`,
@@ -156,6 +167,7 @@ export default function Onboarding() {
           };
           localStorage.setItem("my_fleet", JSON.stringify([savedBoat]));
           localStorage.setItem("my_boat", JSON.stringify(savedBoat));
+          if (photo) localStorage.setItem("hero_image", photo);
         }
         if (location.trim()) {
           localStorage.setItem("user_location", location.trim());
@@ -351,6 +363,48 @@ export default function Onboarding() {
               </div>
 
               <StepNav onBack={back} onNext={next} onSkip={next} />
+            </div>
+          )}
+
+          {/* ── OWNER: PHOTO ─────────────────────────────────── */}
+          {currentStep === "photo" && (
+            <div>
+              <h2 className="text-xl font-semibold text-foreground mb-1">Add a photo of your boat</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                It's the first thing you'll see on your dashboard. A side shot works best.
+              </p>
+              {!(boat.make || boat.model || boat.name) ? (
+                <p className="text-sm text-muted-foreground bg-muted/40 rounded-md p-4">
+                  Add your boat first (go back a step), or skip this and add a photo later in Settings.
+                </p>
+              ) : (
+                <label className="block cursor-pointer">
+                  <div className="w-full aspect-[2/1] rounded-md border-2 border-dashed border-border bg-muted/30 overflow-hidden flex items-center justify-center hover:border-foreground/40 transition-colors">
+                    {photo ? (
+                      <img src={photo} alt="Your boat" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Tap to choose a photo</span>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!f) return;
+                      try {
+                        setPhoto(await resizePhoto(f, 1600, 0.85));
+                      } catch {
+                        toast.error("Couldn't read that image. Try a JPG or PNG.");
+                      }
+                    }}
+                  />
+                  {photo && <span className="mt-2 inline-block text-xs font-medium text-sky-700">Choose a different photo</span>}
+                </label>
+              )}
+              <StepNav onBack={back} onNext={next} onSkip={() => { setPhoto(null); next(); }} />
             </div>
           )}
 

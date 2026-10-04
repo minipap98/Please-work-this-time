@@ -1,4 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { useDemoMode } from "@/lib/demoMode";
+import { useMyBoats } from "@/hooks/use-my-boat";
+import { useCreateBoat, useDeleteBoat, useUpdateBoat } from "@/hooks/use-supabase";
+import type { Tables } from "@/lib/database.types";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { BOAT_MAKES, BOAT_MODELS, type BoatMake } from "@/data/boatData";
@@ -33,7 +38,7 @@ const EMPTY_BOAT: Omit<SavedBoat, "id"> = {
 };
 
 const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: CURRENT_YEAR - 2009 }, (_, i) => String(CURRENT_YEAR - i));
+const YEARS = Array.from({ length: CURRENT_YEAR - 1969 }, (_, i) => String(CURRENT_YEAR - i));
 
 const STORAGE_TYPES = ["Marina Slip", "Mooring", "Trailer", "Dry Storage", "Boatyard"];
 
@@ -68,6 +73,38 @@ function loadFleet(): SavedBoat[] {
   const fleet = [DEFAULT_DEMO_BOAT];
   saveFleet(fleet);
   return fleet;
+}
+
+const COUNTS = ["Single", "Twin", "Triple", "Quad", "Quint", "Sextuple"];
+
+function fromRow(b: Tables<"boats">, primaryId: string | undefined): SavedBoat {
+  return {
+    id: b.id,
+    make: b.make,
+    model: b.model,
+    year: b.year,
+    name: b.name,
+    engineType: b.engine_type ?? "",
+    engineMake: b.engine_make ?? "",
+    engineModel: b.engine_model ?? "",
+    engineCount: b.engine_type === "Outboard" ? COUNTS[(b.engine_count ?? 1) - 1] ?? "Single" : "",
+    isPrimary: b.id === primaryId,
+    locationName: b.home_port ?? "",
+  };
+}
+
+function toRow(b: SavedBoat) {
+  return {
+    name: b.name.trim() || "My Boat",
+    make: b.make || "Unknown",
+    model: b.model || "Unknown",
+    year: b.year || String(new Date().getFullYear()),
+    engine_type: (b.engineType || null) as Tables<"boats">["engine_type"],
+    engine_make: b.engineMake || null,
+    engine_model: b.engineModel || null,
+    engine_count: Math.max(1, COUNTS.indexOf(b.engineCount) + 1),
+    home_port: [b.locationName, b.locationAddress].filter((x) => x && x.trim()).join(" · ") || null,
+  };
 }
 
 function saveFleet(fleet: SavedBoat[]) {
@@ -232,23 +269,54 @@ function BoatForm({
 }
 
 export default function MyBoats() {
-  const navigate = useNavigate();
+  const { demo } = useDemoMode();
+  return demo ? <DemoMyBoats /> : <LiveMyBoats />;
+}
+
+/** Signed-in owners: boats live in Supabase. */
+function LiveMyBoats() {
+  const { boats, primary, isLoading, setPrimaryId } = useMyBoats();
+  const create = useCreateBoat();
+  const update = useUpdateBoat();
+  const remove = useDeleteBoat();
+  const fleet = useMemo(() => boats.map((b) => fromRow(b, primary?.id)).reverse(), [boats, primary?.id]);
+  const fail = (e: unknown) => toast.error(e instanceof Error ? e.message : "Couldn't save your boat.");
+
+  return (
+    <FleetView
+      fleet={fleet}
+      loading={isLoading}
+      onSave={(b) => update.mutateAsync({ id: b.id, ...toRow(b) }).then(() => true, (e) => (fail(e), false))}
+      onAdd={(b) =>
+        create.mutateAsync(toRow(b)).then(
+          (row) => {
+            if (boats.length === 0 && row?.id) setPrimaryId(row.id);
+            return true;
+          },
+          (e) => (fail(e), false)
+        )
+      }
+      onSetPrimary={setPrimaryId}
+      onDelete={(id) => {
+        if (!window.confirm("Remove this boat and its documents and service log?")) return;
+        remove.mutate(id, { onError: fail });
+      }}
+    />
+  );
+}
+
+/** Demo: boats stay in this browser. */
+function DemoMyBoats() {
   const [fleet, setFleet] = useState<SavedBoat[]>(loadFleet);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [addingNew, setAddingNew] = useState(false);
-  const [savedMsg, setSavedMsg] = useState(false);
 
   function updateFleet(newFleet: SavedBoat[]) {
     setFleet(newFleet);
     saveFleet(newFleet);
-    setSavedMsg(true);
-    setTimeout(() => setSavedMsg(false), 2000);
   }
 
   function handleSaveBoat(updated: SavedBoat) {
     const newFleet = fleet.map((b) => b.id === updated.id ? updated : b);
     updateFleet(newFleet);
-    setEditingId(null);
   }
 
   function handleAddBoat(newBoat: SavedBoat) {
@@ -256,7 +324,6 @@ export default function MyBoats() {
     // If first boat, make it primary
     if (newFleet.length === 1) newFleet[0].isPrimary = true;
     updateFleet(newFleet);
-    setAddingNew(false);
   }
 
   function handleSetPrimary(id: string) {
@@ -271,6 +338,54 @@ export default function MyBoats() {
       newFleet[0].isPrimary = true;
     }
     updateFleet(newFleet);
+  }
+
+  return (
+    <FleetView
+      fleet={fleet}
+      onSave={async (b) => (handleSaveBoat(b), true)}
+      onAdd={async (b) => (handleAddBoat(b), true)}
+      onSetPrimary={handleSetPrimary}
+      onDelete={handleDelete}
+    />
+  );
+}
+
+function FleetView({
+  fleet,
+  loading = false,
+  onSave,
+  onAdd,
+  onSetPrimary,
+  onDelete,
+}: {
+  fleet: SavedBoat[];
+  loading?: boolean;
+  onSave: (b: SavedBoat) => Promise<boolean>;
+  onAdd: (b: SavedBoat) => Promise<boolean>;
+  onSetPrimary: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const navigate = useNavigate();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [addingNew, setAddingNew] = useState(false);
+  const [savedMsg, setSavedMsg] = useState(false);
+
+  function flash() {
+    setSavedMsg(true);
+    setTimeout(() => setSavedMsg(false), 2000);
+  }
+  async function handleSaveBoat(b: SavedBoat) {
+    if (await onSave(b)) {
+      setEditingId(null);
+      flash();
+    }
+  }
+  async function handleAddBoat(b: SavedBoat) {
+    if (await onAdd(b)) {
+      setAddingNew(false);
+      flash();
+    }
   }
 
   return (
@@ -343,7 +458,7 @@ export default function MyBoats() {
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {!boat.isPrimary && (
                     <button
-                      onClick={() => handleSetPrimary(boat.id)}
+                      onClick={() => onSetPrimary(boat.id)}
                       className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                     >
                       Set primary
@@ -356,7 +471,7 @@ export default function MyBoats() {
                     {editingId === boat.id ? "Cancel" : "Edit"}
                   </button>
                   <button
-                    onClick={() => handleDelete(boat.id)}
+                    onClick={() => onDelete(boat.id)}
                     className="text-xs text-red-500 hover:opacity-70 transition-opacity"
                   >
                     Remove
@@ -391,6 +506,11 @@ export default function MyBoats() {
             </div>
           ))}
 
+          {loading && <p className="text-sm text-muted-foreground">Loading your boats…</p>}
+          {!loading && fleet.length === 0 && !addingNew && (
+            <p className="text-sm text-muted-foreground">No boats yet. Add yours below.</p>
+          )}
+
           {/* Add new boat */}
           {addingNew ? (
             <div className="border border-dashed border-primary/50 rounded-lg px-5 py-5">
@@ -409,7 +529,7 @@ export default function MyBoats() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Add Another Boat
+              {fleet.length ? "Add Another Boat" : "Add Your Boat"}
             </button>
           )}
         </div>

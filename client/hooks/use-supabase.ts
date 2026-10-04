@@ -52,6 +52,17 @@ export function useUpdateBoat() {
   });
 }
 
+export function useDeleteBoat() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("boats").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["boats"] }),
+  });
+}
+
 // ============================================================
 // BOAT DOCUMENTS
 // ============================================================

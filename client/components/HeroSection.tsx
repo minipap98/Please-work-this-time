@@ -9,7 +9,9 @@ import {
 } from "@/components/ui/dialog";
 import { ENGINE_DATA, type EngineType } from "@/data/engineData";
 import { type ProjectBoat } from "@/data/projectData";
-import { useBoats } from "@/hooks/use-supabase";
+import { useMyBoats } from "@/hooks/use-my-boat";
+import { useAuth } from "@/context/AuthContext";
+import { useDemoMode } from "@/lib/demoMode";
 import { useCreateMarketplaceProject } from "@/hooks/use-marketplace";
 import { toast } from "sonner";
 
@@ -158,14 +160,18 @@ interface HeroSectionProps {
 
 export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) {
   const navigate = useNavigate();
-  const { data: boats } = useBoats();
+  const { demo } = useDemoMode();
+  const { profile } = useAuth();
+  // Live accounts read their own boat from Supabase; browser storage only backs the demo.
+  const { primary } = useMyBoats();
   const createProject = useCreateMarketplaceProject();
   const [open, setOpen] = useState(false);
   const [posting, setPosting] = useState(false);
-  const [heroImage, setHeroImage] = useState(
-    () => localStorage.getItem("hero_image") ?? DEFAULT_HERO
+  const [heroImage, setHeroImage] = useState<string | null>(
+    () => (demo ? localStorage.getItem("hero_image") ?? DEFAULT_HERO : null)
   );
   const [boatInfo, setBoatInfo] = useState(() => {
+    if (!demo) return EMPTY_BOAT;
     try {
       const stored = localStorage.getItem("my_boat");
       return stored ? JSON.parse(stored) : EMPTY_BOAT;
@@ -174,7 +180,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
     }
   });
   const [location, setLocation] = useState<string>(
-    () => localStorage.getItem("user_location") ?? ""
+    () => (demo ? localStorage.getItem("user_location") ?? "" : "")
   );
   const [step, setStep] = useState<Step>("category");
   const [projectTitle, setProjectTitle] = useState("");
@@ -189,6 +195,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
   const [marinaCOIRequired, setMarinaCOIRequired] = useState(false);
 
   useEffect(() => {
+    if (!demo) return;
     const onFocus = () => {
       setHeroImage(localStorage.getItem("hero_image") ?? DEFAULT_HERO);
       setLocation(localStorage.getItem("user_location") ?? "");
@@ -199,21 +206,17 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, []);
+  }, [demo]);
 
   useEffect(() => {
-    const boat = boats?.[0] as {
-      id: string;
-      make: string;
-      model: string;
-      year: string;
-      name: string;
-      engine_type: string | null;
-      engine_make: string | null;
-      engine_model: string | null;
-      engine_count: number | null;
-    } | undefined;
-    if (!boat) return;
+    if (demo) return;
+    setLocation(profile?.location || primary?.home_port || "");
+    const boat = primary;
+    setHeroImage(boat?.photo_url ?? null);
+    if (!boat) {
+      setBoatInfo(EMPTY_BOAT);
+      return;
+    }
     setBoatInfo({
       id: boat.id,
       make: boat.make,
@@ -226,7 +229,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
       engineCount: boat.engine_count && boat.engine_count > 1 ? "Twin" : "Single",
       isPrimary: true,
     });
-  }, [boats]);
+  }, [demo, primary, profile?.location]);
 
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [engineType, setEngineType] = useState<EngineType | null>(null);
@@ -352,11 +355,26 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
         className="relative h-[240px] sm:h-[340px] overflow-hidden"
         style={{ backgroundColor: "#ffffff" }}
       >
-        <img
-          src={heroImage}
-          alt="Hero boat image"
-          className="absolute inset-0 w-full h-full object-contain"
-        />
+        {heroImage ? (
+          <img
+            src={heroImage}
+            alt="Your boat"
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-sky-50 to-white text-center px-6">
+            <svg className="w-10 h-10 text-sky-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 17h18l-2 3H5l-2-3zm2-2l2-7h10l2 7M12 3v5" />
+            </svg>
+            <p className="text-sm text-slate-600">{boatInfo?.id ? "Add a photo of your boat" : "Add your boat to get started"}</p>
+            <button
+              onClick={() => navigate(boatInfo?.id ? "/settings" : "/my-boats")}
+              className="px-4 py-2 rounded-md bg-foreground text-background text-sm font-semibold hover:opacity-90"
+            >
+              {boatInfo?.id ? "Upload photo" : "Add boat"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Boat info strip */}

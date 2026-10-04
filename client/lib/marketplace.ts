@@ -7,7 +7,7 @@ export const PROJECT_DETAIL_SELECT = `
   owner:profiles!owner_id(id, name, email, phone, location),
   boat:boats(*),
   photos:project_photos(*),
-  bids(
+  bids:bids!bids_project_id_fkey(
     *,
     line_items:bid_line_items(*),
     vendor:vendor_profiles(*),
@@ -20,7 +20,7 @@ export const PROJECT_LIST_SELECT = `
   owner:profiles!owner_id(id, name, email, phone, location),
   boat:boats(*),
   photos:project_photos(*),
-  bids(
+  bids:bids!bids_project_id_fkey(
     *,
     line_items:bid_line_items(*),
     vendor:vendor_profiles(*),
@@ -32,7 +32,7 @@ export const OPEN_RFP_SELECT = `
   *,
   boat:boats(*),
   photos:project_photos(*),
-  bids(
+  bids:bids!bids_project_id_fkey(
     *,
     line_items:bid_line_items(*),
     vendor:vendor_profiles(*)

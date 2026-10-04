@@ -10,6 +10,7 @@ import {
 import { ENGINE_DATA, type EngineType } from "@/data/engineData";
 import { type ProjectBoat } from "@/data/projectData";
 import { useMyBoats } from "@/hooks/use-my-boat";
+import { DEMO_BOAT } from "@/data/demoBoat";
 import { useAuth } from "@/context/AuthContext";
 import { useDemoMode } from "@/lib/demoMode";
 import { useCreateMarketplaceProject } from "@/hooks/use-marketplace";
@@ -174,7 +175,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
     if (!demo) return EMPTY_BOAT;
     try {
       const stored = localStorage.getItem("my_boat");
-      return stored ? JSON.parse(stored) : EMPTY_BOAT;
+      return stored ? JSON.parse(stored) : DEMO_BOAT;
     } catch {
       return EMPTY_BOAT;
     }
@@ -201,7 +202,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
       setLocation(localStorage.getItem("user_location") ?? "");
       try {
         const stored = localStorage.getItem("my_boat");
-        setBoatInfo(stored ? JSON.parse(stored) : EMPTY_BOAT);
+        setBoatInfo(stored ? JSON.parse(stored) : DEMO_BOAT);
       } catch {}
     };
     window.addEventListener("focus", onFocus);
@@ -288,10 +289,13 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
     }
   }
 
+  // The boat profile already says what engine it has; only ask when it doesn't.
+  const knownEngine = !!(boatInfo?.engineMake && boatInfo?.engineModel);
+
   function handleSelectCategory(label: string) {
     setSelectedCategory(label);
     autoSelectEquipment(label);
-    if (label === "Engine Service") {
+    if (label === "Engine Service" && !knownEngine) {
       setStep("engine");
     } else {
       setStep("details");
@@ -633,6 +637,14 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                   Describe what you need so vendors can give you an accurate quote.
                 </DialogDescription>
               </DialogHeader>
+              {!postSubmitted && (boatInfo?.make || engineDisplay) && (
+                <p className="-mt-1 text-xs text-muted-foreground">
+                  For {[[boatInfo?.year, boatInfo?.make, boatInfo?.model].filter(Boolean).join(" "), engineDisplay].filter(Boolean).join(" · ")}.{" "}
+                  <button onClick={() => navigate("/my-boats")} className="font-medium text-sky-700 hover:underline">
+                    Not right? Update My Boats
+                  </button>
+                </p>
+              )}
 
               {postSubmitted ? (
                 <div className="py-8 flex flex-col items-center gap-3 text-center">
@@ -897,17 +909,18 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                       disabled={!projectTitle.trim() || posting}
                       onClick={async () => {
                         // Build propulsion from stored engine info
+                        // Use the boat's saved engine; fall back to what they picked in the engine step.
                         const engineModelClean =
-                          boatInfo?.engineModel?.replace(/\s*\([\d–\-]+.*?\)$/, "") || null;
+                          (boatInfo?.engineModel || model)?.replace(/\s*\([\d–\-]+.*?\)$/, "") || null;
                         const propulsion = [
-                          boatInfo?.engineType === "Outboard"
+                          (boatInfo?.engineMake ? boatInfo?.engineType : engineType) === "Outboard"
                             ? boatInfo?.engineCount || null
                             : null,
-                          boatInfo?.engineMake || null,
+                          boatInfo?.engineMake || make || null,
                           engineModelClean,
                         ]
                           .filter(Boolean)
-                          .join(" ") || boatInfo?.engineType || "Unknown";
+                          .join(" ") || boatInfo?.engineType || engineType || "Unknown";
 
                         const boat: ProjectBoat = {
                           name: boatInfo?.name || "My Boat",

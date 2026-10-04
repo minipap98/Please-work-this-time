@@ -12,6 +12,7 @@ import EngineModelField from "@/components/EngineModelField";
 import BoatDocuments from "@/components/BoatDocuments";
 import BoatEquipment from "@/components/BoatEquipment";
 import ModelInsights from "@/components/boats/ModelInsights";
+import { DEMO_BOAT as DEFAULT_DEMO_BOAT } from "@/data/demoBoat";
 
 const FLEET_STORAGE_KEY = "my_fleet";
 const BOAT_STORAGE_KEY = "my_boat"; // keep for backwards compat with HeroSection
@@ -43,21 +44,7 @@ const YEARS = Array.from({ length: CURRENT_YEAR - 1969 }, (_, i) => String(CURRE
 
 const STORAGE_TYPES = ["Marina Slip", "Mooring", "Trailer", "Dry Storage", "Boatyard"];
 
-const DEFAULT_DEMO_BOAT: SavedBoat = {
-  id: "boat-1773000691182",
-  make: "Sea Ray",
-  model: "SDX 250 OB",
-  year: "2020",
-  name: "No Vacancy",
-  engineType: "Outboard",
-  engineMake: "Mercury",
-  engineModel: "Verado 250 (2021–present)",
-  engineCount: "Single",
-  isPrimary: true,
-  storageType: "Marina Slip",
-  locationName: "Rickenbacker Marina",
-  locationAddress: "3301 Rickenbacker Cswy, Key Biscayne, FL 33149",
-};
+
 
 function loadFleet(): SavedBoat[] {
   try {

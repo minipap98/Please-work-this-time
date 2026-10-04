@@ -171,7 +171,7 @@ export function useProject(id: string | undefined) {
           *,
           boat:boats(*),
           photos:project_photos(*),
-          bids(
+          bids:bids!bids_project_id_fkey(
             *,
             line_items:bid_line_items(*),
             vendor:vendor_profiles(*)
@@ -446,7 +446,7 @@ export function useInboxThreads() {
           .select(`
             *,
             vendor:vendor_profiles(*),
-            project:projects(
+            project:projects!bids_project_id_fkey(
               *,
               boat:boats(*)
             )
@@ -782,7 +782,7 @@ export function useOwnerSpending() {
         .select(`
           id, title, category, date, status,
           boat:boats(name, make, model, year),
-          bids!inner(price, accepted)
+          bids:bids!bids_project_id_fkey!inner(price, accepted)
         `)
         .eq("owner_id", user!.id)
         .eq("status", "completed")

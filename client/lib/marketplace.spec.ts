@@ -92,3 +92,24 @@ describe("mapBid", () => {
     expect(bid.price).toBe(0);
   });
 });
+
+describe("bid thread attribution", () => {
+  it("labels messages by the vendor's user id, not the (private) sender profile", () => {
+    const bid = mapBid({
+      id: "bid-1",
+      project_id: "p-1",
+      vendor_id: "vp-1",
+      price: 500,
+      message: "",
+      submitted_at: "2026-08-25T00:00:00.000Z",
+      expiry_date: null,
+      vendor: { id: "vp-1", user_id: "vendor-user", business_name: "Harbor Marine", initials: "HM", completed_jobs: 0, phone: null },
+      line_items: [],
+      messages: [
+        { sender_id: "vendor-user", text: "Can do Tuesday", created_at: "2026-08-25T01:00:00.000Z", is_quote: false, quote_title: null, quote_price: null, quote_description: null },
+        { sender_id: "owner-user", text: "Great", created_at: "2026-08-25T02:00:00.000Z", is_quote: false, quote_title: null, quote_price: null, quote_description: null },
+      ],
+    } as unknown as Parameters<typeof mapBid>[0]);
+    expect(bid.thread.map((m) => m.from)).toEqual(["vendor", "user"]);
+  });
+});

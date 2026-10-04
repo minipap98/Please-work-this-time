@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
-import type { InsertTables, UpdateTables } from "@/lib/database.types";
+import type { Database, InsertTables, UpdateTables } from "@/lib/database.types";
 
 // ============================================================
 // BOATS
@@ -341,7 +341,7 @@ export function useBidMessages(bidId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("messages")
-        .select("*, sender:profiles!sender_id(*)")
+        .select("*")
         .eq("bid_id", bidId!)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -570,11 +570,17 @@ export function useVendorReviews(vendorId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reviews")
-        .select("*, reviewer:profiles!reviewer_id(name, initials, avatar_url)")
+        .select("*")
         .eq("vendor_id", vendorId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      // Profiles are private; reviewer names come from the public name cards.
+      const ids = [...new Set((data ?? []).map((r) => r.reviewer_id).filter(Boolean))];
+      const { data: cards } = ids.length
+        ? await supabase.rpc("profile_cards", { ids })
+        : { data: [] as Database["public"]["Functions"]["profile_cards"]["Returns"] };
+      const byId = new Map((cards ?? []).map((c) => [c.id, c]));
+      return (data ?? []).map((r) => ({ ...r, reviewer: byId.get(r.reviewer_id) ?? null }));
     },
     enabled: !!vendorId,
   });

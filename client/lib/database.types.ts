@@ -968,6 +968,14 @@ export interface Database {
         Args: { item_id: string; delta: number };
         Returns: number;
       };
+      profile_cards: {
+        Args: { ids: string[] };
+        Returns: { id: string; name: string; initials: string; avatar_url: string | null; role: string }[];
+      };
+      can_see_profile: {
+        Args: { pid: string };
+        Returns: boolean;
+      };
     };
     Enums: {
       user_role: "owner" | "vendor";

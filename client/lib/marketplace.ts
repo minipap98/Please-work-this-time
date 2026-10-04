@@ -137,7 +137,7 @@ export function mapBid(row: BidRow): Bid {
     })),
     submittedDate: formatProjectDate(row.submitted_at),
     expiryDate: row.expiry_date ? formatProjectDate(row.expiry_date) : "TBD",
-    thread: (row.messages ?? []).map((m) => mapMessage(m)),
+    thread: (row.messages ?? []).map((m) => mapMessage(m, vendor?.user_id)),
   };
 }
 

@@ -66,7 +66,14 @@ export const handleNotifyJob: RequestHandler = async (req, res) => {
 
     const emails: string[] = [];
     if (matched.length) {
-      const { data: profiles } = await authed
+      // Vendor emails are private to the owner; read them server-side only.
+      const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const lookup = service
+        ? createClient(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "", service, {
+            auth: { persistSession: false },
+          })
+        : authed;
+      const { data: profiles } = await lookup
         .from("profiles")
         .select("id, email")
         .in("id", matched.map((v) => v.user_id));

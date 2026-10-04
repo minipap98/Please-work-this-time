@@ -682,6 +682,35 @@ export interface Database {
         };
         Relationships: [];
       };
+      boat_service_plans: {
+        Row: {
+          boat_id: string;
+          owner_id: string;
+          engine_label: string;
+          tasks: Json;
+          records: Json;
+          source: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          boat_id: string;
+          owner_id: string;
+          engine_label: string;
+          tasks?: Json;
+          records?: Json;
+          source?: string;
+          updated_at?: string;
+        };
+        Update: {
+          engine_label?: string;
+          tasks?: Json;
+          records?: Json;
+          source?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       shop_settings: {
         Row: {
           vendor_id: string;

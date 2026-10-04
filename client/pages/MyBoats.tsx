@@ -491,6 +491,14 @@ function FleetView({
               {boat.make && boat.model && (
                 <div className="border-t border-border px-5 py-3">
                   <ModelInsights boat={{ make: boat.make, model: boat.model, engineMake: boat.engineMake, engineModel: boat.engineModel }} />
+                  {boat.isPrimary && boat.engineMake && boat.engineModel && (
+                    <button
+                      onClick={() => navigate("/maintenance?setup=1")}
+                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700 hover:underline"
+                    >
+                      Get the service schedule for these engines →
+                    </button>
+                  )}
                 </div>
               )}
 

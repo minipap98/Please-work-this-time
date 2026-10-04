@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getMaintenanceTasks, DEFAULT_SERVICE_RECORDS } from "@/data/maintenanceData";
+import { getMaintenanceTasks, GENERAL_TASKS, DEFAULT_SERVICE_RECORDS, type MaintenanceTask } from "@/data/maintenanceData";
+import { useServicePlan } from "@/hooks/use-service-plan";
 import { useDemoMode } from "@/lib/demoMode";
 import { useAuth } from "@/context/AuthContext";
 import { useMyBoats } from "@/hooks/use-my-boat";
@@ -24,6 +25,8 @@ function readJson<T>(key: string, fallback: T): T {
 }
 
 interface Inputs {
+  /** A saved schedule replaces the built-in engine list. */
+  planTasks?: MaintenanceTask[] | null;
   engineMake: string;
   engineModel: string;
   engineType: string;
@@ -32,8 +35,9 @@ interface Inputs {
   custom: { id: string }[];
 }
 
-function getStatusCounts({ engineMake, engineModel, engineType, records, disabled, custom }: Inputs, today = new Date()) {
-  const tasks = [...getMaintenanceTasks(engineMake, engineModel, engineType), ...(custom as ReturnType<typeof getMaintenanceTasks>)]
+function getStatusCounts({ planTasks, engineMake, engineModel, engineType, records, disabled, custom }: Inputs, today = new Date()) {
+  const base = planTasks ? [...planTasks, ...GENERAL_TASKS] : getMaintenanceTasks(engineMake, engineModel, engineType);
+  const tasks = [...base, ...(custom as MaintenanceTask[])]
     .filter((t) => !disabled.includes(t.id));
 
   let overdue = 0;
@@ -61,15 +65,20 @@ export default function MaintenanceAlert() {
   const { user } = useAuth();
   const { primary } = useMyBoats();
   const { data: logEntries = [] } = useBoatLog(demo ? undefined : primary?.id);
+  const { data: plan } = useServicePlan(demo ? "demo" : primary?.id);
+  const planTasks: MaintenanceTask[] | null = plan
+    ? plan.tasks.map((t) => ({ ...t, intervalHours: t.intervalHours ?? undefined, notes: t.notes ?? undefined }))
+    : null;
 
   const { overdue, dueSoon, total } = useMemo(() => {
     if (demo) {
       const b = readJson<{ engineMake?: string; engineModel?: string; engineType?: string } | null>("my_boat", null);
       return getStatusCounts({
+        planTasks,
         engineMake: b?.engineMake ?? "Mercury",
         engineModel: b?.engineModel ?? "Verado 250 (2021–present)",
         engineType: b?.engineType ?? "Outboard",
-        records: readJson("maintenance_records", DEFAULT_SERVICE_RECORDS),
+        records: [...readJson("maintenance_records", DEFAULT_SERVICE_RECORDS), ...(plan?.records ?? [])],
         disabled: readJson("maintenance_disabled", []),
         custom: readJson("maintenance_custom", []),
       }, new Date("2026-03-08")); // the demo's sample history is dated around March 2026
@@ -80,7 +89,7 @@ export default function MaintenanceAlert() {
     const engineModel = primary?.engine_model ?? "";
     const engineType = primary?.engine_type ?? "";
     const custom = readJson<{ id: string }[]>(key("maintenance_custom"), []);
-    const ids = [...getMaintenanceTasks(engineMake, engineModel, engineType), ...custom].map((t) => t.id);
+    const ids = [...(planTasks ? [...planTasks, ...GENERAL_TASKS] : getMaintenanceTasks(engineMake, engineModel, engineType)), ...custom].map((t) => t.id);
     const derived = recordsFromLog(
       ids,
       logEntries.map((e) => ({
@@ -90,14 +99,16 @@ export default function MaintenanceAlert() {
       }))
     );
     return getStatusCounts({
+      planTasks,
       engineMake,
       engineModel,
       engineType,
-      records: mergeRecords(readJson(key("maintenance_records"), []), derived),
+      records: mergeRecords([...readJson<{ taskId: string; date: string }[]>(key("maintenance_records"), []), ...(plan?.records ?? [])], derived),
       disabled: readJson(key("maintenance_disabled"), []),
       custom,
     });
-  }, [demo, user?.id, primary, logEntries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demo, user?.id, primary, logEntries, plan]);
 
 
   const issueCount = overdue + dueSoon;

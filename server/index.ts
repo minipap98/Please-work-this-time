@@ -6,6 +6,7 @@ import { handleCreatePaymentIntent, handleStripeWebhook } from "./routes/payment
 import { handleNotifyJob } from "./routes/notify.js";
 import { handleInboundPartsEmail } from "./routes/inbound-email.js";
 import { handleExtractInvoice, handleInvoiceHealth } from "./routes/invoice-extract.js";
+import { handleServiceIntervals } from "./routes/service-intervals.js";
 
 export function createServer() {
   const app = express();
@@ -40,6 +41,7 @@ export function createServer() {
   app.post("/api/inbound/parts-email", handleInboundPartsEmail);
   app.post("/api/invoices/extract", handleExtractInvoice);
   app.get("/api/invoices/health", handleInvoiceHealth);
+  app.post("/api/maintenance/intervals", handleServiceIntervals);
 
   return app;
 }

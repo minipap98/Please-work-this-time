@@ -5,10 +5,17 @@ import { useMyBoats } from "@/hooks/use-my-boat";
 import { useBoatLog } from "@/hooks/use-boat-log";
 import { DEMO_BOAT } from "@/data/demoBoat";
 import { mergeRecords, recordsFromLog } from "@shared/maintenanceMatch";
+import { useSearchParams } from "react-router-dom";
+import { Sparkles } from "lucide-react";
+import { toast } from "sonner";
+import ServiceIntervalsDialog from "@/components/boats/ServiceIntervalsDialog";
+import { useSaveServicePlan, useServicePlan } from "@/hooks/use-service-plan";
+import type { EngineRequest } from "@shared/servicePlan";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   getMaintenanceTasks,
+  GENERAL_TASKS,
   DEFAULT_SERVICE_RECORDS,
   type MaintenanceCategory,
   type MaintenanceTask,
@@ -287,14 +294,35 @@ export default function MaintenancePage() {
   }
 
   // Build task list
-  const allBuiltInTasks = useMemo(
-    () => getMaintenanceTasks(engineMake, engineModel, engineType),
-    [engineMake, engineModel, engineType]
+  // A saved schedule (from "Get service intervals") replaces the built-in engine list.
+  const { data: plan } = useServicePlan(demo ? "demo" : primary?.id);
+  const savePlan = useSaveServicePlan(primary?.id);
+  const [params, setParams] = useSearchParams();
+  const [planOpen, setPlanOpen] = useState(params.get("setup") === "1");
+  const engineRequest: EngineRequest = {
+    engineMake,
+    engineModel,
+    engineType: engineType || null,
+    engineCount: demo ? 1 : primary?.engine_count ?? 1,
+    boatYear: boatInfo?.year ?? null,
+    boatMake: boatInfo?.make ?? null,
+    boatModel: boatInfo?.model ?? null,
+  };
+  const allBuiltInTasks = useMemo<MaintenanceTask[]>(
+    () =>
+      plan
+        ? [
+            ...plan.tasks.map((t) => ({ ...t, intervalHours: t.intervalHours ?? undefined, notes: t.notes ?? undefined })),
+            ...GENERAL_TASKS,
+          ]
+        : getMaintenanceTasks(engineMake, engineModel, engineType),
+    [plan, engineMake, engineModel, engineType]
   );
 
   // Work in the Boat Log (shop jobs, imported invoices, DIY entries) counts as done.
   const effectiveRecords = useMemo<ServiceRecord[]>(() => {
-    if (demo) return records;
+    const manual = [...records, ...((plan?.records ?? []) as ServiceRecord[])];
+    if (demo) return mergeRecords(manual, []);
     const ids = [...allBuiltInTasks, ...customTasks].map((t) => t.id);
     const derived = recordsFromLog(
       ids,
@@ -304,8 +332,8 @@ export default function MaintenancePage() {
         text: [e.title, e.notes, ...e.lines.map((l) => l.description)].filter(Boolean).join(" · "),
       }))
     );
-    return mergeRecords(records, derived as ServiceRecord[]);
-  }, [demo, records, logEntries, allBuiltInTasks, customTasks]);
+    return mergeRecords(manual, derived as ServiceRecord[]);
+  }, [demo, records, plan, logEntries, allBuiltInTasks, customTasks]);
 
   const tasks = useMemo<TaskStatus[]>(() => {
     const combined: MaintenanceTask[] = [...allBuiltInTasks, ...customTasks];
@@ -611,6 +639,31 @@ export default function MaintenancePage() {
         </div>
       </header>
 
+      <ServiceIntervalsDialog
+        open={planOpen}
+        onOpenChange={(o) => {
+          setPlanOpen(o);
+          if (!o && params.get("setup")) {
+            const next = new URLSearchParams(params);
+            next.delete("setup");
+            setParams(next, { replace: true });
+          }
+        }}
+        engine={engineRequest}
+        existing={plan ?? null}
+        knownDone={effectiveRecords}
+        saving={savePlan.isPending}
+        onSave={(p) =>
+          savePlan.mutate(p, {
+            onSuccess: () => {
+              setPlanOpen(false);
+              toast.success("Service schedule saved. Reminders now follow these intervals.");
+            },
+            onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn't save the schedule."),
+          })
+        }
+      />
+
       <div className="max-w-2xl mx-auto px-4 pb-12">
         {/* ── Summary strip ── */}
         <div className={`grid ${openRecallCount > 0 ? "grid-cols-4" : "grid-cols-3"} gap-3 mt-4 mb-3`}>
@@ -633,6 +686,32 @@ export default function MaintenancePage() {
             </div>
           )}
         </div>
+
+        {/* ── Service schedule source ── */}
+        {engineMake && (
+          <div className="flex items-center gap-3 bg-white rounded-xl border border-border px-4 py-3 mb-3">
+            <Sparkles className="w-4 h-4 text-sky-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              {plan ? (
+                <>
+                  <p className="text-sm font-semibold text-foreground">Schedule for your {plan.engineLabel}</p>
+                  <p className="text-xs text-muted-foreground">{plan.tasks.length} engine items from manufacturer guidance, plus boat-wide checks</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-foreground">Get the manufacturer schedule for your engines</p>
+                  <p className="text-xs text-muted-foreground">Bosun looks up the service intervals; you check off what's already been done.</p>
+                </>
+              )}
+            </div>
+            <button
+              onClick={() => setPlanOpen(true)}
+              className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg ${plan ? "border border-border hover:bg-muted" : "bg-foreground text-background hover:opacity-90"}`}
+            >
+              {plan ? "Edit" : "Get service intervals"}
+            </button>
+          </div>
+        )}
 
         {/* ── Engine hours row ── */}
         <div className="flex items-center gap-2 bg-white rounded-xl border border-border px-4 py-2.5 mb-4">

@@ -11,6 +11,7 @@ import { ENGINE_DATA, ENGINE_TYPES, OUTBOARD_COUNTS, type EngineType } from "@/d
 import EngineModelField from "@/components/EngineModelField";
 import BoatDocuments from "@/components/BoatDocuments";
 import BoatEquipment from "@/components/BoatEquipment";
+import ModelInsights from "@/components/boats/ModelInsights";
 
 const FLEET_STORAGE_KEY = "my_fleet";
 const BOAT_STORAGE_KEY = "my_boat"; // keep for backwards compat with HeroSection
@@ -487,6 +488,13 @@ function FleetView({
                     onSave={handleSaveBoat}
                     onCancel={() => setEditingId(null)}
                   />
+                </div>
+              )}
+
+              {/* Model insights */}
+              {boat.make && boat.model && (
+                <div className="border-t border-border px-5 py-3">
+                  <ModelInsights boat={{ make: boat.make, model: boat.model, engineMake: boat.engineMake, engineModel: boat.engineModel }} />
                 </div>
               )}
 

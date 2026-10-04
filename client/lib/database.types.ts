@@ -1042,6 +1042,10 @@ export interface Database {
         Args: { share_token: string };
         Returns: Json;
       };
+      model_insights: {
+        Args: { p_make: string; p_model: string; p_engine_make?: string | null; p_engine_model?: string | null };
+        Returns: Json;
+      };
       vendor_market_insights: {
         Args: Record<string, never>;
         Returns: Json;

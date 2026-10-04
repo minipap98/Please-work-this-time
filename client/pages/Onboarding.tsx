@@ -10,6 +10,8 @@ import EngineModelField from "@/components/EngineModelField";
 import { uploadBoatPhoto } from "@/hooks/use-my-boat";
 import { resizePhoto } from "@/lib/photoUtils";
 import LocationPicker from "@/components/LocationPicker";
+import { ServiceScheduleEditor } from "@/components/boats/ServiceIntervalsDialog";
+import type { ServicePlan } from "@shared/servicePlan";
 import { LOCATION_KEYS, isMissingColumn, withoutKeys } from "@/lib/optionalColumns";
 import type { PickedLocation } from "@shared/geo";
 import { VENDOR_SPECIALTIES, VENDOR_CERTIFICATIONS } from "@/data/onboardingData";
@@ -17,11 +19,11 @@ import { createVendorProfileFromOnboarding, saveCustomVendorProfile } from "@/da
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type OwnerStep = "welcome" | "location" | "boat" | "photo" | "done";
+type OwnerStep = "welcome" | "location" | "boat" | "schedule" | "photo" | "done";
 type VendorStep = "welcome" | "business" | "services" | "area-bio" | "done";
 type Step = OwnerStep | VendorStep;
 
-const OWNER_STEPS: OwnerStep[] = ["welcome", "location", "boat", "photo", "done"];
+const OWNER_STEPS: OwnerStep[] = ["welcome", "location", "boat", "schedule", "photo", "done"];
 const VENDOR_STEPS: VendorStep[] = ["welcome", "business", "services", "area-bio", "done"];
 
 interface BoatForm {
@@ -60,6 +62,9 @@ export default function Onboarding() {
   const location = place?.label ?? "";
   const [finishing, setFinishing] = useState(false);
   const [photo, setPhoto] = useState<string | null>(null);
+  // Optional: the engines' service schedule with what's already been done.
+  const [plan, setPlan] = useState<ServicePlan | null>(null);
+  const [planProblem, setPlanProblem] = useState<string | null>(null);
   const [boat, setBoat] = useState<BoatForm>({ ...EMPTY_BOAT });
 
   // Vendor state
@@ -160,7 +165,7 @@ export default function Onboarding() {
             engine_type: (boat.engineType || null) as "Outboard" | "Inboard" | "I/O (Sterndrive)" | null,
             engine_make: boat.engineMake || null,
             engine_model: boat.engineModel || null,
-            engine_count: boat.engineCount === "Twin" ? 2 : 1,
+            engine_count: Math.max(1, ["Single", "Twin", "Triple", "Quad", "Quint", "Sextuple"].indexOf(boat.engineCount) + 1),
             home_port: location.trim() || null,
             ...(place ? { home_port_lat: place.lat, home_port_lng: place.lng, home_port_place_id: place.placeId } : {}),
           };
@@ -169,6 +174,17 @@ export default function Onboarding() {
             ({ data: newBoat, error: boatError } = await supabase.from("boats").insert(withoutKeys(boatRow, LOCATION_KEYS)).select("id").single());
           }
           if (boatError) throw boatError;
+          if (plan && newBoat?.id) {
+            const { error: planError } = await supabase.from("boat_service_plans").insert({
+              boat_id: newBoat.id,
+              owner_id: authUser.id,
+              engine_label: plan.engineLabel,
+              tasks: plan.tasks as unknown as never,
+              records: plan.records as unknown as never,
+              source: plan.source,
+            });
+            if (planError) toast.error("Your boat is saved, but the service schedule didn't. Set it up again from Maintenance.");
+          }
           if (photo && newBoat?.id) {
             try {
               const url = await uploadBoatPhoto(authUser.id, photo);
@@ -384,6 +400,48 @@ export default function Onboarding() {
               </div>
 
               <StepNav onBack={back} onNext={next} onSkip={next} />
+            </div>
+          )}
+
+          {/* ── OWNER: SERVICE SCHEDULE ────────────────────────── */}
+          {currentStep === "schedule" && (
+            <div>
+              <h2 className="text-xl font-semibold text-foreground mb-1">What's been done on your engines?</h2>
+              <p className="text-sm text-muted-foreground mb-5">
+                We'll look up the manufacturer's service intervals so Bosun can remind you when things are due. Tick
+                anything that's already been done and when. Skip it and nothing shows as overdue.
+              </p>
+              {boat.engineMake && boat.engineModel ? (
+                <ServiceScheduleEditor
+                  compact
+                  engine={{
+                    engineMake: boat.engineMake,
+                    engineModel: boat.engineModel,
+                    engineType: boat.engineType || null,
+                    engineCount: Math.max(1, ["Single", "Twin", "Triple", "Quad", "Quint", "Sextuple"].indexOf(boat.engineCount) + 1),
+                    boatYear: boat.year || null,
+                    boatMake: boat.make || null,
+                    boatModel: boat.model || null,
+                  }}
+                  initialTasks={plan?.tasks ?? null}
+                  knownDone={plan?.records ?? []}
+                  onPlanChange={(p, why) => {
+                    setPlan(p);
+                    setPlanProblem(why);
+                  }}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground bg-muted/40 rounded-md p-4">
+                  Add your engine make and model on the previous step to get its service schedule, or skip this and set
+                  it up later from Maintenance.
+                </p>
+              )}
+              {planProblem && plan && <p className="mt-2 text-xs text-amber-700">{planProblem}</p>}
+              <StepNav
+                onBack={back}
+                onNext={() => (plan && planProblem ? toast.error(planProblem) : next())}
+                onSkip={() => { setPlan(null); next(); }}
+              />
             </div>
           )}
 

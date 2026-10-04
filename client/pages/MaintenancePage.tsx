@@ -150,7 +150,8 @@ function computeStatus(
   }
 
   // Take the most urgent status
-  const PRIORITY: Record<TaskStatus["status"], number> = { overdue: 0, never: 1, "due-soon": 2, ok: 3 };
+  // "never" (nothing logged) is the least urgent: we don't know, so we don't nag.
+  const PRIORITY: Record<TaskStatus["status"], number> = { overdue: 0, "due-soon": 1, ok: 2, never: 3 };
   let status: TaskStatus["status"];
   if (hoursStatus !== null && PRIORITY[hoursStatus] < PRIORITY[timeStatus]) {
     status = hoursStatus;
@@ -162,7 +163,7 @@ function computeStatus(
 }
 
 function getBadgeText(task: TaskStatus): string {
-  if (task.status === "never") return "Never";
+  if (task.status === "never") return "Not logged yet";
   if (task.status === "ok") return "✓ OK";
 
   const hoursOverdue = task.intervalHours && task.hoursUntilDue !== null && task.hoursUntilDue < 0;
@@ -185,11 +186,11 @@ function getBadgeText(task: TaskStatus): string {
   return "";
 }
 
-const STATUS_ORDER: Record<TaskStatus["status"], number> = { overdue: 0, never: 1, "due-soon": 2, ok: 3 };
+const STATUS_ORDER: Record<TaskStatus["status"], number> = { overdue: 0, "due-soon": 1, ok: 2, never: 3 };
 
 const STATUS_STYLES: Record<TaskStatus["status"], { bar: string; badge: string }> = {
   overdue:    { bar: "bg-red-500",   badge: "bg-red-50 text-red-600 border border-red-200" },
-  never:      { bar: "bg-red-400",   badge: "bg-red-50 text-red-500 border border-red-200" },
+  never:      { bar: "bg-slate-300", badge: "bg-slate-50 text-slate-500 border border-slate-200" },
   "due-soon": { bar: "bg-amber-400", badge: "bg-amber-50 text-amber-700 border border-amber-200" },
   ok:         { bar: "bg-green-500", badge: "bg-green-50 text-green-700 border border-green-200" },
 };
@@ -370,7 +371,7 @@ export default function MaintenancePage() {
   }, [effectiveRecords, disabled, customTasks, allBuiltInTasks, currentEngineHours]);
 
   const counts = useMemo(() => ({
-    overdue:  tasks.filter((t) => t.status === "overdue" || t.status === "never").length,
+    overdue:  tasks.filter((t) => t.status === "overdue").length,
     dueSoon:  tasks.filter((t) => t.status === "due-soon").length,
     ok:       tasks.filter((t) => t.status === "ok").length,
   }), [tasks]);
@@ -516,7 +517,7 @@ export default function MaintenancePage() {
   const [filter, setFilter] = useState<StatusFilter>("all");
   const visible = useMemo(() => {
     if (filter === "all")      return tasks;
-    if (filter === "overdue")  return tasks.filter((t) => t.status === "overdue" || t.status === "never");
+    if (filter === "overdue")  return tasks.filter((t) => t.status === "overdue");
     if (filter === "due-soon") return tasks.filter((t) => t.status === "due-soon");
     return tasks.filter((t) => t.status === "ok");
   }, [tasks, filter]);
@@ -528,7 +529,7 @@ export default function MaintenancePage() {
       return {
         ...group,
         tasks: groupTasks,
-        overdueCount: groupTasks.filter((t) => t.status === "overdue" || t.status === "never").length,
+        overdueCount: groupTasks.filter((t) => t.status === "overdue").length,
         dueSoonCount: groupTasks.filter((t) => t.status === "due-soon").length,
       };
     }).filter((g) => g.tasks.length > 0);

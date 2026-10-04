@@ -48,7 +48,7 @@ function getStatusCounts({ planTasks, engineMake, engineModel, engineType, recor
       .filter((r) => r.taskId === task.id)
       .sort((a, b) => b.date.localeCompare(a.date))[0];
 
-    if (!rec) { overdue++; continue; }
+    if (!rec) continue; // nothing logged yet isn't overdue
 
     const next = addMonths(new Date(rec.date), task.intervalMonths);
     const days = Math.round((next.getTime() - today.getTime()) / 86400000);

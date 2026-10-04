@@ -36,12 +36,12 @@ export default function BoatersPage() {
               <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" /> Now launching in South Florida
             </span>
             <h1 className="mt-6 text-4xl sm:text-5xl lg:text-6xl font-bold text-[#052443] tracking-tight leading-[1.08]">
-              The right shop for your boat. <span className="text-sky-500">And a record of everything they do.</span>
+              Get local shops competing <span className="text-sky-500">for your boat work.</span>
             </h1>
             <p className="mt-6 text-lg text-slate-600 leading-relaxed max-w-2xl">
-              Post your job for free, compare line-item bids from local marine pros, and keep your boat's full service
-              history in one place. Every job logged on Bosun also teaches us what tends to fail on boats like yours, so
-              you can fix it at the dock instead of getting stranded on the water.
+              Post your job once, for free. Local marine shops send line-item bids, so you can compare labor, parts and
+              timing side by side and pick the best value, not the only shop that called back. Every job also builds your
+              boat's service history and helps flag what tends to fail on boats like yours.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <button
@@ -58,10 +58,49 @@ export default function BoatersPage() {
               </button>
             </div>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-600">
-              {["Free to post", "No obligation to accept", "Your data stays private"].map((t) => (
+              {["Free to post", "Multiple bids, one request", "No obligation to accept"].map((t) => (
                 <span key={t} className="flex items-center gap-1.5"><Check className="w-4 h-4 text-emerald-500" /> {t}</span>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Competing bids */}
+      <section className="py-14 sm:py-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-10 items-center">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-sky-700">Competitive bids</span>
+            <h2 className="mt-3 text-2xl sm:text-3xl font-bold text-[#052443]">One request. Several shops. You choose.</h2>
+            <p className="mt-4 text-slate-600 leading-relaxed">
+              No more calling around and waiting for callbacks. Shops that do your kind of work see your job and bid on it,
+              item by item, so it's easy to see who's charging what for labor and parts. Ask questions in the thread before
+              you decide.
+            </p>
+            <ul className="mt-5 space-y-2 text-sm text-slate-700">
+              {["Line-item pricing, no lump-sum guesswork", "Compare timing, reviews and insurance on file", "Message shops before you book"].map((t) => (
+                <li key={t} className="flex gap-2"><Check className="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" /> {t}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-3xl border border-border bg-white shadow-sm p-5">
+            <p className="text-xs font-semibold text-slate-500">Annual service · Mercury Verado 250 · sample bids</p>
+            <div className="mt-3 space-y-2.5">
+              {[
+                { shop: "Shop A", when: "Can start Tue", labor: "3.5 hrs", total: "$742" },
+                { shop: "Shop B", when: "Can start Thu", labor: "3.0 hrs", total: "$689" },
+                { shop: "Shop C", when: "Next week", labor: "4.0 hrs", total: "$815" },
+              ].map((b, i) => (
+                <div key={b.shop} className={`flex items-center gap-3 rounded-xl border p-3 ${i === 1 ? "border-sky-300 bg-sky-50" : "border-border"}`}>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-[#052443]">{b.shop}</p>
+                    <p className="text-xs text-slate-500">{b.when} · {b.labor} labor · itemized parts</p>
+                  </div>
+                  <p className="text-base font-bold tabular-nums text-[#052443]">{b.total}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-[11px] text-slate-400">Illustration of the bid comparison view. Real bids come from shops in your area.</p>
           </div>
         </div>
       </section>
@@ -234,8 +273,8 @@ export default function BoatersPage() {
       {/* CTA */}
       <section className="py-16 sm:py-20">
         <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold text-[#052443]">Ready to get your boat looked after?</h2>
-          <p className="mt-3 text-slate-600">Post your first job in about two minutes. Free, and no obligation to accept a bid.</p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-[#052443]">Let the shops compete for your next job</h2>
+          <p className="mt-3 text-slate-600">Post it in about two minutes. Free, and no obligation to accept a bid.</p>
           <button
             onClick={() => navigate(signupPath("boaters"))}
             className="mt-7 inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-sky-500 text-white text-lg font-semibold hover:bg-sky-600"

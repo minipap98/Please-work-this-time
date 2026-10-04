@@ -37,11 +37,12 @@ export default function ShopsPage() {
               For marine service shops, yards and mobile techs
             </span>
             <h1 className="mt-6 text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.08]">
-              Run your yard on Bosun.
+              New customers, <span className="text-sky-300">straight to your board.</span>
             </h1>
             <p className="mt-6 text-lg text-slate-300 leading-relaxed max-w-2xl">
-              Work orders, the bay schedule, live inventory, parts tracking and QuickBooks export in one place, built for
-              how marine shops actually work. New jobs from boat owners nearby come built in.
+              Boat owners near you post the work they need done. You see the jobs that fit your open days and the work you
+              already do, bid in a minute, and won jobs land on your schedule. Then run the whole shop on the same app:
+              work orders, inventory, parts and QuickBooks.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <button
@@ -58,10 +59,46 @@ export default function ShopsPage() {
               </button>
             </div>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-300">
-              {["Free to join", "Set up in an afternoon", "Works on the phone in your pocket"].map((t) => (
+              {["Free to join", "Jobs matched to your schedule", "Shop tools included"].map((t) => (
                 <span key={t} className="flex items-center gap-1.5"><Check className="w-4 h-4 text-sky-300" /> {t}</span>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* New jobs */}
+      <section id="jobs" className="py-16 sm:py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-10 items-center">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-sky-700">A new customer stream</span>
+            <h2 className="mt-3 text-2xl sm:text-3xl font-bold text-[#052443]">Boat owners bring the work. You pick what fits.</h2>
+            <p className="mt-4 text-slate-600 leading-relaxed">
+              Every job posted near you is a customer you didn't have to find. Instead of a lead list, you see the few that
+              fit: the next open bay that could take it, and how many like it you've already done. Bid with line items in a
+              minute, or set auto-bid templates for the services you do every week. Do good work and they come back: their
+              Boat Log remembers who did it.
+            </p>
+            <ul className="mt-5 space-y-2 text-sm text-slate-700">
+              {["Jobs ranked by fit, not posted date", "Owner details shared once you win", "Won jobs go straight onto your board"].map((t) => (
+                <li key={t} className="flex gap-2"><Check className="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" /> {t}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-3xl border border-border shadow-sm p-5 space-y-3">
+            {[
+              { t: "Bottom paint before season", fit: "Fits Tue, Oct 6 · Haul-out", done: "You've done 6 of these" },
+              { t: "Raw water impeller, Yamaha F250", fit: "Fits Wed, Oct 7 · Dockside", done: "You've done 11 of these" },
+              { t: "Battery and charger upgrade", fit: "Fits Thu, Oct 8 · Bay 2", done: null },
+            ].map((j) => (
+              <div key={j.t} className="rounded-xl border border-border p-4">
+                <p className="text-sm font-semibold text-[#052443]">{j.t}</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">{j.fit}</span>
+                  {j.done && <span className="text-[11px] font-semibold text-sky-800 bg-sky-50 border border-sky-200 rounded-full px-2 py-0.5">{j.done}</span>}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -70,7 +107,7 @@ export default function ShopsPage() {
       <section id="tools" className="py-16 sm:py-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-2xl">
-            <h2 className="text-2xl sm:text-3xl font-bold text-[#052443]">Everything the front counter and the shop floor need</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-[#052443]">And the tools to run the work you win</h2>
             <p className="mt-3 text-slate-600">Replace the whiteboard, the parts spreadsheet and the stack of carrier emails.</p>
           </div>
           <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -101,45 +138,10 @@ export default function ShopsPage() {
         </div>
       </section>
 
-      {/* New jobs */}
-      <section id="jobs" className="py-16 sm:py-20">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-10 items-center">
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-sky-700">New jobs, matched to your schedule</span>
-            <h2 className="mt-3 text-2xl sm:text-3xl font-bold text-[#052443]">Fill the open days on your board</h2>
-            <p className="mt-4 text-slate-600 leading-relaxed">
-              Boat owners near you post jobs on Bosun. Instead of a lead list, you see the few that fit: the next open bay
-              that could take the job, and how many like it you've already done. Bid with line items in a minute, or set
-              auto-bid templates for the services you do every week.
-            </p>
-            <ul className="mt-5 space-y-2 text-sm text-slate-700">
-              {["Jobs ranked by fit, not posted date", "Owner details shared once you win", "Won jobs go straight onto your board"].map((t) => (
-                <li key={t} className="flex gap-2"><Check className="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" /> {t}</li>
-              ))}
-            </ul>
-          </div>
-          <div className="rounded-3xl border border-border shadow-sm p-5 space-y-3">
-            {[
-              { t: "Bottom paint before season", fit: "Fits Tue, Oct 6 · Haul-out", done: "You've done 6 of these" },
-              { t: "Raw water impeller, Yamaha F250", fit: "Fits Wed, Oct 7 · Dockside", done: "You've done 11 of these" },
-              { t: "Battery and charger upgrade", fit: "Fits Thu, Oct 8 · Bay 2", done: null },
-            ].map((j) => (
-              <div key={j.t} className="rounded-xl border border-border p-4">
-                <p className="text-sm font-semibold text-[#052443]">{j.t}</p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">{j.fit}</span>
-                  {j.done && <span className="text-[11px] font-semibold text-sky-800 bg-sky-50 border border-sky-200 rounded-full px-2 py-0.5">{j.done}</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* CTA */}
       <section className="py-16 sm:py-20 bg-[#052443] text-white">
         <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold">Put your shop on Bosun this week</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold">Start getting new customers this week</h2>
           <p className="mt-3 text-slate-300">
             Free to join. Add your bays, techs and the parts you stock, and you're running. Bosun's fee applies only to
             jobs you win through the marketplace.

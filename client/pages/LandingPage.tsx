@@ -52,7 +52,7 @@ export default function LandingPage() {
           className="bosun-fade-up mt-10 text-center text-base sm:text-lg text-slate-600"
           style={{ animationDelay: `${doorsDelay - 250}ms` }}
         >
-          Marine service, run right. Pick your side of the dock.
+          Boaters get competing bids. Shops get new customers. Pick your side of the dock.
         </p>
 
         <div className="mt-8 w-full max-w-4xl grid gap-4 sm:grid-cols-2">
@@ -63,9 +63,10 @@ export default function LandingPage() {
             </div>
             <p className="mt-5 text-xs font-bold uppercase tracking-wider text-sky-700">For boaters</p>
             <h2 className="mt-1 text-2xl font-bold text-[#052443]">I own a boat</h2>
+            <p className="mt-3 text-lg font-semibold text-[#052443] leading-snug">Local shops compete for your job.</p>
             <p className="mt-2 text-sm text-slate-600 leading-relaxed flex-1">
-              Post a job, compare line-item bids from local shops, keep your boat's complete service history, and get warned
-              about what tends to fail on boats like yours.
+              Post once, free, and compare line-item bids side by side. Plus your boat's full service history and a heads-up
+              on what tends to fail on boats like yours.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <button
@@ -87,8 +88,10 @@ export default function LandingPage() {
             </div>
             <p className="mt-5 text-xs font-bold uppercase tracking-wider text-sky-300">For shops & yards</p>
             <h2 className="mt-1 text-2xl font-bold">I run a marine shop</h2>
+            <p className="mt-3 text-lg font-semibold text-white leading-snug">New customers come to you.</p>
             <p className="mt-2 text-sm text-slate-300 leading-relaxed flex-1">
-              Work orders, scheduling, live inventory, parts tracking, QuickBooks export and crew logins, plus new jobs from boat owners nearby.
+              Boat owners nearby post jobs and you bid on the ones that fit your schedule. Then run the work on the same app:
+              work orders, scheduling, inventory, parts and QuickBooks.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <button

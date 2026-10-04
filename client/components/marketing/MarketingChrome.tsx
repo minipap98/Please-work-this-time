@@ -35,12 +35,11 @@ const LINKS: Record<Audience, { href: string; label: string }[]> = {
     { href: "#how-it-works", label: "How it works" },
     { href: "#boat-log", label: "Boat Log" },
     { href: "#insights", label: "Model insights" },
-    { href: "#features", label: "Features" },
   ],
   shops: [
+    { href: "#jobs", label: "New customers" },
     { href: "#tools", label: "Shop tools" },
     { href: "#crew", label: "Your crew" },
-    { href: "#jobs", label: "New jobs" },
   ],
 };
 
@@ -58,14 +57,14 @@ export function MarketingNav({ audience }: { audience: Audience }) {
           <span
             className={
               audience === "shops"
-                ? "text-[10px] font-bold uppercase tracking-wider text-white bg-[#052443] rounded px-1.5 py-0.5"
-                : "text-[10px] font-bold uppercase tracking-wider text-[#052443] bg-sky-100 rounded px-1.5 py-0.5"
+                ? "whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-white bg-[#052443] rounded px-1.5 py-0.5"
+                : "whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-[#052443] bg-sky-100 rounded px-1.5 py-0.5"
             }
           >
             {audience === "shops" ? "Shops" : "Boaters"}
           </span>
         </div>
-        <div className="hidden md:flex items-center gap-6">
+        <div className="hidden lg:flex items-center gap-5 whitespace-nowrap">
           {LINKS[audience].map((l) => (
             <a key={l.href} href={l.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               {l.label}
@@ -80,7 +79,7 @@ export function MarketingNav({ audience }: { audience: Audience }) {
             {other.label} →
           </Link>
         </div>
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0 whitespace-nowrap">
           <button onClick={() => startDemo(audience)} className="hidden sm:inline text-sm font-medium text-muted-foreground hover:text-foreground px-3 py-2">
             Try demo
           </button>

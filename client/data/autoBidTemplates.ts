@@ -278,14 +278,14 @@ export function seedDemoTemplates(): void {
   const templates: AutoBidTemplate[] = [
     {
       id: "tpl_mm_100hr_verado300",
-      vendorId: "MarineMax",
+      vendorId: "Dean's Marine",
       name: "100-Hour Service — Mercury Verado 300",
       engineType: "Outboard",
       engineMake: "Mercury",
       engineModel: "Verado 300 (2021–present)",
       serviceId: "out-100hr",
       serviceName: "100-Hour Service",
-      message: "MarineMax is a Mercury-certified service center. Our 100-hour service includes full oil & filter change, gear lube, impeller inspection, anodes check, and a 27-point safety inspection. All OEM parts included.",
+      message: "Dean's Marine is a Mercury-certified service center. Our 100-hour service includes full oil & filter change, gear lube, impeller inspection, anodes check, and a 27-point safety inspection. All OEM parts included.",
       lineItems: [
         { description: "100-Hour Service Labor (per engine)", quantity: 1, unitPrice: 450 },
         { description: "Mercury OEM Oil & Filter Kit", quantity: 1, unitPrice: 89 },
@@ -304,14 +304,14 @@ export function seedDemoTemplates(): void {
     },
     {
       id: "tpl_mm_100hr_yamaha_f300b",
-      vendorId: "MarineMax",
+      vendorId: "Dean's Marine",
       name: "100-Hour Service — Yamaha F300B",
       engineType: "Outboard",
       engineMake: "Yamaha",
       engineModel: "F300B (2021–present)",
       serviceId: "out-100hr",
       serviceName: "100-Hour Service",
-      message: "MarineMax is an authorized Yamaha service dealer. Our 100-hour service follows Yamaha's factory maintenance schedule, with OEM parts and certified technicians.",
+      message: "Dean's Marine is an authorized Yamaha service dealer. Our 100-hour service follows Yamaha's factory maintenance schedule, with OEM parts and certified technicians.",
       lineItems: [
         { description: "100-Hour Service Labor (per engine)", quantity: 1, unitPrice: 425 },
         { description: "Yamaha OEM Oil & Filter Kit", quantity: 1, unitPrice: 78 },
@@ -330,7 +330,7 @@ export function seedDemoTemplates(): void {
     },
     {
       id: "tpl_mm_winterize_merc_verado250",
-      vendorId: "MarineMax",
+      vendorId: "Dean's Marine",
       name: "Winterization — Mercury Verado 250",
       engineType: "Outboard",
       engineMake: "Mercury",

@@ -44,7 +44,15 @@ export default function BoatLog() {
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
-  const [sharing, setSharing] = useState(false);
+  const [sharing, setSharingState] = useState(params.get("share") === "1");
+  const setSharing = (open: boolean) => {
+    setSharingState(open);
+    if (!open && params.get("share")) {
+      const next = new URLSearchParams(params);
+      next.delete("share");
+      setParams(next, { replace: true });
+    }
+  };
 
   const summary = useMemo(() => summarizeLog(entries), [entries]);
 

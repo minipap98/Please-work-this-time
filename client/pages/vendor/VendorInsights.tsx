@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
 import { useMyVendorProfile } from "@/hooks/use-supabase";
@@ -18,10 +19,14 @@ import {
 import { resizePhoto, getProjectPhotos, addProjectPhoto, removeProjectPhoto } from "@/lib/photoUtils";
 import VendorInsurance from "@/components/VendorInsurance";
 import VendorBidTemplates from "@/components/VendorBidTemplates";
+import MarketTab from "@/components/vendor/MarketTab";
+import { useDemoMode } from "@/lib/demoMode";
+import { VENDOR_PROFILES } from "@/data/vendorData";
 
-type Tab = "clients" | "history" | "reminders" | "templates" | "insurance";
+type Tab = "market" | "clients" | "history" | "reminders" | "templates" | "insurance";
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
+  { key: "market", label: "Your Market", icon: "📊" },
   { key: "clients", label: "Clients", icon: "👤" },
   { key: "history", label: "Service History", icon: "🔧" },
   { key: "reminders", label: "Follow-ups", icon: "🔔" },
@@ -33,9 +38,12 @@ function fmt(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
-export default function VendorBusinessHub() {
+export default function VendorInsights() {
   const { vendorId } = useRole();
-  const [activeTab, setActiveTab] = useState<Tab>("clients");
+  const { demo } = useDemoMode();
+  const [params] = useSearchParams();
+  const initialTab = TABS.some((t) => t.key === params.get("tab")) ? (params.get("tab") as Tab) : "market";
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [expandedBoats, setExpandedBoats] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
 
@@ -55,14 +63,16 @@ export default function VendorBusinessHub() {
         yearsInBusiness: mine.years_in_business,
         rating: 0,
       }
-    : null;
+    : demo && vendorId
+      ? VENDOR_PROFILES[vendorId] ?? null
+      : null;
 
   if (!vendor || !vendorId) {
     return (
       <>
         <Header />
         <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-          <p className="text-muted-foreground">Finish vendor onboarding to open the Business Hub.</p>
+          <p className="text-muted-foreground">Finish vendor onboarding to open Insights.</p>
         </main>
       </>
     );
@@ -185,7 +195,7 @@ export default function VendorBusinessHub() {
           </div>
           <div className="min-w-0">
             <h1 className="text-lg font-semibold text-foreground truncate">
-              Welcome back, {vendor.name.split(" ")[0]}
+              Welcome back, {vendor.name}
             </h1>
             <p className="text-xs text-muted-foreground truncate">{vendor.serviceArea}</p>
           </div>
@@ -200,7 +210,7 @@ export default function VendorBusinessHub() {
       </div>
 
       {/* ── Performance Scorecard ────────────────────────────── */}
-      {(() => {
+      {activeTab !== "market" && (() => {
         const scorecard = getVendorScorecard(vendorId);
         return (
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-5">
@@ -244,9 +254,9 @@ export default function VendorBusinessHub() {
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
         {/* Page header */}
         <div className="mb-5">
-          <h2 className="text-xl font-bold text-foreground">Business Hub</h2>
+          <h2 className="text-xl font-bold text-foreground">Insights</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Manage your clients, service history, and maintenance reminders
+            Where you stand on price and win rate against other shops, plus your clients and follow-ups
           </p>
         </div>
 
@@ -307,6 +317,7 @@ export default function VendorBusinessHub() {
         )}
 
         {/* Tab content */}
+        {activeTab === "market" && <MarketTab vendorId={vendorId} />}
         {activeTab === "clients" && (
           <ClientsTab clients={filteredClients} expandedBoats={expandedBoats} toggleBoat={toggleBoat} search={q} vendorId={vendorId} />
         )}

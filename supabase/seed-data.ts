@@ -63,7 +63,7 @@ async function seed() {
     email: "vendor@bosun.app",
     password: SEED_PASSWORD,
     email_confirm: true,
-    user_metadata: { name: "MarineMax Service Center", role: "vendor" },
+    user_metadata: { name: "Dean's Marine", role: "vendor" },
   });
   if (vendorErr && !vendorErr.message.includes("already been registered")) {
     console.error("Vendor create error:", vendorErr);
@@ -87,8 +87,8 @@ async function seed() {
 
   if (vendorUserId) {
     await supabase.from("profiles").update({
-      name: "MarineMax Service Center",
-      initials: "MM",
+      name: "Dean's Marine",
+      initials: "DM",
       role: "vendor",
       onboarding_complete: true,
       location: "Miami, FL",
@@ -117,7 +117,7 @@ async function seed() {
 
   // 4. Create vendor profiles (need to create auth users for each vendor)
   const vendors = [
-    { email: "vendor@bosun.app", name: "MarineMax Service Center", initials: "MM", userId: vendorUserId },
+    { email: "vendor@bosun.app", name: "Dean's Marine", initials: "DM", userId: vendorUserId },
   ];
 
   // Create additional vendor auth users
@@ -167,13 +167,13 @@ async function seed() {
     }
   }
 
-  // Create MarineMax vendor profile
+  // Create Dean's Marine vendor profile
   if (vendorUserId) {
     await supabase.from("vendor_profiles").insert({
       user_id: vendorUserId,
-      business_name: "MarineMax Service Center",
-      initials: "MM",
-      bio: "MarineMax Service Center has been serving South Florida boaters for over 14 years.",
+      business_name: "Dean's Marine",
+      initials: "DM",
+      bio: "Dean's Marine has been serving South Florida boaters for over 14 years.",
       specialties: ["Engine Service", "Mercury Authorized", "Yamaha Authorized", "Bottom Work", "Electronics"],
       certifications: ["Mercury Master Technician", "ABYC Certified", "Yamaha Marine Technician", "Garmin Authorized Dealer"],
       service_area: "Miami, FL · Fort Lauderdale · Dania Beach · Pompano Beach",
@@ -187,11 +187,11 @@ async function seed() {
 
   // 5. Create some demo projects with bids
   if (ownerId && boatId) {
-    // Get MarineMax vendor profile ID
+    // Get Dean's Marine vendor profile ID
     const { data: mmVendor } = await supabase
       .from("vendor_profiles")
       .select("id")
-      .eq("business_name", "MarineMax Service Center")
+      .eq("business_name", "Dean's Marine")
       .single();
 
     const { data: project1 } = await supabase.from("projects").insert({

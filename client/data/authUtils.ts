@@ -28,11 +28,11 @@ const SEED_USERS: User[] = [
   {
     id: "user_vendor_1",
     email: "vendor@bosun.app",
-    name: "MarineMax Service Center",
+    name: "Dean's Marine",
     initials: "MM",
     role: "vendor",
     password: "password",
-    vendorId: "MarineMax Service Center",
+    vendorId: "Dean's Marine",
     onboardingComplete: true,
   },
 ];

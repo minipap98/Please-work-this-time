@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-export const DEMO_VENDOR_ID = "MarineMax Service Center";
+export const DEMO_VENDOR_ID = "Dean's Marine";
 const STORAGE_KEY = "bosun_demo_mode";
 
 export function isDemoMode(): boolean {

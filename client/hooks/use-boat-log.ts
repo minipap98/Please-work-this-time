@@ -48,7 +48,7 @@ function demoEntries(): LogEntry[] {
   return [
     e({
       id: "d1", title: "300-hour service, Verado 250", date: "2026-08-14", category: "Engine Oil & Fuel",
-      engineHours: 304, cost: 1186.42, laborHours: 4.5, vendorName: "MarineMax Service Center", source: "vendor",
+      engineHours: 304, cost: 1186.42, laborHours: 4.5, vendorName: "Dean's Marine", source: "vendor",
       notes: "Raw-water impeller showed vane set; replaced. Recommend checking trim fluid at next haul.",
       lines: [
         { kind: "labor", description: "300-hr service labor", quantity: 4.5, unitPrice: 145 },
@@ -72,7 +72,7 @@ function demoEntries(): LogEntry[] {
     e({ id: "d3", title: "Washdown pump replaced", date: "2025-11-02", category: "Electrical & Safety", cost: 189, notes: "DIY. Jabsco 18680." }),
     e({
       id: "d4", title: "Annual service + anodes", date: "2025-06-14", category: "Engine Oil & Fuel",
-      engineHours: 256, cost: 742.6, laborHours: 3, vendorName: "MarineMax Service Center", source: "vendor",
+      engineHours: 256, cost: 742.6, laborHours: 3, vendorName: "Dean's Marine", source: "vendor",
       lines: [
         { kind: "labor", description: "Annual service labor", quantity: 3, unitPrice: 140 },
         { kind: "part", description: "Aluminum anode kit", quantity: 1, unitPrice: 89 },
@@ -81,7 +81,7 @@ function demoEntries(): LogEntry[] {
     }),
     e({ id: "d5", title: "Batteries — 2× group 31 AGM", date: "2025-04-22", category: "Electrical & Safety", cost: 610, vendorName: "Key Marine Electric", source: "bosun-job" }),
     e({ id: "d6", title: "Hull wax & detail", date: "2024-08-05", category: "Hull & Bottom", cost: 450, vendorName: "Biscayne Detail Co." }),
-    e({ id: "d7", title: "100-hour service", date: "2023-02-10", category: "Engine Oil & Fuel", engineHours: 102, cost: 520, vendorName: "MarineMax Service Center", source: "vendor" }),
+    e({ id: "d7", title: "100-hour service", date: "2023-02-10", category: "Engine Oil & Fuel", engineHours: 102, cost: 520, vendorName: "Dean's Marine", source: "vendor" }),
   ];
 }
 

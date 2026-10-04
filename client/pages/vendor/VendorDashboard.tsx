@@ -14,7 +14,7 @@ import TodayPanel from "@/components/shop/TodayPanel";
 import { useShopSettings, useWorkOrders } from "@/hooks/use-shop";
 import { DEFAULT_SHOP_SETTINGS } from "@/data/shopDemoData";
 import { openSlots, rfpFit, type RfpFit } from "@shared/shop";
-// Insurance + Templates moved to Business Hub
+// Insurance + Templates moved to Insights
 
 interface LineItem {
   description: string;

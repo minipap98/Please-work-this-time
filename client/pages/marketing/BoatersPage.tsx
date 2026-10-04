@@ -266,9 +266,9 @@ export default function BoatersPage() {
               </div>
               <ul className="mt-4 divide-y divide-border text-sm">
                 {[
-                  ["Aug 2026", "300-hour service", "MarineMax Service Center"],
+                  ["Aug 2026", "300-hour service", "Dean's Marine"],
                   ["Mar 2026", "Bottom paint, 2 coats", "Rickenbacker Boatyard"],
-                  ["Jun 2025", "Annual service + anodes", "MarineMax Service Center"],
+                  ["Jun 2025", "Annual service + anodes", "Dean's Marine"],
                 ].map(([d, t, shop]) => (
                   <li key={t} className="py-2.5 flex gap-3">
                     <span className="w-16 shrink-0 text-xs text-slate-500 pt-0.5">{d}</span>

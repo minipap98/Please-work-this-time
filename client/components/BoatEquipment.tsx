@@ -101,7 +101,7 @@ const DEMO_EQUIPMENT: BoatEquipmentItem[] = [
     serialNumber: "2B736428",
     purchaseDate: "2020-04-15",
     warrantyExpiry: "2027-04-15",
-    dealer: "MarineMax Fort Lauderdale",
+    dealer: "Dean's Marine Fort Lauderdale",
     notes: "Factory-installed. 7-year warranty from Mercury.",
     createdAt: "2024-06-01T00:00:00.000Z",
   },
@@ -405,7 +405,7 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
               type="text"
               value={form.dealer}
               onChange={(e) => setForm({ ...form, dealer: e.target.value })}
-              placeholder="e.g. MarineMax Tampa"
+              placeholder="e.g. Dean's Marine"
               className="w-full border border-border rounded-md px-2 py-1.5 text-xs placeholder:text-muted-foreground"
             />
           </div>

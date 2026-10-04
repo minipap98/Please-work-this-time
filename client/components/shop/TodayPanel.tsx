@@ -144,7 +144,7 @@ export default function TodayPanel({ vendorId, coiExpiry }: { vendorId: string; 
                         { onSuccess: () => toast.success("Job started"), onError: (e) => toast.error(String(e)) }
                       );
                     } else if (a.id === "coi") {
-                      navigate("/vendor-business");
+                      navigate("/vendor-insights?tab=insurance");
                     } else {
                       go(a.action.tab);
                     }

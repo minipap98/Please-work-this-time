@@ -19,9 +19,9 @@ export interface VendorProfile {
 }
 
 export const VENDOR_PROFILES: Record<string, VendorProfile> = {
-  "MarineMax Service Center": {
-    name: "MarineMax Service Center",
-    initials: "MM",
+  "Dean's Marine": {
+    name: "Dean's Marine",
+    initials: "DM",
     rating: 4.9,
     reviewCount: 318,
     responseTime: "~1 hour",
@@ -31,7 +31,7 @@ export const VENDOR_PROFILES: Record<string, VendorProfile> = {
     specialties: ["Engine Service", "Mercury Authorized", "Yamaha Authorized", "Bottom Work", "Electronics"],
     certifications: ["Mercury Master Technician", "ABYC Certified", "Yamaha Marine Technician", "Garmin Authorized Dealer"],
     serviceArea: "Miami, FL · Fort Lauderdale · Dania Beach · Pompano Beach",
-    bio: "MarineMax Service Center has been serving South Florida boaters for over 14 years. Factory-authorized for Mercury and Yamaha outboards, we specialize in full-service engine maintenance, electronics installation, bottom work, and haul-out services. Our team of ABYC-certified technicians handles everything from routine tune-ups to full helm refits.",
+    bio: "Dean's Marine has been serving South Florida boaters for over 14 years. Factory-authorized for Mercury and Yamaha outboards, we specialize in full-service engine maintenance, electronics installation, bottom work, and haul-out services. Our team of ABYC-certified technicians handles everything from routine tune-ups to full helm refits.",
     completedJobs: 1243,
     lat: 25.7617,
     lng: -80.1918,

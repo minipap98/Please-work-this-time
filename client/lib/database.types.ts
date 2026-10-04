@@ -1036,6 +1036,10 @@ export interface Database {
         Args: { share_token: string };
         Returns: Json;
       };
+      vendor_market_insights: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
       rename_crew_member: {
         Args: { member_id: string; new_name: string };
         Returns: undefined;

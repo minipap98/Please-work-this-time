@@ -13,7 +13,7 @@ export function useStartDemo() {
     try {
       if (audience === "shops") {
         localStorage.setItem("bosun_role", "vendor");
-        localStorage.setItem("bosun_vendor_id", "MarineMax Service Center");
+        localStorage.setItem("bosun_vendor_id", "Dean's Marine");
       } else {
         localStorage.setItem("bosun_role", "owner");
         localStorage.removeItem("bosun_vendor_id");

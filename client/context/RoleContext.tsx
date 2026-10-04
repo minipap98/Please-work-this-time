@@ -18,7 +18,12 @@ const RoleContext = createContext<RoleContextValue | null>(null);
 function loadPersistedDemoRole(): { role: AppRole; vendorId: string | null } {
   try {
     const lsRole = localStorage.getItem("bosun_role") as AppRole | null;
-    const lsVendorId = localStorage.getItem("bosun_vendor_id");
+    let lsVendorId = localStorage.getItem("bosun_vendor_id");
+    // The demo shop was renamed; move returning demo visitors to the new name.
+    if (lsVendorId === "MarineMax Service Center") {
+      lsVendorId = DEMO_VENDOR_ID;
+      localStorage.setItem("bosun_vendor_id", lsVendorId);
+    }
     if (lsRole === "vendor") return { role: "vendor", vendorId: lsVendorId || DEMO_VENDOR_ID };
   } catch {}
   return { role: "owner", vendorId: null };

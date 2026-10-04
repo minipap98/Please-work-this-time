@@ -874,7 +874,7 @@ export function useMyCrewMemberships(userId: string | undefined, demoTech?: stri
         const techs = loadDemo().settings.techs;
         const techName = demoTech ?? techs[0] ?? "Marco";
         const role = loadDemoCrew().find((m) => m.techName === techName)?.role ?? "tech";
-        return [{ vendorId: "demo-shop", shopName: "MarineMax Service Center", techName, role }];
+        return [{ vendorId: "demo-shop", shopName: "Dean's Marine", techName, role }];
       }
       const client = db();
       await client.rpc("claim_shop_invites");

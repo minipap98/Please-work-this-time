@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
 import QuickStats from "@/components/QuickStats";
 import MaintenanceAlert from "@/components/MaintenanceAlert";
+import BoatLogStrip from "@/components/BoatLogStrip";
 import ProjectCard from "@/components/ProjectCard";
 import { cn } from "@/lib/utils";
 import { isActiveProjectStatus } from "@shared/api";
@@ -103,6 +104,7 @@ export default function Index() {
 
       {/* Maintenance alert strip */}
       <MaintenanceAlert />
+      <BoatLogStrip />
 
       <main className="max-w-6xl mx-auto pt-4 pb-8">
         <section>

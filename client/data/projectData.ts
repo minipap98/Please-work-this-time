@@ -99,7 +99,7 @@ export interface VendorPastProject {
 }
 
 export const VENDOR_PAST_PROJECTS: Record<string, VendorPastProject[]> = {
-  "MarineMax Service Center": [
+  "Dean's Marine": [
     {
       title: "Annual Engine Service & Tune-Up",
       boatInfo: "2021 Grady-White Canyon 271",
@@ -320,7 +320,7 @@ export const PROJECTS: Project[] = [
       serialNumber: "MER-2020-V250-78432",
       warrantyExpiry: "2027-02-19",
       warrantyStatus: "active",
-      dealer: "MarineMax Fort Lauderdale",
+      dealer: "Dean's Marine Fort Lauderdale",
     },
     isWarrantyClaim: true,
     workLocation: "at_marina",
@@ -328,8 +328,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 142,
         message:
@@ -561,8 +561,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "nb1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 142,
         message: "Factory-certified Yamaha technicians here. Full F200XB annual service on both engines — oil/filter, gear lube, spark plugs, impeller inspection, zincs, and a written engine health report. Can schedule as early as next week.",
@@ -690,8 +690,8 @@ export const PROJECTS: Project[] = [
       },
       {
         id: "nb8",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 142,
         message: "Factory-certified Yamaha dealer service. Triple-engine annual package — identical treatment per engine: oil/filter, gear lube, spark plugs, impeller inspection, zincs. Written report for each.",
@@ -869,8 +869,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "nb17",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 142,
         message: "Westerbeke-certified service team. Full gen-set inspection: impeller, raw water pump, heat exchanger, oil and filter, zincs, and load test. Low output is often a pump or exciter issue — we'll diagnose and fix right the first time.",
@@ -932,8 +932,8 @@ export const PROJECTS: Project[] = [
       },
       {
         id: "nb21",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 142,
         message: "Full zinc service in-water at your slip. All MilSpec zinc alloy torqued to spec. Hull inspection photos and written report included.",
@@ -1008,8 +1008,8 @@ export const PROJECTS: Project[] = [
       },
       {
         id: "nb25",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 142,
         message: "Certified Mercury technicians. Full fuel system diagnosis, filter and separator replacement, tank treatment, and throttle body inspection. Hesitation at mid-throttle can also be a VST screen issue — we'll check everything.",
@@ -1033,8 +1033,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "nb26",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 142,
         message: "Volvo Penta certified for IPS service. Full annual IPS 600 service on both pods: gear oil, bellows and CV boot inspection, shaft seal check, trim actuator check, and alignment verification. Written report per pod.",
@@ -1200,8 +1200,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "nb34",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 142,
         message: "We can handle both the Yamaha service and the full detail in a single visit — engine tech and detail crew arrive together. Efficient and cost-effective to bundle. Written service report for both motors included.",
@@ -1297,8 +1297,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "nb38",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 142,
         message: "MTU-authorized service center. Twin 16V2000 annual service — oil and filter, raw water system, heat exchanger, fuel system check, and full engine data report. Dedicated diesel team for all MTU work.",
@@ -1323,7 +1323,7 @@ export const PROJECTS: Project[] = [
   },
 
 
-  // ── Client Projects — MarineMax Service Center ──────────────────────────────
+  // ── Client Projects — Dean's Marine ──────────────────────────────
   // Each client has one boat with multiple service projects
 
   // ── Client: Mike Johnson — "Blue Meridian" (2022 Riviera 48 Sports Motor Yacht) ──
@@ -1342,8 +1342,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "mj-1-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 142,
         message: "Full annual service on both D6 diesels — oil and filter change, impellers, raw water flush, belt inspection, and a written report. We service a lot of Riviera yachts and know the D6 platform inside out.",
@@ -1376,8 +1376,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "mj-2-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 178,
         message: "Full bottom job on the 48 — haul, pressure wash, sand prep, two coats Micron 66, replace all zincs, and inspect props/shafts. We have a lift that handles the Riviera easily.",
@@ -1412,8 +1412,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "mj-3-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 195,
         message: "Full Onan 11.5 service — oil, coolant, impeller, plugs, air filter. We'll run a load bank test to verify it holds rated output under load. Common on the Riviera 48.",
@@ -1446,8 +1446,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "mj-4-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 245,
         message: "Twin Garmin 8616xsv MFDs plus Fantom 56 open-array radar. Full NMEA 2000 integration with existing instruments. We'll handle the helm panel cutout modifications and cable routing. Two-day install.",
@@ -1484,8 +1484,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "sw-1-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 142,
         message: "Full detail package — compound, multi-stage machine polish, and marine-grade ceramic coating on the hull. Interior gets a deep clean with vinyl conditioning, carpet extraction, and glass polish.",
@@ -1519,8 +1519,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "sw-2-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 160,
         message: "We'll diagnose the aft cabin unit — check refrigerant levels, compressor function, sea water pump flow, and condenser. Most common failure on the Sundancer is the raw water pump impeller or a slow refrigerant leak at the compressor fitting.",
@@ -1555,8 +1555,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "sw-3-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 185,
         message: "Full cockpit enclosure replacement — Sunbrella canvas, Strataglass eisenglass, and all new zippers and snaps. We'll template in place for a perfect fit. Typical turnaround is 2–3 weeks for fabrication.",
@@ -1590,8 +1590,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "sw-4-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 210,
         message: "Full winterization on both MerCruiser 6.2 I/Os — fogging, antifreeze flush, outdrive grease & bellows inspection, battery tenders, and interior mildew prevention. One-day turnaround.",
@@ -1627,8 +1627,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "tb-1-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 142,
         message: "Full annual on both CAT C9.3s — oil and filters, secondary fuel filters, raw water impellers, belt inspection, and a sea trial to verify oil pressure and temps. We work on Vikings daily.",
@@ -1661,8 +1661,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "tb-2-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 165,
         message: "Full tower restoration — chemical strip, sand, prime with Awlgrip epoxy primer, and two coats Awlgrip topcoat in flag white. Replace all outrigger rigging, halyards, and stainless hardware. 5-day turnaround.",
@@ -1696,8 +1696,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "tb-3-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 180,
         message: "Full bottom on the Viking — haul, wash, sand, two coats Micron CSC. Inspect props/shafts/struts, repack stuffing boxes, replace all zincs. We have the lift capacity for the 46.",
@@ -1731,8 +1731,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "tb-4-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 198,
         message: "Release Marine chair install — set the pedestal, modify the cockpit sole for drainage clearance, install footrest and rod holders. We've done dozens of these on Vikings.",
@@ -1765,8 +1765,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "tb-5-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 260,
         message: "Full electrical overhaul — new Blue Sea breaker panel, reroute tower wiring, LED conversion on all nav and cockpit lights, and replace the house battery bank with AGM. Two-day job.",
@@ -1803,8 +1803,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "cc-1-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 148,
         message: "Full spring detail — compound, machine polish, and carnauba wax on the hull. Strip and refinish all exterior teak with Semco teak sealer. The Azimut 48 has beautiful teak accents and they deserve proper care.",
@@ -1838,8 +1838,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "cc-2-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 185,
         message: "Full IPS 600 annual — engine oil and filters, IPS leg oil change, prop inspection, zincs, and a VODIA diagnostic scan on both pods. We're a Volvo Penta certified dealer.",
@@ -1872,8 +1872,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "cc-3-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 218,
         message: "Kohler 13.5 annual service plus exhaust elbow replacement — common failure point at 3–4 years. We'll do the full service, swap the elbow, inspect the muffler, and load test. Half-day job.",
@@ -1910,8 +1910,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "jr-1-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 150,
         message: "Full annual on all four Verado 400s — oil and filter, gear lube, anodes, primary and secondary fuel filters. Sea trial to verify sync and performance. We're a Mercury Premier dealer.",
@@ -1944,8 +1944,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "jr-2-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 168,
         message: "Upgrade both livewells — Rule 2000 GPH pumps, spray bar kits, new through-hulls, and recirculating plumbing with ball valves. Night and day difference for keeping bait frisky in August.",
@@ -1978,8 +1978,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "jr-3-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 195,
         message: "Custom aluminum hardtop — remove the factory T-top, fabricate and install a new hardtop with 8 rocket launchers, 4 LED spreader lights, and an enclosed electronics box. Powder-coated white. 10-day build.",
@@ -2013,8 +2013,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "jr-4-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 250,
         message: "Full LED package — 6 Lumishore underwater lights in ocean blue, cockpit courtesy LEDs, and helm accent lighting. Dedicated switch panel with dimmer control. One-day install.",
@@ -2050,8 +2050,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "rf-1-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 155,
         message: "Full engine room detail — degrease both MAN V8s, repaint bilge with Bilgekote, organize and label wiring, replace bilge pump float switches. Survey-ready when we're done.",
@@ -2085,8 +2085,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "rf-2-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 190,
         message: "We'll pull the thruster motor, bench-test it to confirm the failure, and replace with an OEM unit. The Azimut 55 uses a Side-Power SE120 — we keep them in stock. One-day turnaround once parts are confirmed.",
@@ -2121,8 +2121,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "rf-3-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 230,
         message: "Triple Garmin 9019 install — custom helm panel modification, NMEA 2000 integration with the existing autopilot and FLIR M300 thermal. Clean cable management and a full system commissioning. Three-day install.",
@@ -2159,8 +2159,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "dp-1-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 148,
         message: "Full annual on both C18 ACERTs — oil and filters, primary/secondary fuel filters, coolant analysis, raw water impellers, and valve lash check at the 1000-hour interval. Sea trial to verify all parameters.",
@@ -2194,8 +2194,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "dp-2-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 172,
         message: "Full diver inspection with GoPro documentation — props, shafts, struts, rudders, cutlass bearings. Replace all zincs (shaft, trim tab, strut). Written report with underwater photos.",
@@ -2228,8 +2228,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "dp-3-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 202,
         message: "Gelcoat repair — grind out the damaged area, fill with color-matched gelcoat, wet sand, compound, and polish to blend with the surrounding area. We'll make it disappear.",
@@ -2263,8 +2263,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "dp-4-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 275,
         message: "Full HVAC overhaul — replace both failed compressors (zones 2 & 3), new expansion valves on all 4 zones, clean ducting, and new raw water pump. The Hatteras 4-zone system is complex but we know it well. Two-day job.",
@@ -2303,8 +2303,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "np-1-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 155,
         message: "Full annual on all three F350s — oil and filters, gear lube, anodes, fuel filters, and spark plugs at the 500-hour interval. Sea trial to verify sync and WOT RPM. We're a Yamaha Gold dealer.",
@@ -2337,8 +2337,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "np-2-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 178,
         message: "Gelcoat scratch repair on the port waterline area and full hull machine polish. We'll color-match the Pursuit white, fill the deeper scratches, and compound/polish the entire hull.",
@@ -2371,8 +2371,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "np-3-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 200,
         message: "Insulate both fish boxes with marine-grade closed-cell foam, replace drain fittings with larger overboard drains, and add a macerator pump for quick cleanup. One-day project.",
@@ -2408,8 +2408,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "mw-1-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.8,
         reviewCount: 145,
         message: "Full annual on both D4-320s — oil and filters, impellers, fuel filters, belt inspection, and VODIA diagnostic scan. We service Tiara/Volvo combos regularly.",
@@ -2442,8 +2442,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "mw-2-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 170,
         message: "Full cockpit re-upholster — remove existing, template, and recover in marine-grade Ultraleather vinyl. Helm seat, aft bench, and both side bolsters. 10-day turnaround for the shop work.",
@@ -2477,8 +2477,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "mw-3-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 195,
         message: "Full bottom job — haul, power wash, sand prep, two coats Bottomkote NT, and Propspeed on both props and sterndrives. Zinc replacement included. Two-day turnaround.",
@@ -2515,8 +2515,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "ak-1-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 162,
         message: "First 100-hour service on all three V12 600s — oil and filter, gear lube, anodes, and a VesselView diagnostic scan. These engines are incredible and we know them well as a Mercury Platinum dealer.",
@@ -2549,8 +2549,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "ak-2-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 190,
         message: "Full tower electronics install — Fantom 254 radar up top, Garmin 8617 second station at the tower helm, and all cables routed inside the tower legs for a clean look. Two-day install.",
@@ -2584,8 +2584,8 @@ export const PROJECTS: Project[] = [
     bids: [
       {
         id: "ak-3-b1",
-        vendorName: "MarineMax Service Center",
-        vendorInitials: "MM",
+        vendorName: "Dean's Marine",
+        vendorInitials: "DM",
         rating: 4.9,
         reviewCount: 225,
         message: "LED upgrade — Lumitec spreader lights, plus green/white dredge lights on both outrigger tips. All new wiring through the outrigger bases with marine-grade connections.",

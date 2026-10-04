@@ -126,21 +126,23 @@ security definer
 set search_path = public
 as $$
 declare
-  b record;
+  -- Values are set with := assignments on purpose; the Supabase SQL editor's
+  -- RLS helper misreads the other plpgsql form as creating a table.
+  v_price numeric;
+  v_vendor uuid;
+  v_vendor_name text;
 begin
   if new.status = 'completed' and old.status is distinct from 'completed'
      and new.boat_id is not null and new.chosen_bid_id is not null then
-    select bd.price, vp.id as vendor_id, vp.business_name
-      into b
-      from public.bids bd
-      join public.vendor_profiles vp on vp.id = bd.vendor_id
-      where bd.id = new.chosen_bid_id;
+    v_price := (select bd.price from public.bids bd where bd.id = new.chosen_bid_id);
+    v_vendor := (select bd.vendor_id from public.bids bd where bd.id = new.chosen_bid_id);
+    v_vendor_name := (select vp.business_name from public.vendor_profiles vp where vp.id = v_vendor);
 
     insert into public.service_records
       (boat_id, owner_id, title, date, cost, vendor_name, notes, source, vendor_id, project_id, line_items)
     values (
-      new.boat_id, new.owner_id, new.title, current_date, b.price, b.business_name,
-      new.description, 'bosun-job', b.vendor_id, new.id,
+      new.boat_id, new.owner_id, new.title, current_date, v_price, v_vendor_name,
+      new.description, 'bosun-job', v_vendor, new.id,
       coalesce((
         select jsonb_agg(jsonb_build_object(
           'kind', 'labor', 'description', li.description,
@@ -166,7 +168,8 @@ security definer
 set search_path = public
 as $$
 declare
-  p record;
+  v_owner uuid;
+  v_boat uuid;
   vname text;
   lines jsonb;
   labor numeric;
@@ -175,32 +178,43 @@ begin
   if new.status in ('completed', 'invoiced')
      and (tg_op = 'INSERT' or old.status not in ('completed', 'invoiced'))
      and new.project_id is not null then
-    select pr.id, pr.owner_id, pr.boat_id
-      into p
-      from public.projects pr
+    -- Only a job this shop actually won qualifies.
+    v_owner := (
+      select pr.owner_id from public.projects pr
       join public.bids bd on bd.id = pr.chosen_bid_id
-      where pr.id = new.project_id and bd.vendor_id = new.vendor_id;
-    if p.id is null or p.boat_id is null then
+      where pr.id = new.project_id and bd.vendor_id = new.vendor_id
+    );
+    v_boat := (
+      select pr.boat_id from public.projects pr
+      join public.bids bd on bd.id = pr.chosen_bid_id
+      where pr.id = new.project_id and bd.vendor_id = new.vendor_id
+    );
+    if v_owner is null or v_boat is null then
       return new;
     end if;
 
-    select business_name into vname from public.vendor_profiles where id = new.vendor_id;
-    select
-      coalesce(jsonb_agg(jsonb_build_object(
+    vname := (select business_name from public.vendor_profiles where id = new.vendor_id);
+    lines := (
+      select coalesce(jsonb_agg(jsonb_build_object(
         'kind', l.kind, 'description', l.description,
-        'quantity', l.quantity, 'unitPrice', l.unit_price) order by l.sort_order), '[]'::jsonb),
-      coalesce(sum(case when l.kind = 'labor' then l.quantity else 0 end), 0),
-      coalesce(sum(l.quantity * l.unit_price), 0)
+        'quantity', l.quantity, 'unitPrice', l.unit_price) order by l.sort_order), '[]'::jsonb)
+      from public.shop_work_order_lines l where l.work_order_id = new.id
+    );
+    labor := (
+      select coalesce(sum(l.quantity), 0)
+      from public.shop_work_order_lines l where l.work_order_id = new.id and l.kind = 'labor'
+    );
+    total := (
+      select coalesce(sum(l.quantity * l.unit_price), 0)
         + coalesce(sum(case when l.kind = 'part' then l.quantity * l.unit_price else 0 end), 0) * new.tax_rate / 100
-      into lines, labor, total
-      from public.shop_work_order_lines l
-      where l.work_order_id = new.id;
+      from public.shop_work_order_lines l where l.work_order_id = new.id
+    );
 
     insert into public.service_records
       (boat_id, owner_id, title, date, engine_hours, cost, vendor_name, notes,
        source, vendor_id, project_id, work_order_id, labor_hours, line_items)
     values (
-      p.boat_id, p.owner_id, new.title, coalesce(new.completed_at, now())::date,
+      v_boat, v_owner, new.title, coalesce(new.completed_at, now())::date,
       new.engine_hours, round(total, 2), vname, nullif(new.description, ''),
       'vendor', new.vendor_id, new.project_id, new.id, labor, lines
     )

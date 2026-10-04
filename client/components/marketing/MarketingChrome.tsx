@@ -35,6 +35,7 @@ const LINKS: Record<Audience, { href: string; label: string }[]> = {
     { href: "#how-it-works", label: "How it works" },
     { href: "#boat-log", label: "Boat Log" },
     { href: "#insights", label: "Model insights" },
+    { href: "#selling", label: "Selling?" },
   ],
   shops: [
     { href: "#jobs", label: "New customers" },

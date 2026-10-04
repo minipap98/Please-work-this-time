@@ -940,6 +940,31 @@ export interface Database {
           },
         ];
       };
+      boat_history_shares: {
+        Row: {
+          id: string;
+          token: string;
+          boat_id: string;
+          owner_id: string;
+          show_costs: boolean;
+          created_at: string;
+          revoked_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          token?: string;
+          boat_id: string;
+          owner_id: string;
+          show_costs?: boolean;
+          created_at?: string;
+          revoked_at?: string | null;
+        };
+        Update: {
+          show_costs?: boolean;
+          revoked_at?: string | null;
+        };
+        Relationships: [];
+      };
       notifications: {
         Row: {
           id: string;
@@ -1006,6 +1031,10 @@ export interface Database {
       profile_cards: {
         Args: { ids: string[] };
         Returns: { id: string; name: string; initials: string; avatar_url: string | null; role: string }[];
+      };
+      public_boat_history: {
+        Args: { share_token: string };
+        Returns: Json;
       };
       rename_crew_member: {
         Args: { member_id: string; new_name: string };

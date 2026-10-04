@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { logToCsv, summarizeLog, type LogEntry } from "./boatLog";
+import { historyHighlights, logToCsv, summarizeLog, toHistoryEntry, type LogEntry } from "./boatLog";
 
 const entry = (p: Partial<LogEntry>): LogEntry => ({
   id: "e",
@@ -43,5 +43,29 @@ describe("boat log summary", () => {
       }),
     ]);
     expect(csv).toContain("2026-05-01,Oil change,,Harbor Marine,Yes,,,37.00,2× Oil filter ($37.00),");
+  });
+});
+
+describe("shared service history", () => {
+  const entries = [
+    entry({ id: "1", date: "2023-02-10", cost: 520, vendorName: "Harbor Marine", source: "vendor", engineHours: 102, notes: "private" }),
+    entry({ id: "2", date: "2026-08-14", cost: 1186, vendorName: "harbor marine ", source: "vendor", engineHours: 304 }),
+    entry({ id: "3", date: "2025-11-02", cost: 189 }),
+  ];
+
+  it("never carries notes and hides cost unless the owner allows it", () => {
+    const hidden = toHistoryEntry(entries[0], false);
+    expect(hidden).toEqual({ date: "2023-02-10", title: "Oil change", category: null, shop: "Harbor Marine", verified: true, engineHours: 102, cost: null });
+    expect(JSON.stringify(hidden)).not.toContain("private");
+    expect(toHistoryEntry(entries[0], true).cost).toBe(520);
+  });
+
+  it("summarizes the history for the listing header", () => {
+    const shown = entries.map((e) => toHistoryEntry(e, false));
+    expect(historyHighlights({ entries: shown, showCosts: false })).toEqual({
+      jobs: 3, verified: 2, shops: 1, firstYear: "2023", lastService: "2026-08-14", latestEngineHours: 304, totalSpent: null,
+    });
+    const priced = entries.map((e) => toHistoryEntry(e, true));
+    expect(historyHighlights({ entries: priced, showCosts: true }).totalSpent).toBe(1895);
   });
 });

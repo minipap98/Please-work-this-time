@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowRight, BookOpen, Check, ChevronRight, Clock, FileText, LineChart, MapPin, Package, Shield, Wrench } from "lucide-react";
+import { AlertTriangle, ArrowRight, BadgeCheck, BookOpen, Link2, Check, ChevronRight, Clock, FileText, LineChart, MapPin, Package, Shield, Wrench } from "lucide-react";
 import { MarketingFooter, MarketingNav, signupPath, useStartDemo } from "@/components/marketing/MarketingChrome";
 
 const SERVICES = [
@@ -241,6 +241,73 @@ export default function BoatersPage() {
               className="mt-4 w-full rounded-xl bg-[#052443] text-white py-3 text-sm font-semibold hover:bg-[#0a3360]"
             >
               Add your boat
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Selling */}
+      <section id="selling" className="py-16 sm:py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-10 items-center">
+          <div className="order-2 lg:order-1 rounded-3xl border border-border bg-white shadow-sm overflow-hidden">
+            <div className="px-5 py-3 bg-slate-50 border-b border-border flex items-center gap-2 text-xs text-slate-500">
+              <Link2 className="w-3.5 h-3.5" /> bosunapp.vercel.app/history/…
+            </div>
+            <div className="p-5">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-sky-700">Service history</p>
+              <p className="text-lg font-bold text-[#052443]">2020 Sea Ray SDX 250 OB</p>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                {[["7", "services"], ["5", "by a shop"], ["304", "engine hrs"]].map(([v, l]) => (
+                  <div key={l} className="rounded-lg bg-slate-50 py-2">
+                    <p className="text-base font-bold text-[#052443]">{v}</p>
+                    <p className="text-[10px] text-slate-500">{l}</p>
+                  </div>
+                ))}
+              </div>
+              <ul className="mt-4 divide-y divide-border text-sm">
+                {[
+                  ["Aug 2026", "300-hour service", "MarineMax Service Center"],
+                  ["Mar 2026", "Bottom paint, 2 coats", "Rickenbacker Boatyard"],
+                  ["Jun 2025", "Annual service + anodes", "MarineMax Service Center"],
+                ].map(([d, t, shop]) => (
+                  <li key={t} className="py-2.5 flex gap-3">
+                    <span className="w-16 shrink-0 text-xs text-slate-500 pt-0.5">{d}</span>
+                    <span className="flex-1">
+                      <span className="block font-semibold text-[#052443]">{t}</span>
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                        <BadgeCheck className="w-3.5 h-3.5" /> {shop}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <div className="order-1 lg:order-2">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sky-700">
+              <Link2 className="w-4 h-4" /> For your listing
+            </span>
+            <h2 className="mt-3 text-2xl sm:text-3xl font-bold text-[#052443]">Selling your boat? Share your service highlights.</h2>
+            <p className="mt-4 text-slate-600 leading-relaxed">
+              Turn your Boat Log into a clean service history page, like a vehicle history report for your boat. Paste the
+              link into your listing and buyers see every service on record, when it was done and which shop did it.
+              A well-documented boat is an easier one to sell.
+            </p>
+            <ul className="mt-5 space-y-2 text-sm text-slate-700">
+              {[
+                "Jobs recorded by shops are marked as verified",
+                "Show what each job cost, or keep prices private (the default)",
+                "Your notes and contact details are never shown",
+                "Turn the link off any time",
+              ].map((t) => (
+                <li key={t} className="flex gap-2"><Check className="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" /> {t}</li>
+              ))}
+            </ul>
+            <button
+              onClick={() => navigate(signupPath("boaters"))}
+              className="mt-6 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#052443] text-white font-semibold hover:bg-[#0a3360]"
+            >
+              Start your boat's history <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>

@@ -5,6 +5,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import {
   LOG_CATEGORIES,
+  historyShareUrl,
+  useCreateHistoryShare,
+  useHistoryShare,
+  useRevokeHistoryShare,
+  useSetHistoryCosts,
   useAddLogEntry,
   useBoatLog,
   useDeleteLogEntry,
@@ -39,6 +44,7 @@ export default function BoatLog() {
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const summary = useMemo(() => summarizeLog(entries), [entries]);
 
@@ -138,6 +144,12 @@ export default function BoatLog() {
                   className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-muted disabled:opacity-50"
                 >
                   Service history PDF
+                </button>
+                <button
+                  onClick={() => setSharing(true)}
+                  className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-sky-300 text-sky-800 bg-sky-50 hover:bg-sky-100"
+                >
+                  Share for a listing
                 </button>
                 <button onClick={() => setAdding(true)} className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-foreground text-background">
                   + Log work
@@ -265,6 +277,8 @@ export default function BoatLog() {
           </div>
         )}
       </main>
+
+      {boat && <ShareDialog open={sharing} onOpenChange={setSharing} boat={boat} entryCount={entries.length} />}
 
       {boat && (
         <AddEntryDialog
@@ -469,4 +483,106 @@ async function exportPdf(boat: LogBoat, entries: LogEntry[]) {
   }
 
   doc.save(`${boat.name.replace(/\W+/g, "-")}-service-history.pdf`);
+}
+
+function ShareDialog({
+  open, onOpenChange, boat, entryCount,
+}: { open: boolean; onOpenChange: (o: boolean) => void; boat: LogBoat; entryCount: number }) {
+  const { toast } = useToast();
+  const { data: share, isLoading } = useHistoryShare(boat.id);
+  const create = useCreateHistoryShare();
+  const setCosts = useSetHistoryCosts();
+  const revoke = useRevokeHistoryShare();
+  const [showCosts, setShowCosts] = useState(false);
+  const [copied, setCopied] = useState(false);
+  // Mirror the saved setting so the box ticks instantly; revert if the save fails.
+  useEffect(() => {
+    if (share) setShowCosts(share.showCosts);
+  }, [share]);
+  const costs = showCosts;
+  const url = share ? historyShareUrl(share.token) : null;
+
+  const fail = (e: unknown) => toast({ title: "Something went wrong", description: String(e), variant: "destructive" });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Selling {boat.name}? Share its service history</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Create a link to add to your listing. Buyers see every service on record, when it was done and who did it, with
+          shop-recorded jobs marked as verified. Your notes and contact details are never shown.
+        </p>
+
+        <label className="flex items-start gap-3 border border-border rounded-xl p-3 cursor-pointer">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={costs}
+            disabled={setCosts.isPending}
+            onChange={(e) => {
+              const v = e.target.checked;
+              setShowCosts(v);
+              if (share)
+                setCosts.mutate(
+                  { share, showCosts: v, boatId: boat.id },
+                  {
+                    onError: (err) => {
+                      setShowCosts(!v);
+                      fail(err);
+                    },
+                  }
+                );
+            }}
+          />
+          <span>
+            <span className="block text-sm font-semibold">Show what each job cost</span>
+            <span className="block text-xs text-muted-foreground">Off by default. You can change this any time; the link stays the same.</span>
+          </span>
+        </label>
+
+        {isLoading ? null : url ? (
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <input readOnly value={url} className="flex-1 min-w-0 px-3 py-2 text-sm border border-border rounded-lg bg-muted" onFocus={(e) => e.currentTarget.select()} />
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(url);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                }}
+                className="px-3 py-2 text-sm font-semibold rounded-lg bg-foreground text-background"
+              >
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <a href={url} target="_blank" rel="noreferrer" className="text-sky-700 font-medium hover:underline">Preview what buyers see</a>
+              <button
+                onClick={() =>
+                  confirm("Turn off this link? Anyone who has it will no longer see your boat's history.") &&
+                  revoke.mutate({ share: share!, boatId: boat.id }, { onError: fail, onSuccess: () => toast({ title: "Link turned off" }) })
+                }
+                className="text-xs text-muted-foreground hover:text-red-600"
+              >
+                Turn off link
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            disabled={create.isPending}
+            onClick={() =>
+              create.mutate(
+                { boatId: boat.id, showCosts },
+                { onError: fail, onSuccess: () => toast({ title: "Link ready", description: "Copy it into your listing." }) }
+              )
+            }
+            className="w-full py-2.5 text-sm font-semibold rounded-lg bg-foreground text-background disabled:opacity-50"
+          >
+            {create.isPending ? "Creating…" : `Create share link${entryCount ? ` (${entryCount} services)` : ""}`}
+          </button>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }

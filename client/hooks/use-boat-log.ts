@@ -3,7 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase, supabaseMissing } from "@/lib/supabase";
 import { isDemoMode } from "@/lib/demoMode";
 import type { Database, Tables } from "@/lib/database.types";
-import type { LogEntry, LogLine, LogSource } from "@shared/boatLog";
+import { toHistoryEntry, type LogEntry, type LogLine, type LogSource, type SharedHistory } from "@shared/boatLog";
 
 export type MaintenanceCategory = Database["public"]["Enums"]["maintenance_category"];
 
@@ -230,5 +230,141 @@ export function useDeleteLogEntry() {
       if (error) throw error;
     },
     onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["boat-log", v.boatId] }),
+  });
+}
+
+// ── Shareable service history ────────────────────────────────────────────────
+
+export interface HistoryShare {
+  id: string;
+  token: string;
+  showCosts: boolean;
+  createdAt: string;
+}
+
+const DEMO_SHARE_KEY = "bosun_demo_history_share_v1";
+export const DEMO_SHARE_TOKEN = "demo-no-vacancy";
+
+function loadDemoShare(): HistoryShare | null {
+  try {
+    const raw = localStorage.getItem(DEMO_SHARE_KEY);
+    return raw ? (JSON.parse(raw) as HistoryShare) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveDemoShare(share: HistoryShare | null) {
+  try {
+    if (share) localStorage.setItem(DEMO_SHARE_KEY, JSON.stringify(share));
+    else localStorage.removeItem(DEMO_SHARE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+export function historyShareUrl(token: string) {
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://bosunapp.vercel.app";
+  return `${origin}/history/${token}`;
+}
+
+/** The boat's live share link, if any. */
+export function useHistoryShare(boatId: string | undefined) {
+  return useQuery({
+    queryKey: ["history-share", boatId],
+    queryFn: async (): Promise<HistoryShare | null> => {
+      if (isDemoMode()) return loadDemoShare();
+      const { data, error } = await supabase
+        .from("boat_history_shares")
+        .select("*")
+        .eq("boat_id", boatId!)
+        .is("revoked_at", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? { id: data.id, token: data.token, showCosts: data.show_costs, createdAt: data.created_at } : null;
+    },
+    enabled: !!boatId,
+  });
+}
+
+export function useCreateHistoryShare() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async ({ boatId, showCosts }: { boatId: string; showCosts: boolean }): Promise<HistoryShare> => {
+      if (isDemoMode()) {
+        const share = { id: "demo-share", token: DEMO_SHARE_TOKEN, showCosts, createdAt: new Date().toISOString() };
+        saveDemoShare(share);
+        return share;
+      }
+      const { data, error } = await supabase
+        .from("boat_history_shares")
+        .insert({ boat_id: boatId, owner_id: user!.id, show_costs: showCosts })
+        .select()
+        .single();
+      if (error) throw error;
+      return { id: data.id, token: data.token, showCosts: data.show_costs, createdAt: data.created_at };
+    },
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["history-share", v.boatId] }),
+  });
+}
+
+export function useSetHistoryCosts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ share, showCosts }: { share: HistoryShare; showCosts: boolean; boatId: string }) => {
+      if (isDemoMode()) {
+        saveDemoShare({ ...share, showCosts });
+        return;
+      }
+      const { error } = await supabase.from("boat_history_shares").update({ show_costs: showCosts }).eq("id", share.id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["history-share", v.boatId] }),
+  });
+}
+
+/** Turns the link off. Anyone who has it sees "no longer shared". */
+export function useRevokeHistoryShare() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ share }: { share: HistoryShare; boatId: string }) => {
+      if (isDemoMode()) {
+        saveDemoShare(null);
+        return;
+      }
+      const { error } = await supabase
+        .from("boat_history_shares")
+        .update({ revoked_at: new Date().toISOString() })
+        .eq("id", share.id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["history-share", v.boatId] }),
+  });
+}
+
+/** Public, no login: the shared history behind a link. */
+export function usePublicHistory(token: string | undefined) {
+  return useQuery({
+    queryKey: ["public-history", token],
+    queryFn: async (): Promise<SharedHistory | null> => {
+      if (token === DEMO_SHARE_TOKEN) {
+        const showCosts = loadDemoShare()?.showCosts ?? false;
+        return {
+          boat: { name: DEMO_LOG_BOAT.name, year: "2020", make: "Sea Ray", model: "SDX 250 OB", engine: DEMO_LOG_BOAT.engine },
+          showCosts,
+          sharedAt: new Date().toISOString(),
+          entries: loadDemo().map((e) => toHistoryEntry(e, showCosts)).sort((a, b) => b.date.localeCompare(a.date)),
+        };
+      }
+      if (supabaseMissing) return null;
+      const { data, error } = await supabase.rpc("public_boat_history", { share_token: token! });
+      if (error) throw error;
+      return (data as unknown as SharedHistory | null) ?? null;
+    },
+    enabled: !!token,
+    retry: false,
   });
 }

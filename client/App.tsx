@@ -30,6 +30,7 @@ import VendorShop from "./pages/vendor/VendorShop";
 import BoatLog from "./pages/BoatLog";
 import TechToday from "./pages/TechToday";
 import CrewShop from "./pages/CrewShop";
+import ServiceHistory from "./pages/ServiceHistory";
 import PartsComingSoon from "./pages/PartsComingSoon";
 import BoatersPage from "./pages/marketing/BoatersPage";
 import ShopsPage from "./pages/marketing/ShopsPage";
@@ -171,6 +172,7 @@ const App = () => (
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/parts" element={<PartsComingSoon />} />
                 <Route path="/boaters" element={<BoatersPage />} />
+                <Route path="/history/:token" element={<ServiceHistory />} />
                 <Route path="/shops" element={<ShopsPage />} />
                 <Route path="/for-shops" element={<Navigate to="/shops" replace />} />
 

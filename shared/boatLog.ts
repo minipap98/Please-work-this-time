@@ -87,3 +87,61 @@ export function logToCsv(entries: LogEntry[]): string {
   }
   return toCsv(rows);
 }
+
+// ── Shareable service history (for boat listings) ────────────────────────────
+
+export interface HistoryEntry {
+  date: string;
+  title: string;
+  category: string | null;
+  shop: string | null;
+  verified: boolean;
+  engineHours: number | null;
+  cost: number | null;
+}
+
+export interface SharedHistory {
+  boat: { name: string; year: string; make: string; model: string; engine: string | null };
+  showCosts: boolean;
+  sharedAt: string;
+  entries: HistoryEntry[];
+}
+
+export interface HistoryHighlights {
+  jobs: number;
+  verified: number;
+  shops: number;
+  firstYear: string | null;
+  lastService: string | null;
+  latestEngineHours: number | null;
+  totalSpent: number | null; // only when costs are shown
+}
+
+export function historyHighlights(h: Pick<SharedHistory, "entries" | "showCosts">): HistoryHighlights {
+  const sorted = [...h.entries].sort((a, b) => b.date.localeCompare(a.date));
+  const shops = new Set(sorted.filter((e) => e.shop).map((e) => e.shop!.trim().toLowerCase()));
+  return {
+    jobs: sorted.length,
+    verified: sorted.filter((e) => e.verified).length,
+    shops: shops.size,
+    firstYear: sorted.length ? sorted[sorted.length - 1].date.slice(0, 4) : null,
+    lastService: sorted[0]?.date ?? null,
+    latestEngineHours: sorted.find((e) => e.engineHours != null)?.engineHours ?? null,
+    totalSpent: h.showCosts
+      ? Math.round(sorted.reduce((s, e) => s + (Number(e.cost) || 0), 0) * 100) / 100
+      : null,
+  };
+}
+
+/** What the public page may show for a log entry: never notes, never cost unless allowed. */
+export function toHistoryEntry(e: LogEntry, showCosts: boolean): HistoryEntry {
+  return {
+    date: e.date,
+    title: e.title,
+    category: e.category,
+    shop: e.vendorName,
+    verified: isVerified(e),
+    engineHours: e.engineHours,
+    cost: showCosts ? e.cost : null,
+  };
+}

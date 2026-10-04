@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { invoiceCheck, invoiceToLogLines, normalizeDate, normalizeInvoice } from "./invoice";
+import { INVOICE_SCHEMA, invoiceCheck, invoiceToLogLines, normalizeDate, normalizeInvoice } from "./invoice";
 
 // Shaped like a real 300-hour service invoice for a Pursuit with twin F300s (shop renamed).
 const parts: [string, number, string, number][] = [
@@ -54,5 +54,19 @@ describe("invoice import", () => {
     expect(normalizeDate("2026-04-22")).toBe("2026-04-22");
     expect(normalizeDate("5/6/26")).toBe("2026-05-06");
     expect(normalizeDate("02/30/2026")).toBeNull();
+  });
+});
+
+describe("invoice schema", () => {
+  it("never pairs an enum with a type array (the API rejects that)", () => {
+    const bad: string[] = [];
+    const walk = (node: unknown, path: string) => {
+      if (!node || typeof node !== "object") return;
+      const n = node as Record<string, unknown>;
+      if (Array.isArray(n.type) && "enum" in n) bad.push(path);
+      for (const [k, v] of Object.entries(n)) walk(v, `${path}.${k}`);
+    };
+    walk(INVOICE_SCHEMA, "schema");
+    expect(bad).toEqual([]);
   });
 });

@@ -51,7 +51,8 @@ export const INVOICE_SCHEMA = {
     boat: { ...str, description: "Boat and engines as written, e.g. 'Pursuit 326, twin F300 Yamaha'. No owner names." },
     engineHours: num,
     title: { type: "string", description: "Short log title for the job, e.g. '300-hour service: water pumps, thermostats, anodes'" },
-    category: { type: ["string", "null"], enum: [...LOG_CATEGORY_VALUES, null] },
+    // Nullable enums have to be spelled as anyOf; a type array with an enum is rejected.
+    category: { anyOf: [{ type: "string", enum: [...LOG_CATEGORY_VALUES] }, { type: "null" }] },
     laborHours: num,
     lines: {
       type: "array",

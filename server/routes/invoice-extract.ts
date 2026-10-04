@@ -19,6 +19,18 @@ export const handleInvoiceHealth: RequestHandler = (_req, res) => {
 
 type Source = Anthropic.Beta.BetaContentBlockParam;
 
+/** Structured output is plain JSON; the plain-JSON retry may wrap it in prose or fences. */
+function parseJsonObject(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start >= 0 && end > start) return JSON.parse(text.slice(start, end + 1));
+    throw new Error("The reader didn't return JSON.");
+  }
+}
+
 async function readWithClaude(source: Source) {
   const client = new Anthropic();
   const base = {
@@ -30,10 +42,27 @@ async function readWithClaude(source: Source) {
   try {
     return await client.beta.messages.create({ ...base, betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" });
   } catch (e) {
+    if (!(e instanceof Anthropic.BadRequestError)) throw e;
     // If the fallback beta isn't enabled for this key, read without it rather than failing.
-    if (e instanceof Anthropic.BadRequestError && /fallback/i.test(e.message)) {
+    if (/fallback/i.test(e.message)) {
       console.warn("invoice extract: retrying without fallbacks:", e.message);
       return await client.beta.messages.create(base);
+    }
+    // If structured output rejects the schema, ask for plain JSON; normalizeInvoice validates it either way.
+    if (/output_config|schema/i.test(e.message)) {
+      console.warn("invoice extract: retrying without structured output:", e.message);
+      return await client.beta.messages.create({
+        model: base.model,
+        max_tokens: base.max_tokens,
+        output_config: { effort: "low" },
+        messages: [{
+          role: "user",
+          content: [
+            source,
+            { type: "text", text: `${INVOICE_PROMPT}\n\nReply with only a JSON object (no prose, no code fences) matching this JSON schema:\n${JSON.stringify(INVOICE_SCHEMA)}` },
+          ],
+        }],
+      });
     }
     throw e;
   }
@@ -127,6 +156,6 @@ const extract: RequestHandler = async (req, res) => {
       res.status(502).json({ error: "We couldn't read that file. Enter the details by hand." });
       return;
     }
-    res.json({ invoice: normalizeInvoice(JSON.parse(text)) });
+    res.json({ invoice: normalizeInvoice(parseJsonObject(text)) });
   }
 };

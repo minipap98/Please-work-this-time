@@ -54,15 +54,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
+        // Never await Supabase calls inside this callback: supabase-js holds its
+        // auth lock while it runs, so a query here deadlocks every later request.
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          await fetchProfile(session.user.id);
+          const id = session.user.id;
+          setTimeout(() => {
+            fetchProfile(id).finally(() => setLoading(false));
+          }, 0);
         } else {
           setProfile(null);
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
@@ -97,7 +102,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = async (patch: Partial<Tables<"profiles">>) => {
     if (!user || supabaseMissing) return;
-    await supabase.from("profiles").update(patch).eq("id", user.id);
+    const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
+    if (error) throw new Error(error.message);
     await fetchProfile(user.id);
   };
 

@@ -6,6 +6,7 @@ import { supabase, supabaseMissing } from "@/lib/supabase";
 import { toast } from "sonner";
 import { BOAT_MAKES, BOAT_MODELS, type BoatMake } from "@/data/boatData";
 import { ENGINE_DATA, ENGINE_TYPES, OUTBOARD_COUNTS, type EngineType } from "@/data/engineData";
+import EngineModelField from "@/components/EngineModelField";
 import { VENDOR_SPECIALTIES, VENDOR_CERTIFICATIONS } from "@/data/onboardingData";
 import { createVendorProfileFromOnboarding, saveCustomVendorProfile } from "@/data/vendorProfileUtils";
 
@@ -49,6 +50,7 @@ export default function Onboarding() {
 
   // Owner state
   const [location, setLocation] = useState("");
+  const [finishing, setFinishing] = useState(false);
   const [boat, setBoat] = useState<BoatForm>({ ...EMPTY_BOAT });
 
   // Vendor state
@@ -83,6 +85,8 @@ export default function Onboarding() {
   }
 
   async function handleComplete() {
+    if (finishing) return;
+    setFinishing(true);
     try {
       if (isVendor) {
         const initials = businessName
@@ -131,7 +135,7 @@ export default function Onboarding() {
       } else {
         const hasBoat = boat.make || boat.model || boat.name;
         if (hasBoat && !supabaseMissing && authUser) {
-          await supabase.from("boats").insert({
+          const { error: boatError } = await supabase.from("boats").insert({
             owner_id: authUser.id,
             name: boat.name || "My Boat",
             make: boat.make || "Unknown",
@@ -143,6 +147,7 @@ export default function Onboarding() {
             engine_count: boat.engineCount === "Twin" ? 2 : 1,
             home_port: location.trim() || null,
           });
+          if (boatError) throw boatError;
         } else if (hasBoat) {
           const savedBoat = {
             id: `boat-${Date.now()}`,
@@ -163,7 +168,10 @@ export default function Onboarding() {
 
       navigate(isVendor ? "/vendor-dashboard" : "/app");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not finish setup.");
+      const message = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : "";
+      toast.error(message || "Could not finish setup. Please try again.");
+    } finally {
+      setFinishing(false);
     }
   }
 
@@ -175,9 +183,6 @@ export default function Onboarding() {
   // ── Computed ─────────────────────────────────────────────────────────────
   const boatModels = boat.make ? (BOAT_MODELS[boat.make as BoatMake] ?? []) : [];
   const engineMakes = boat.engineType ? Object.keys(ENGINE_DATA[boat.engineType as EngineType]) : [];
-  const engineModels = boat.engineType && boat.engineMake
-    ? (ENGINE_DATA[boat.engineType as EngineType][boat.engineMake] ?? [])
-    : [];
 
   const totalContentSteps = steps.length - 1; // exclude "done" from count
   const progressPercent = currentStep === "done" ? 100 : Math.round((stepIndex / totalContentSteps) * 100);
@@ -334,10 +339,14 @@ export default function Onboarding() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-foreground mb-1.5">Engine Model</label>
-                  <select value={boat.engineModel} onChange={(e) => setBoat({ ...boat, engineModel: e.target.value })} disabled={!boat.engineMake} className={selectDisCls}>
-                    <option value="">{boat.engineMake ? "Select a model…" : "Select a make first…"}</option>
-                    {engineModels.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                  <EngineModelField
+                    key={`${boat.engineType}|${boat.engineMake}`}
+                    engineType={boat.engineType}
+                    engineMake={boat.engineMake}
+                    value={boat.engineModel}
+                    onChange={(m) => setBoat({ ...boat, engineModel: m })}
+                    selectClassName={selectDisCls}
+                  />
                 </div>
               </div>
 
@@ -550,9 +559,10 @@ export default function Onboarding() {
               </p>
               <button
                 onClick={handleComplete}
-                className="px-8 py-3 rounded-md bg-foreground text-white text-sm font-semibold hover:bg-foreground/90 transition-colors"
+                disabled={finishing}
+                className="px-8 py-3 rounded-md bg-foreground text-white text-sm font-semibold hover:bg-foreground/90 transition-colors disabled:opacity-60"
               >
-                {isVendor ? "Go to Vendor Dashboard" : "Go to Dashboard"}
+                {finishing ? "Saving…" : isVendor ? "Go to Vendor Dashboard" : "Go to Dashboard"}
               </button>
             </div>
           )}

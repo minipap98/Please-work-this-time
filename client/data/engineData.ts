@@ -40,6 +40,24 @@ export const ENGINE_DATA: Record<EngineType, Record<string, string[]>> = {
       "FourStroke 75 (2021–present)",
       "FourStroke 60 (2021–present)",
       "FourStroke 40 (2021–present)",
+      "Verado 350 L6 supercharged (earlier generation)",
+      "Verado 300 L6 supercharged (earlier generation)",
+      "Verado 275 L6 supercharged (earlier generation)",
+      "Verado 250 L6 supercharged (earlier generation)",
+      "Verado 225 L6 supercharged (earlier generation)",
+      "Verado 200 L6 supercharged (earlier generation)",
+      "OptiMax 300 (2-stroke DFI)",
+      "OptiMax 250 (2-stroke DFI)",
+      "OptiMax 225 (2-stroke DFI)",
+      "OptiMax 200 (2-stroke DFI)",
+      "OptiMax 175 (2-stroke DFI)",
+      "OptiMax 150 (2-stroke DFI)",
+      "OptiMax 115 (2-stroke DFI)",
+      "FourStroke 150 (earlier generation)",
+      "FourStroke 115 (earlier generation)",
+      "FourStroke 90 (earlier generation)",
+      "FourStroke 75 (earlier generation)",
+      "FourStroke 60 (earlier generation)",
     ],
     Yamaha: [
       "XTO Offshore 450 (2022–present)",
@@ -57,6 +75,22 @@ export const ENGINE_DATA: Record<EngineType, Record<string, string[]>> = {
       "F60F (2021–present)",
       "F40G (2021–present)",
       "F25G (2021–present)",
+      "F350 5.3L V8 (earlier generation)",
+      "F300 4.2L V6 (earlier generation)",
+      "F250 4.2L V6 (earlier generation)",
+      "F225 4.2L V6 (earlier generation)",
+      "F225 3.3L V6 (earlier generation)",
+      "F200 2.8L (earlier generation)",
+      "F150 (earlier generation)",
+      "F115 (earlier generation)",
+      "F90 (earlier generation)",
+      "F70 (earlier generation)",
+      "VMAX SHO 250 (4.2L V6)",
+      "VMAX SHO 200",
+      "VMAX SHO 150",
+      "HPDI 250 (2-stroke)",
+      "HPDI 200 (2-stroke)",
+      "OX66 225 (2-stroke)",
     ],
     Suzuki: [
       "DF350A (2021–present)",
@@ -72,6 +106,16 @@ export const ENGINE_DATA: Record<EngineType, Record<string, string[]>> = {
       "DF60AV (2021–present)",
       "DF40A (2021–present)",
       "DF30A (2021–present)",
+      "DF300AP (earlier generation)",
+      "DF300 (earlier generation)",
+      "DF250 (earlier generation)",
+      "DF225 (earlier generation)",
+      "DF200 (earlier generation)",
+      "DF175 (earlier generation)",
+      "DF150 (earlier generation)",
+      "DF140 (earlier generation)",
+      "DF115 (earlier generation)",
+      "DF90 (earlier generation)",
     ],
     Honda: [
       "BF250 (2021–present)",
@@ -86,6 +130,12 @@ export const ENGINE_DATA: Record<EngineType, Record<string, string[]>> = {
       "BF60 (2021–present)",
       "BF40 (2021–present)",
       "BF30 (2021–present)",
+      "BF225 (earlier generation)",
+      "BF200 (earlier generation)",
+      "BF150 (earlier generation)",
+      "BF135 (earlier generation)",
+      "BF115 (earlier generation)",
+      "BF90 (earlier generation)",
     ],
     Evinrude: [
       "E-TEC G2 300hp (2014–2020)",
@@ -97,6 +147,11 @@ export const ENGINE_DATA: Record<EngineType, Record<string, string[]>> = {
       "E-TEC 90hp (2014–2020)",
       "E-TEC 75hp (2014–2020)",
       "E-TEC 60hp (2014–2020)",
+      "E-TEC 300hp (first generation)",
+      "E-TEC 250hp (first generation)",
+      "E-TEC 225hp (first generation)",
+      "E-TEC 200hp (first generation)",
+      "E-TEC 150hp (first generation)",
     ],
   },
   "I/O (Sterndrive)": {
@@ -108,6 +163,12 @@ export const ENGINE_DATA: Record<EngineType, Record<string, string[]>> = {
       "8.2L MAG Bravo 380hp (2021–present)",
       "496 MAG HO Bravo 425hp (2021–present)",
       "Diesel TDI 3.0L 230hp (2021–present)",
+      "5.0L MPI (earlier generation)",
+      "350 MAG MPI 5.7L (earlier generation)",
+      "377 MAG MPI 6.2L (earlier generation)",
+      "8.1L Horizon (earlier generation)",
+      "496 MAG 8.1L (earlier generation)",
+      "4.3L MPI (earlier generation)",
     ],
     Volvo: [
       "D4-270 (2021–present)",
@@ -117,6 +178,10 @@ export const ENGINE_DATA: Record<EngineType, Record<string, string[]>> = {
       "5.0 GXi-A 270hp (2021–present)",
       "5.7 GXi-A 300hp (2021–present)",
       "8.1 GXi-A 375hp (2021–present)",
+      "5.7 GXi (earlier generation)",
+      "8.1 Gi / GXi (earlier generation)",
+      "4.3 GXi (earlier generation)",
+      "D6-370 / D6-400 (earlier generation)",
     ],
   },
   Inboard: {
@@ -162,3 +227,13 @@ export const ENGINE_DATA: Record<EngineType, Record<string, string[]>> = {
     ],
   },
 };
+
+/** Select value for "my engine isn't listed"; the owner types the model instead. */
+export const OTHER_ENGINE = "__other__";
+
+/** True when a saved model isn't one of the listed options (typed in by the owner). */
+export function isCustomEngineModel(type: string, make: string, model: string): boolean {
+  if (!model) return false;
+  const list = ENGINE_DATA[type as EngineType]?.[make] ?? [];
+  return !list.includes(model);
+}

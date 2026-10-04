@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { BOAT_MAKES, BOAT_MODELS, type BoatMake } from "@/data/boatData";
 import { ENGINE_DATA, ENGINE_TYPES, OUTBOARD_COUNTS, type EngineType } from "@/data/engineData";
+import EngineModelField from "@/components/EngineModelField";
 import BoatDocuments from "@/components/BoatDocuments";
 import BoatEquipment from "@/components/BoatEquipment";
 
@@ -90,10 +91,6 @@ function BoatForm({
 
   const boatModels = form.make ? (BOAT_MODELS[form.make as BoatMake] ?? []) : [];
   const engineMakes = form.engineType ? Object.keys(ENGINE_DATA[form.engineType as EngineType]) : [];
-  const engineModels =
-    form.engineType && form.engineMake
-      ? ENGINE_DATA[form.engineType as EngineType][form.engineMake] ?? []
-      : [];
 
   const sel = "w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/50";
   const selDis = `${sel} disabled:opacity-50 disabled:cursor-not-allowed`;
@@ -169,10 +166,14 @@ function BoatForm({
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Engine Model</label>
-            <select value={form.engineModel} onChange={(e) => setForm({ ...form, engineModel: e.target.value })} disabled={!form.engineMake} className={selDis}>
-              <option value="">{form.engineMake ? "Select a model…" : "Select a make first…"}</option>
-              {engineModels.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
+            <EngineModelField
+              key={`${form.engineType}|${form.engineMake}`}
+              engineType={form.engineType}
+              engineMake={form.engineMake}
+              value={form.engineModel}
+              onChange={(m) => setForm({ ...form, engineModel: m })}
+              selectClassName={selDis}
+            />
           </div>
         </div>
       </div>

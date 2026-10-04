@@ -912,6 +912,7 @@ export interface Database {
           email: string;
           tech_name: string;
           user_id: string | null;
+          role: string;
           created_at: string;
         };
         Insert: {
@@ -920,12 +921,14 @@ export interface Database {
           email: string;
           tech_name: string;
           user_id?: string | null;
+          role?: string;
           created_at?: string;
         };
         Update: {
           email?: string;
           tech_name?: string;
           user_id?: string | null;
+          role?: string;
         };
         Relationships: [
           {
@@ -1003,6 +1006,10 @@ export interface Database {
       profile_cards: {
         Args: { ids: string[] };
         Returns: { id: string; name: string; initials: string; avatar_url: string | null; role: string }[];
+      };
+      rename_crew_member: {
+        Args: { member_id: string; new_name: string };
+        Returns: undefined;
       };
       claim_shop_invites: {
         Args: Record<string, never>;

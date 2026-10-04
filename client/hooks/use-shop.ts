@@ -724,11 +724,22 @@ export type { WorkOrderLine };
 
 // ── Crew logins ──────────────────────────────────────────────────────────────
 
+export type CrewRole = "tech" | "manager";
+
 export interface ShopMember {
   id: string;
   email: string;
   techName: string;
+  role: CrewRole;
   joined: boolean;
+}
+
+function saveDemoCrew(crew: ShopMember[]) {
+  try {
+    localStorage.setItem(DEMO_CREW_KEY, JSON.stringify(crew));
+  } catch {
+    // ignore
+  }
 }
 
 const DEMO_CREW_KEY = "bosun_demo_crew_v1";
@@ -741,8 +752,9 @@ function loadDemoCrew(): ShopMember[] {
     // seed
   }
   return [
-    { id: "crew-1", email: "marco@example.com", techName: "Marco", joined: true },
-    { id: "crew-2", email: "jess@example.com", techName: "Jess", joined: false },
+    { id: "crew-1", email: "marco@example.com", techName: "Marco", role: "tech", joined: true },
+    { id: "crew-2", email: "jess@example.com", techName: "Jess", role: "tech", joined: false },
+    { id: "crew-3", email: "dana.service@example.com", techName: "Dana", role: "manager", joined: true },
   ];
 }
 
@@ -757,7 +769,13 @@ export function useCrew(vendorId: string | null) {
         .eq("vendor_id", vendorId!)
         .order("created_at");
       if (error) throw error;
-      return (data ?? []).map((m) => ({ id: m.id, email: m.email, techName: m.tech_name, joined: !!m.user_id }));
+      return (data ?? []).map((m) => ({
+        id: m.id,
+        email: m.email,
+        techName: m.tech_name,
+        role: (m.role === "manager" ? "manager" : "tech") as CrewRole,
+        joined: !!m.user_id,
+      }));
     },
     enabled: !!vendorId,
   });
@@ -766,21 +784,17 @@ export function useCrew(vendorId: string | null) {
 export function useInviteCrew(vendorId: string | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ email, techName }: { email: string; techName: string }) => {
+    mutationFn: async ({ email, techName, role = "tech" }: { email: string; techName: string; role?: CrewRole }) => {
       const clean = email.trim().toLowerCase();
       if (isDemoMode()) {
         const crew = loadDemoCrew().filter((m) => m.email !== clean);
-        crew.push({ id: newId("crew"), email: clean, techName, joined: false });
-        try {
-          localStorage.setItem(DEMO_CREW_KEY, JSON.stringify(crew));
-        } catch {
-          // ignore
-        }
+        crew.push({ id: newId("crew"), email: clean, techName, role, joined: false });
+        saveDemoCrew(crew);
         return;
       }
       const { error } = await db()
         .from("shop_members")
-        .upsert({ vendor_id: vendorId!, email: clean, tech_name: techName }, { onConflict: "vendor_id,email" });
+        .upsert({ vendor_id: vendorId!, email: clean, tech_name: techName, role }, { onConflict: "vendor_id,email" });
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["shop-crew", vendorId] }),
@@ -792,11 +806,7 @@ export function useRemoveCrew(vendorId: string | null) {
   return useMutation({
     mutationFn: async (id: string) => {
       if (isDemoMode()) {
-        try {
-          localStorage.setItem(DEMO_CREW_KEY, JSON.stringify(loadDemoCrew().filter((m) => m.id !== id)));
-        } catch {
-          // ignore
-        }
+        saveDemoCrew(loadDemoCrew().filter((m) => m.id !== id));
         return;
       }
       const { error } = await db().from("shop_members").delete().eq("id", id);
@@ -806,12 +816,53 @@ export function useRemoveCrew(vendorId: string | null) {
   });
 }
 
+export function useSetCrewRole(vendorId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, role }: { id: string; role: CrewRole }) => {
+      if (isDemoMode()) {
+        saveDemoCrew(loadDemoCrew().map((m) => (m.id === id ? { ...m, role } : m)));
+        return;
+      }
+      const { error } = await db().from("shop_members").update({ role }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["shop-crew", vendorId] }),
+  });
+}
+
+/** Rename a crew member; their assigned jobs and board slot move with them. */
+export function useRenameCrew(vendorId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ member, newName }: { member: ShopMember; newName: string }) => {
+      const name = newName.trim();
+      if (!name || name === member.techName) return;
+      if (isDemoMode()) {
+        saveDemoCrew(loadDemoCrew().map((m) => (m.id === member.id ? { ...m, techName: name } : m)));
+        mutateDemo((s) => {
+          s.workOrders = s.workOrders.map((o) => (o.assignedTo === member.techName ? { ...o, assignedTo: name } : o));
+          s.settings = { ...s.settings, techs: s.settings.techs.map((t) => (t === member.techName ? name : t)) };
+        });
+        return;
+      }
+      const { error } = await db().rpc("rename_crew_member", { member_id: member.id, new_name: name });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateShop(qc, vendorId!);
+      qc.invalidateQueries({ queryKey: ["shop-crew", vendorId] });
+    },
+  });
+}
+
 // ── Tech view ────────────────────────────────────────────────────────────────
 
 export interface CrewMembership {
   vendorId: string;
   shopName: string;
   techName: string;
+  role: CrewRole;
 }
 
 /** Shops I'm on the crew of. Claims any invite sent to my email first. */
@@ -821,17 +872,24 @@ export function useMyCrewMemberships(userId: string | undefined, demoTech?: stri
     queryFn: async (): Promise<CrewMembership[]> => {
       if (isDemoMode()) {
         const techs = loadDemo().settings.techs;
-        return [{ vendorId: "demo-shop", shopName: "MarineMax Service Center", techName: demoTech ?? techs[0] ?? "Marco" }];
+        const techName = demoTech ?? techs[0] ?? "Marco";
+        const role = loadDemoCrew().find((m) => m.techName === techName)?.role ?? "tech";
+        return [{ vendorId: "demo-shop", shopName: "MarineMax Service Center", techName, role }];
       }
       const client = db();
       await client.rpc("claim_shop_invites");
       const { data, error } = await client
         .from("shop_members")
-        .select("vendor_id, tech_name, vendor:vendor_profiles(business_name)")
+        .select("vendor_id, tech_name, role, vendor:vendor_profiles(business_name)")
         .eq("user_id", userId!);
       if (error) throw error;
-      return ((data ?? []) as unknown as { vendor_id: string; tech_name: string; vendor: { business_name: string } | null }[]).map(
-        (m) => ({ vendorId: m.vendor_id, shopName: m.vendor?.business_name ?? "Your shop", techName: m.tech_name })
+      return ((data ?? []) as unknown as { vendor_id: string; tech_name: string; role: string; vendor: { business_name: string } | null }[]).map(
+        (m) => ({
+          vendorId: m.vendor_id,
+          shopName: m.vendor?.business_name ?? "Your shop",
+          techName: m.tech_name,
+          role: (m.role === "manager" ? "manager" : "tech") as CrewRole,
+        })
       );
     },
     enabled: isDemoMode() || !!userId,

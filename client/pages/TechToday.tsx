@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { isDemoMode } from "@/lib/demoMode";
 import {
+  useCrew,
   useMyCrewMemberships,
   useShopSettings,
   useTechInventory,
@@ -20,6 +21,8 @@ export default function TechToday() {
   const demo = isDemoMode();
   const { user, profile, signOut } = useAuth();
   const { data: demoSettings } = useShopSettings(demo ? "demo-shop" : null);
+  const { data: demoCrew = [] } = useCrew(demo ? "demo-shop" : null);
+  const demoNames = [...new Set([...(demoSettings?.techs ?? []), ...demoCrew.map((c) => c.techName)])];
   const [demoTech, setDemoTech] = useState<string | undefined>(undefined);
   const { data: memberships = [], isLoading } = useMyCrewMemberships(user?.id, demoTech);
   const [pick, setPick] = useState(0);
@@ -73,7 +76,7 @@ export default function TechToday() {
               onChange={(e) => setDemoTech(e.target.value)}
               aria-label="Demo tech"
             >
-              {(demoSettings?.techs ?? []).map((t) => <option key={t}>{t}</option>)}
+              {demoNames.map((t) => <option key={t}>{t}</option>)}
             </select>
           )}
           {!demo && memberships.length > 1 && (
@@ -108,6 +111,18 @@ export default function TechToday() {
           </div>
         ) : (
           <>
+            {m.role === "manager" && (
+              <Link
+                to="/crew-shop"
+                className="flex items-center justify-between bg-slate-900 text-white rounded-xl px-4 py-3"
+              >
+                <span>
+                  <span className="block text-sm font-semibold">Open the shop board</span>
+                  <span className="block text-xs text-slate-300">Work orders, schedule, inventory and parts for {m.shopName}</span>
+                </span>
+                <span aria-hidden>→</span>
+              </Link>
+            )}
             <Section title={`Today · ${today.length} job${today.length === 1 ? "" : "s"}`}>
               {today.length === 0 ? (
                 <Empty text="Nothing assigned to you today." />

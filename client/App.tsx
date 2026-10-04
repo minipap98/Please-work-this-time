@@ -29,6 +29,7 @@ import VendorBusinessHub from "./pages/vendor/VendorBusinessHub";
 import VendorShop from "./pages/vendor/VendorShop";
 import BoatLog from "./pages/BoatLog";
 import TechToday from "./pages/TechToday";
+import CrewShop from "./pages/CrewShop";
 import PartsComingSoon from "./pages/PartsComingSoon";
 import AuthPage from "./pages/AuthPage";
 import Onboarding from "./pages/Onboarding";
@@ -174,6 +175,7 @@ const App = () => (
 
                 <Route element={<LoginGuard />}>
                   <Route path="/tech" element={<TechToday />} />
+                  <Route path="/crew-shop" element={<CrewShop />} />
                 </Route>
 
                 <Route element={<OnboardingGuard />}>

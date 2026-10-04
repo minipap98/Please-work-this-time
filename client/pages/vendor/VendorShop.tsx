@@ -24,6 +24,9 @@ import {
   useCrew,
   useInviteCrew,
   useRemoveCrew,
+  useRenameCrew,
+  useSetCrewRole,
+  type CrewRole,
   useUpdateShopSettings,
   useWorkOrders,
   type ShipmentDraft,
@@ -53,12 +56,24 @@ const TABS: { key: Tab; label: string }[] = [
 
 const INBOUND_DOMAIN = import.meta.env.VITE_INBOUND_EMAIL_DOMAIN as string | undefined;
 
-export default function VendorShop() {
-  const { vendorId } = useRole();
+const MANAGER_HIDDEN: Tab[] = ["quickbooks", "settings"];
+
+/**
+ * The shop workspace. A crew manager opens it with `vendorIdOverride` and
+ * `managerMode`: full board, inventory and parts, but no QuickBooks or settings.
+ */
+export default function VendorShop({
+  vendorIdOverride,
+  managerMode = false,
+  shopName,
+}: { vendorIdOverride?: string; managerMode?: boolean; shopName?: string } = {}) {
+  const { vendorId: roleVendorId } = useRole();
+  const vendorId = vendorIdOverride ?? roleVendorId;
+  const tabs = managerMode ? TABS.filter((t) => !MANAGER_HIDDEN.includes(t.key)) : TABS;
   const { toast } = useToast();
   const demo = isDemoMode();
   const [params, setParams] = useSearchParams();
-  const tab = (TABS.some((t) => t.key === params.get("tab")) ? params.get("tab") : "orders") as Tab;
+  const tab = (tabs.some((t) => t.key === params.get("tab")) ? params.get("tab") : "orders") as Tab;
   const setTab = (t: Tab) => setParams({ tab: t }, { replace: true });
 
   useShopRealtime(vendorId);
@@ -186,7 +201,7 @@ export default function VendorShop() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-5 flex flex-col sm:flex-row sm:items-end gap-2">
           <div>
-            <h1 className="text-xl font-bold text-foreground">Shop</h1>
+            <h1 className="text-xl font-bold text-foreground">{shopName ?? "Shop"}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               Work orders, the board, parts on the shelf and on the truck, and clean books.
             </p>
@@ -202,7 +217,7 @@ export default function VendorShop() {
         </div>
 
         <div className="flex gap-1 border-b border-border mb-5 overflow-x-auto">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
@@ -411,8 +426,13 @@ function CrewPanel({ vendorId, techs }: { vendorId: string; techs: string[] }) {
   const { data: crew = [] } = useCrew(vendorId);
   const invite = useInviteCrew(vendorId);
   const remove = useRemoveCrew(vendorId);
+  const rename = useRenameCrew(vendorId);
+  const setRole = useSetCrewRole(vendorId);
   const [email, setEmail] = useState("");
   const [techName, setTechName] = useState(techs[0] ?? "");
+  const [role, setNewRole] = useState<CrewRole>("tech");
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
   const link = typeof window !== "undefined" ? `${window.location.origin}/tech` : "/tech";
   const valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) && techName.trim().length > 0;
 
@@ -421,11 +441,12 @@ function CrewPanel({ vendorId, techs }: { vendorId: string; techs: string[] }) {
       <div>
         <p className="text-sm font-semibold">Crew logins</p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Each tech gets their own login and sees only the jobs assigned to them: the day's list, parts to pull with bin
-          locations, and buttons to start, finish and add notes. Their notes go into the owner's Boat Log.
+          <b>Techs</b> see only the jobs assigned to them: the day's list, parts to pull with bin locations, and buttons to
+          start, finish and add notes (notes go into the owner's Boat Log). <b>Managers</b> run the whole board, inventory
+          and parts, but can't see QuickBooks or change shop settings and crew.
         </p>
       </div>
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-6 gap-2">
         <input
           className={`${inputCls} col-span-3`}
           type="email"
@@ -441,16 +462,21 @@ function CrewPanel({ vendorId, techs }: { vendorId: string; techs: string[] }) {
           onChange={(e) => setTechName(e.target.value)}
         />
         <datalist id="crew-techs">{techs.map((t) => <option key={t} value={t} />)}</datalist>
+        <select className={`${inputCls} col-span-1`} value={role} onChange={(e) => setNewRole(e.target.value as CrewRole)} aria-label="Role">
+          <option value="tech">Tech</option>
+          <option value="manager">Manager</option>
+        </select>
       </div>
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-muted-foreground">
-          Then send them <code className="bg-muted px-1 rounded">{link}</code> to sign up or log in with that email.
+          Then send them <code className="bg-muted px-1 rounded">{link}</code> to sign up or log in with that email. Click a
+          name to rename it; their jobs move with them.
         </p>
         <button
           disabled={!valid || invite.isPending}
           onClick={() =>
             invite.mutate(
-              { email, techName: techName.trim() },
+              { email, techName: techName.trim(), role },
               {
                 onSuccess: () => {
                   toast({ title: `Invited ${techName.trim()}`, description: `Send them ${link}` });
@@ -468,9 +494,50 @@ function CrewPanel({ vendorId, techs }: { vendorId: string; techs: string[] }) {
       {crew.length > 0 && (
         <ul className="divide-y divide-border border border-border rounded-lg">
           {crew.map((m) => (
-            <li key={m.id} className="flex items-center gap-2 px-3 py-2 text-sm">
-              <span className="font-medium">{m.techName}</span>
-              <span className="text-muted-foreground truncate flex-1">{m.email}</span>
+            <li key={m.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+              {editing === m.id ? (
+                <form
+                  className="flex items-center gap-1"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    rename.mutate(
+                      { member: m, newName: editName },
+                      {
+                        onSuccess: () => {
+                          setEditing(null);
+                          toast({ title: `Renamed to ${editName.trim()}`, description: "Their assigned jobs moved with them." });
+                        },
+                        onError: (err) => toast({ title: "Couldn't rename", description: String(err), variant: "destructive" }),
+                      }
+                    );
+                  }}
+                >
+                  <input autoFocus className="px-2 py-1 text-sm border border-border rounded-md w-32" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                  <button type="submit" className="text-xs font-semibold text-sky-700">Save</button>
+                  <button type="button" onClick={() => setEditing(null)} className="text-xs text-muted-foreground">Cancel</button>
+                </form>
+              ) : (
+                <button
+                  onClick={() => {
+                    setEditing(m.id);
+                    setEditName(m.techName);
+                  }}
+                  className="font-medium hover:underline"
+                  title="Rename"
+                >
+                  {m.techName}
+                </button>
+              )}
+              <span className="text-muted-foreground truncate flex-1 min-w-[8rem]">{m.email}</span>
+              <select
+                value={m.role}
+                onChange={(e) => setRole.mutate({ id: m.id, role: e.target.value as CrewRole })}
+                className="text-xs border border-border rounded-md px-1.5 py-1 bg-background"
+                aria-label={`Role for ${m.techName}`}
+              >
+                <option value="tech">Tech</option>
+                <option value="manager">Manager</option>
+              </select>
               <span className={`text-[10px] font-semibold ${m.joined ? "text-emerald-700" : "text-amber-700"}`}>
                 {m.joined ? "JOINED" : "INVITED"}
               </span>

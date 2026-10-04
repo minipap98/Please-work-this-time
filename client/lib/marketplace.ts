@@ -1,6 +1,7 @@
 import type { Bid, BidMessage, Project, ProjectBoat } from "@/data/projectData";
 import { supabase, supabaseMissing } from "@/lib/supabase";
 import type { Tables } from "@/lib/database.types";
+import { LOCATION_KEYS, isMissingColumn, withoutKeys } from "@/lib/optionalColumns";
 
 export const PROJECT_DETAIL_SELECT = `
   *,
@@ -154,6 +155,8 @@ export function mapProject(row: ProjectRow): Project {
     status: row.status,
     date: formatProjectDate(row.date ?? row.created_at),
     location: row.location ?? undefined,
+    lat: row.lat ?? undefined,
+    lng: row.lng ?? undefined,
     category: row.category ?? undefined,
     owner: row.owner?.name,
     ownerId: row.owner_id,
@@ -234,6 +237,9 @@ export interface CreateProjectInput {
   description: string;
   category?: string;
   location?: string;
+  /** Approximate (rounded) job location for distance matching. */
+  lat?: number | null;
+  lng?: number | null;
   boatId?: string;
   photos?: string[];
   metadata?: Record<string, unknown>;
@@ -244,20 +250,21 @@ export async function createMarketplaceProject(
   input: CreateProjectInput
 ): Promise<Project> {
   const client = await requireClient();
-  const { data, error } = await client
-    .from("projects")
-    .insert({
-      owner_id: userId,
-      title: input.title,
-      description: input.description,
-      category: input.category,
-      location: input.location,
-      boat_id: input.boatId,
-      status: "bidding",
-      metadata: input.metadata ?? {},
-    } as never)
-    .select(PROJECT_LIST_SELECT)
-    .single();
+  const row: Record<string, unknown> = {
+    owner_id: userId,
+    title: input.title,
+    description: input.description,
+    category: input.category,
+    location: input.location,
+    boat_id: input.boatId,
+    status: "bidding",
+    metadata: input.metadata ?? {},
+    ...(input.lat != null && input.lng != null ? { lat: input.lat, lng: input.lng } : {}),
+  };
+  const insert = (r: Record<string, unknown>) =>
+    client.from("projects").insert(r as never).select(PROJECT_LIST_SELECT).single();
+  let { data, error } = await insert(row);
+  if (isMissingColumn(error)) ({ data, error } = await insert(withoutKeys(row, LOCATION_KEYS)));
   if (error) throw error;
   const project = mapProject(data as unknown as ProjectRow);
   if (input.photos?.length) {

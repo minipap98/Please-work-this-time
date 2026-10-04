@@ -12,6 +12,8 @@ import EngineModelField from "@/components/EngineModelField";
 import BoatDocuments from "@/components/BoatDocuments";
 import BoatEquipment from "@/components/BoatEquipment";
 import ModelInsights from "@/components/boats/ModelInsights";
+import LocationPicker from "@/components/LocationPicker";
+import type { PickedLocation } from "@shared/geo";
 import { DEMO_BOAT as DEFAULT_DEMO_BOAT } from "@/data/demoBoat";
 
 const FLEET_STORAGE_KEY = "my_fleet";
@@ -31,6 +33,8 @@ interface SavedBoat {
   storageType?: string;
   locationName?: string;
   locationAddress?: string;
+  /** Verified home port, when picked from the map. */
+  homePort?: PickedLocation | null;
 }
 
 const EMPTY_BOAT: Omit<SavedBoat, "id"> = {
@@ -78,6 +82,10 @@ function fromRow(b: Tables<"boats">, primaryId: string | undefined): SavedBoat {
     engineCount: b.engine_type === "Outboard" ? COUNTS[(b.engine_count ?? 1) - 1] ?? "Single" : "",
     isPrimary: b.id === primaryId,
     locationName: b.home_port ?? "",
+    homePort:
+      b.home_port && b.home_port_lat != null && b.home_port_lng != null
+        ? { label: b.home_port, address: null, lat: b.home_port_lat, lng: b.home_port_lng, placeId: b.home_port_place_id ?? null, source: "google" }
+        : null,
   };
 }
 
@@ -91,7 +99,10 @@ function toRow(b: SavedBoat) {
     engine_make: b.engineMake || null,
     engine_model: b.engineModel || null,
     engine_count: Math.max(1, COUNTS.indexOf(b.engineCount) + 1),
-    home_port: [b.locationName, b.locationAddress].filter((x) => x && x.trim()).join(" · ") || null,
+    home_port: b.homePort?.label ?? ([b.locationName, b.locationAddress].filter((x) => x && x.trim()).join(" · ") || null),
+    ...(b.homePort
+      ? { home_port_lat: b.homePort.lat, home_port_lng: b.homePort.lng, home_port_place_id: b.homePort.placeId }
+      : {}),
   };
 }
 
@@ -216,26 +227,24 @@ function BoatForm({
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Marina / Storage Facility <span className="text-muted-foreground font-normal">(optional)</span>
+              Marina / home port <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
-            <input
-              type="text"
-              value={form.locationName}
-              onChange={(e) => setForm({ ...form, locationName: e.target.value })}
-              placeholder="e.g. Rickenbacker Marina, Slip D-42"
-              className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              Address <span className="text-muted-foreground font-normal">(optional)</span>
-            </label>
-            <input
-              type="text"
-              value={form.locationAddress}
-              onChange={(e) => setForm({ ...form, locationAddress: e.target.value })}
-              placeholder="e.g. 3301 Rickenbacker Cswy, Key Biscayne, FL 33149"
-              className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            {!form.homePort && form.locationName && (
+              <p className="mb-2 text-xs text-amber-700">
+                "{form.locationName}" isn't verified yet. Pick it below so nearby shops can find your jobs.
+              </p>
+            )}
+            <LocationPicker
+              value={form.homePort ?? null}
+              onChange={(loc) =>
+                setForm({
+                  ...form,
+                  homePort: loc,
+                  ...(loc ? { locationName: loc.label, locationAddress: loc.address ?? "" } : {}),
+                })
+              }
+              placeholder="e.g. Rickenbacker Marina"
+              confirmLabel="Yes, this is where it's kept"
             />
           </div>
         </div>

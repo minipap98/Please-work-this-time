@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { VendorProfile } from "@/data/vendorData";
 
-const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? "";
+import { googleLibraries, googleMapsConfigured } from "@/lib/googleMaps";
 const DEFAULT_CENTER = { lat: 25.82, lng: -80.19 };
 const DEFAULT_ZOOM = 11;
 
@@ -9,23 +9,6 @@ interface VendorMapProps {
   vendors: VendorProfile[];
   onVendorClick?: (vendorName: string) => void;
   height?: string;
-}
-
-// Load Google Maps script once
-let loadPromise: Promise<void> | null = null;
-function loadGoogleMaps(): Promise<void> {
-  if ((window as any).google?.maps) return Promise.resolve();
-  if (loadPromise) return loadPromise;
-  loadPromise = new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=marker`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Failed to load Google Maps"));
-    document.head.appendChild(script);
-  });
-  return loadPromise;
 }
 
 export default function VendorMap({ vendors, onVendorClick, height = "400px" }: VendorMapProps) {
@@ -41,8 +24,8 @@ export default function VendorMap({ vendors, onVendorClick, height = "400px" }: 
 
   // Load script
   useEffect(() => {
-    if (!API_KEY) { setError("Google Maps API key not configured"); return; }
-    loadGoogleMaps().then(() => setLoaded(true)).catch(() => setError("Failed to load Google Maps"));
+    if (!googleMapsConfigured) { setError("Google Maps API key not configured"); return; }
+    googleLibraries("maps", "marker").then(() => setLoaded(true)).catch(() => setError("Failed to load Google Maps"));
   }, []);
 
   // Init map

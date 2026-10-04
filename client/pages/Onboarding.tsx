@@ -9,6 +9,9 @@ import { ENGINE_DATA, ENGINE_TYPES, OUTBOARD_COUNTS, type EngineType } from "@/d
 import EngineModelField from "@/components/EngineModelField";
 import { uploadBoatPhoto } from "@/hooks/use-my-boat";
 import { resizePhoto } from "@/lib/photoUtils";
+import LocationPicker from "@/components/LocationPicker";
+import { LOCATION_KEYS, isMissingColumn, withoutKeys } from "@/lib/optionalColumns";
+import type { PickedLocation } from "@shared/geo";
 import { VENDOR_SPECIALTIES, VENDOR_CERTIFICATIONS } from "@/data/onboardingData";
 import { createVendorProfileFromOnboarding, saveCustomVendorProfile } from "@/data/vendorProfileUtils";
 
@@ -51,7 +54,10 @@ export default function Onboarding() {
   const currentStep = steps[stepIndex];
 
   // Owner state
-  const [location, setLocation] = useState("");
+  // The verified home port (owner) or shop location (vendor); its label is the text location.
+  const [place, setPlace] = useState<PickedLocation | null>(null);
+  const [radius, setRadius] = useState(50);
+  const location = place?.label ?? "";
   const [finishing, setFinishing] = useState(false);
   const [photo, setPhoto] = useState<string | null>(null);
   const [boat, setBoat] = useState<BoatForm>({ ...EMPTY_BOAT });
@@ -99,7 +105,7 @@ export default function Onboarding() {
           .slice(0, 2);
 
         if (!supabaseMissing && authUser) {
-          const { data, error } = await supabase.from("vendor_profiles").insert({
+          const vendorRow = {
             user_id: authUser.id,
             business_name: businessName.trim(),
             initials,
@@ -111,12 +117,19 @@ export default function Onboarding() {
             service_area: serviceArea.trim(),
             bio: bio.trim(),
             phone: vendorPhone.trim() || null,
-          }).select("id").single();
+            service_radius_miles: radius,
+            ...(place ? { lat: place.lat, lng: place.lng, place_id: place.placeId } : {}),
+          };
+          let { data, error } = await supabase.from("vendor_profiles").insert(vendorRow).select("id").single();
+          if (isMissingColumn(error)) {
+            ({ data, error } = await supabase.from("vendor_profiles").insert(withoutKeys(vendorRow, LOCATION_KEYS)).select("id").single());
+          }
           if (error) throw error;
           if (data?.id) setVendorMode(data.id);
           await updateProfile({
             name: businessName.trim(),
             initials,
+            ...(place ? { location: place.label, location_lat: place.lat, location_lng: place.lng, location_place_id: place.placeId } : {}),
             phone: vendorPhone.trim() || null,
             onboarding_complete: true,
           });
@@ -138,7 +151,7 @@ export default function Onboarding() {
       } else {
         const hasBoat = boat.make || boat.model || boat.name;
         if (hasBoat && !supabaseMissing && authUser) {
-          const { data: newBoat, error: boatError } = await supabase.from("boats").insert({
+          const boatRow = {
             owner_id: authUser.id,
             name: boat.name || "My Boat",
             make: boat.make || "Unknown",
@@ -149,7 +162,12 @@ export default function Onboarding() {
             engine_model: boat.engineModel || null,
             engine_count: boat.engineCount === "Twin" ? 2 : 1,
             home_port: location.trim() || null,
-          }).select("id").single();
+            ...(place ? { home_port_lat: place.lat, home_port_lng: place.lng, home_port_place_id: place.placeId } : {}),
+          };
+          let { data: newBoat, error: boatError } = await supabase.from("boats").insert(boatRow).select("id").single();
+          if (isMissingColumn(boatError)) {
+            ({ data: newBoat, error: boatError } = await supabase.from("boats").insert(withoutKeys(boatRow, LOCATION_KEYS)).select("id").single());
+          }
           if (boatError) throw boatError;
           if (photo && newBoat?.id) {
             try {
@@ -171,7 +189,11 @@ export default function Onboarding() {
         }
         if (location.trim()) {
           localStorage.setItem("user_location", location.trim());
-          await updateProfile({ location: location.trim(), onboarding_complete: true });
+          await updateProfile({
+            location: location.trim(),
+            ...(place ? { location_lat: place.lat, location_lng: place.lng, location_place_id: place.placeId } : {}),
+            onboarding_complete: true,
+          });
         } else {
           await updateProfile({ onboarding_complete: true });
         }
@@ -266,12 +288,11 @@ export default function Onboarding() {
                 This helps vendors in your area find you. You can always change it later.
               </p>
               <label className="block text-xs font-medium text-foreground mb-1.5">Marina / Location</label>
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Miami, FL · Biscayne Bay Marina"
-                className={inputCls}
+              <LocationPicker
+                value={place}
+                onChange={setPlace}
+                placeholder="e.g. Rickenbacker Marina or Key Biscayne, FL"
+                confirmLabel="Yes, this is my home port"
               />
               <StepNav onBack={back} onNext={next} onSkip={next} />
             </div>
@@ -571,7 +592,22 @@ export default function Onboarding() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-foreground mb-1.5">Service Area</label>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Where's your shop?</label>
+                  <LocationPicker
+                    value={place}
+                    onChange={setPlace}
+                    placeholder="Search your shop's address"
+                    confirmLabel="Yes, this is my shop"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">How far will you travel for jobs?</label>
+                  <select value={radius} onChange={(e) => setRadius(Number(e.target.value))} className={selectCls}>
+                    {[10, 25, 50, 100, 200].map((m) => <option key={m} value={m}>Up to {m} miles</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Service area (how you describe it)</label>
                   <input
                     type="text"
                     value={serviceArea}

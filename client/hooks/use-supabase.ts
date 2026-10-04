@@ -1,3 +1,4 @@
+import { LOCATION_KEYS, isMissingColumn, withoutKeys } from "@/lib/optionalColumns";
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -29,11 +30,10 @@ export function useCreateBoat() {
   const { user } = useAuth();
   return useMutation({
     mutationFn: async (boat: Omit<InsertTables<"boats">, "owner_id">) => {
-      const { data, error } = await supabase
-        .from("boats")
-        .insert({ ...boat, owner_id: user!.id })
-        .select()
-        .single();
+      const insert = (row: typeof boat) =>
+        supabase.from("boats").insert({ ...row, owner_id: user!.id }).select().single();
+      let { data, error } = await insert(boat);
+      if (isMissingColumn(error)) ({ data, error } = await insert(withoutKeys(boat, LOCATION_KEYS)));
       if (error) throw error;
       return data;
     },
@@ -45,7 +45,8 @@ export function useUpdateBoat() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...patch }: UpdateTables<"boats"> & { id: string }) => {
-      const { error } = await supabase.from("boats").update(patch).eq("id", id);
+      let { error } = await supabase.from("boats").update(patch).eq("id", id);
+      if (isMissingColumn(error)) ({ error } = await supabase.from("boats").update(withoutKeys(patch, LOCATION_KEYS)).eq("id", id));
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["boats"] }),

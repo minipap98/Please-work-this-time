@@ -20,6 +20,9 @@ export interface Database {
           push_subscription: Json | null;
           created_at: string;
           updated_at: string;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_place_id?: string | null;
         };
         Insert: {
           id: string;
@@ -37,6 +40,9 @@ export interface Database {
           push_subscription?: Json | null;
           created_at?: string;
           updated_at?: string;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_place_id?: string | null;
         };
         Update: {
           id?: string;
@@ -53,6 +59,9 @@ export interface Database {
           stripe_account_id?: string | null;
           push_subscription?: Json | null;
           updated_at?: string;
+          location_lat?: number | null;
+          location_lng?: number | null;
+          location_place_id?: string | null;
         };
         Relationships: [];
       };
@@ -76,6 +85,9 @@ export interface Database {
           photo_url: string | null;
           created_at: string;
           updated_at: string;
+          home_port_lat?: number | null;
+          home_port_lng?: number | null;
+          home_port_place_id?: string | null;
         };
         Insert: {
           id?: string;
@@ -94,6 +106,9 @@ export interface Database {
           registration_number?: string | null;
           hull_id?: string | null;
           photo_url?: string | null;
+          home_port_lat?: number | null;
+          home_port_lng?: number | null;
+          home_port_place_id?: string | null;
         };
         Update: {
           name?: string;
@@ -110,6 +125,9 @@ export interface Database {
           registration_number?: string | null;
           hull_id?: string | null;
           photo_url?: string | null;
+          home_port_lat?: number | null;
+          home_port_lng?: number | null;
+          home_port_place_id?: string | null;
         };
         Relationships: [];
       };
@@ -178,6 +196,9 @@ export interface Database {
           insurance_coverage: string | null;
           created_at: string;
           updated_at: string;
+          lat?: number | null;
+          lng?: number | null;
+          place_id?: string | null;
         };
         Insert: {
           id?: string;
@@ -203,6 +224,9 @@ export interface Database {
           insurance_policy_number?: string | null;
           insurance_expiry?: string | null;
           insurance_coverage?: string | null;
+          lat?: number | null;
+          lng?: number | null;
+          place_id?: string | null;
         };
         Update: {
           business_name?: string;
@@ -226,6 +250,9 @@ export interface Database {
           insurance_policy_number?: string | null;
           insurance_expiry?: string | null;
           insurance_coverage?: string | null;
+          lat?: number | null;
+          lng?: number | null;
+          place_id?: string | null;
         };
         Relationships: [];
       };
@@ -245,6 +272,8 @@ export interface Database {
           metadata: Json;
           created_at: string;
           updated_at: string;
+          lat?: number | null;
+          lng?: number | null;
         };
         Insert: {
           id?: string;
@@ -259,6 +288,8 @@ export interface Database {
           date?: string;
           expires_at?: string | null;
           metadata?: Json;
+          lat?: number | null;
+          lng?: number | null;
         };
         Update: {
           boat_id?: string | null;
@@ -270,6 +301,8 @@ export interface Database {
           chosen_bid_id?: string | null;
           expires_at?: string | null;
           metadata?: Json;
+          lat?: number | null;
+          lng?: number | null;
         };
         Relationships: [];
       };

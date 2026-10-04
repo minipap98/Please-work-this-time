@@ -1,4 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { useMyVendorProfile } from "@/hooks/use-supabase";
+import { useDemoMode } from "@/lib/demoMode";
+import { VENDOR_PROFILES } from "@/data/vendorData";
+import { DEMO_CITY_COORDS } from "@/data/demoLocations";
+import { distanceMiles, formatMiles, hasCoords } from "@shared/geo";
+import type { Tables } from "@/lib/database.types";
 import { Shield, Anchor, MapPin } from "lucide-react";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
@@ -38,9 +45,31 @@ export default function VendorRFPs() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<string[]>([]);
 
-  const openProjects = allProjects.filter(
-    (p) => p.status === "gathering" || p.status === "bidding" || p.status === "active"
-  );
+  const { demo } = useDemoMode();
+  const { data: myVendor } = useMyVendorProfile();
+  const mine = myVendor as Tables<"vendor_profiles"> | null | undefined;
+  const demoShop = demo && vendorId ? VENDOR_PROFILES[vendorId] : null;
+  const shop = demo
+    ? demoShop?.lat != null && demoShop?.lng != null ? { lat: demoShop.lat, lng: demoShop.lng } : null
+    : mine && mine.lat != null && mine.lng != null ? { lat: mine.lat, lng: mine.lng } : null;
+  const serviceRadius = demo ? 25 : mine?.service_radius_miles ?? 50;
+  // null = any distance. Defaults to the shop's own service radius once we know where it is.
+  const [maxMiles, setMaxMiles] = useState<number | null | undefined>(undefined);
+  const limit = maxMiles === undefined ? (shop ? serviceRadius : null) : maxMiles;
+
+  const openProjects = useMemo(() => {
+    const open = allProjects
+      .filter((p) => p.status === "gathering" || p.status === "bidding" || p.status === "active")
+      .map((p) => {
+        const at = hasCoords(p) ? { lat: p.lat!, lng: p.lng! } : demo && p.location ? DEMO_CITY_COORDS[p.location] : undefined;
+        return { p, miles: shop && at ? distanceMiles(shop, at) : null };
+      });
+    // Jobs without a verified location stay in the list (after the ones we can place).
+    return open
+      .filter(({ miles }) => limit == null || miles == null || miles <= limit)
+      .sort((a, b) => (a.miles ?? Infinity) - (b.miles ?? Infinity));
+  }, [allProjects, demo, shop?.lat, shop?.lng, limit]);
+  const milesById = new Map(openProjects.map(({ p, miles }) => [p.id, miles]));
 
   const dialogProject = dialogProjectId
     ? allProjects.find((p) => p.id === dialogProjectId)
@@ -114,7 +143,31 @@ export default function VendorRFPs() {
         <h1 className="text-2xl font-semibold text-foreground mb-1">Open RFPs</h1>
         <p className="text-sm text-muted-foreground mb-6">
           {openProjects.length} project{openProjects.length !== 1 ? "s" : ""} currently accepting bids
+          {limit != null ? ` within ${limit} miles` : ""}
         </p>
+        <div className="flex flex-wrap items-center gap-2 mb-6 -mt-3">
+          {shop ? (
+            <>
+              <span className="text-xs text-muted-foreground">Distance from your shop:</span>
+              <select
+                value={limit ?? "any"}
+                onChange={(e) => setMaxMiles(e.target.value === "any" ? null : Number(e.target.value))}
+                className="border border-border rounded-md px-2 py-1 text-xs bg-white"
+              >
+                {[10, 25, 50, 100, 200].map((m) => (
+                  <option key={m} value={m}>Within {m} mi{m === serviceRadius ? " (your radius)" : ""}</option>
+                ))}
+                <option value="any">Any distance</option>
+              </select>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              <MapPin className="inline w-3.5 h-3.5 -mt-0.5" />{" "}
+              <Link to="/vendor-shop?tab=settings" className="font-semibold text-sky-700 hover:underline">Add your shop location</Link>{" "}
+              to see how far each job is and filter by distance.
+            </p>
+          )}
+        </div>
 
         {openProjects.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -122,7 +175,8 @@ export default function VendorRFPs() {
           </div>
         ) : (
           <div className="space-y-4">
-            {openProjects.map((project) => {
+            {openProjects.map(({ p: project }) => {
+              const miles = milesById.get(project.id);
               const alreadyBid = submitted.includes(project.id) || myBidIds.has(project.id);
               return (
                 <div
@@ -161,7 +215,11 @@ export default function VendorRFPs() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mb-2">{project.date}</p>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {project.date}
+                        {miles != null && <span className="ml-2 font-semibold text-sky-700">{formatMiles(miles)} away</span>}
+                        {miles == null && project.location && <span className="ml-2">{project.location}</span>}
+                      </p>
                       <p className="text-sm text-foreground leading-relaxed">{project.description}</p>
                       {project.boat && (
                         <div className="flex items-center gap-1.5 mt-2.5 text-xs text-muted-foreground">

@@ -1,3 +1,4 @@
+import ShopLocationCard from "@/components/shop/ShopLocationCard";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
@@ -300,6 +301,7 @@ export default function VendorShop({
             )}
             {tab === "settings" && (
               <>
+              {!demo && !managerMode && <ShopLocationCard />}
               <ShopSettingsPanel
                 key={JSON.stringify(settings)}
                 settings={settings}

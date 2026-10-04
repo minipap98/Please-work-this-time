@@ -49,6 +49,9 @@ export interface Project {
   status: "active" | "bidding" | "in-progress" | "completed" | "expired" | "gathering";
   date: string;
   location?: string;
+  /** Approximate job location (rounded), when the owner's home port was verified. */
+  lat?: number;
+  lng?: number;
   category?: string;
   owner?: string;
   ownerId?: string;

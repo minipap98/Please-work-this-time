@@ -11,6 +11,7 @@ import { ENGINE_DATA, type EngineType } from "@/data/engineData";
 import { type ProjectBoat } from "@/data/projectData";
 import { useMyBoats } from "@/hooks/use-my-boat";
 import { DEMO_BOAT } from "@/data/demoBoat";
+import { approximate } from "@shared/geo";
 import { useAuth } from "@/context/AuthContext";
 import { useDemoMode } from "@/lib/demoMode";
 import { useCreateMarketplaceProject } from "@/hooks/use-marketplace";
@@ -287,6 +288,18 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
         return;
       }
     }
+  }
+
+  // Rounded job location so shops can match by distance without seeing the exact slip.
+  function jobCoords(): { lat?: number; lng?: number } {
+    if (demo) return {};
+    const src =
+      primary && primary.home_port_lat != null && primary.home_port_lng != null
+        ? { lat: primary.home_port_lat, lng: primary.home_port_lng }
+        : profile && profile.location_lat != null && profile.location_lng != null
+          ? { lat: profile.location_lat, lng: profile.location_lng }
+          : null;
+    return src ? { lat: approximate(src.lat), lng: approximate(src.lng) } : {};
   }
 
   // The boat profile already says what engine it has; only ask when it doesn't.
@@ -937,6 +950,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                             description: projectDescription.trim(),
                             category: selectedCategory || undefined,
                             location: location || undefined,
+                            ...jobCoords(),
                             boatId: boatInfo?.id || undefined,
                             photos: projectPhotos,
                             metadata: {

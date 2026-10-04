@@ -6,15 +6,20 @@ import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 import type { VendorProfile } from "@/data/vendorData";
 import { useVendorProfiles } from "@/hooks/use-supabase";
 import type { Tables } from "@/lib/database.types";
+import { useAuth } from "@/context/AuthContext";
+import { useDemoMode } from "@/lib/demoMode";
+import { useMyBoats } from "@/hooks/use-my-boat";
+import { distanceMiles, formatMiles } from "@shared/geo";
 
 const VendorMap = lazy(() => import("@/components/VendorMap"));
 
 const STAR_PATH =
   "M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z";
 
-type SortOption = "rating" | "reviews" | "jobs" | "response" | "experience";
+type SortOption = "distance" | "rating" | "reviews" | "jobs" | "response" | "experience";
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "distance", label: "Nearest" },
   { value: "rating", label: "Highest Rated" },
   { value: "reviews", label: "Most Reviews" },
   { value: "jobs", label: "Most Jobs" },
@@ -47,7 +52,19 @@ export default function BrowseVendors() {
   const [minRating, setMinRating] = useState(0);
   const [insuredOnly, setInsuredOnly] = useState(false);
   const [licensedOnly, setLicensedOnly] = useState(false);
-  const [sortBy, setSortBy] = useState<SortOption>("rating");
+  const { demo } = useDemoMode();
+  const { profile } = useAuth();
+  const { primary } = useMyBoats();
+  // Where the owner's boat is kept (demo: Key Biscayne), for "Nearest" and "X mi away".
+  const origin = demo
+    ? { lat: 25.7314, lng: -80.1696 }
+    : primary?.home_port_lat != null && primary?.home_port_lng != null
+      ? { lat: primary.home_port_lat, lng: primary.home_port_lng }
+      : profile?.location_lat != null && profile?.location_lng != null
+        ? { lat: profile.location_lat, lng: profile.location_lng }
+        : null;
+  const [sortChoice, setSortBy] = useState<SortOption | null>(null);
+  const sortBy: SortOption = sortChoice ?? (origin ? "distance" : "rating");
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
@@ -70,10 +87,14 @@ export default function BrowseVendors() {
         bio: v.bio ?? "",
         completedJobs: v.completed_jobs ?? 0,
         phone: v.phone ?? undefined,
+        lat: v.lat ?? undefined,
+        lng: v.lng ?? undefined,
       }));
     }
     return Object.values(getAllVendorProfiles()).map((v) => ({ ...v, id: v.name }));
   }, [liveVendors]);
+  const milesTo = (v: { lat?: number; lng?: number }) =>
+    origin && v.lat != null && v.lng != null ? distanceMiles(origin, { lat: v.lat, lng: v.lng }) : null;
 
   // Unique specialties
   const specialties = useMemo(
@@ -117,6 +138,7 @@ export default function BrowseVendors() {
     // Sort
     filtered.sort((a, b) => {
       switch (sortBy) {
+        case "distance": return (milesTo(a) ?? Infinity) - (milesTo(b) ?? Infinity);
         case "rating": return b.rating - a.rating || b.reviewCount - a.reviewCount;
         case "reviews": return b.reviewCount - a.reviewCount;
         case "jobs": return b.completedJobs - a.completedJobs;
@@ -127,7 +149,8 @@ export default function BrowseVendors() {
     });
 
     return filtered;
-  }, [allVendors, search, filterSpecialty, filterCert, minRating, insuredOnly, licensedOnly, sortBy]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allVendors, search, filterSpecialty, filterCert, minRating, insuredOnly, licensedOnly, sortBy, origin?.lat, origin?.lng]);
 
   const activeFilterCount = [
     filterSpecialty !== "All",
@@ -394,7 +417,7 @@ export default function BrowseVendors() {
         ) : (
           <div className={viewMode === "map" ? "space-y-2" : "space-y-3"}>
             {vendors.map((vendor) => (
-              <VendorCard key={vendor.name} vendor={vendor} navigate={navigate} />
+              <VendorCard key={vendor.name} vendor={vendor} navigate={navigate} miles={milesTo(vendor)} />
             ))}
           </div>
         )}
@@ -418,7 +441,7 @@ function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }
   );
 }
 
-function VendorCard({ vendor, navigate }: { vendor: VendorProfile; navigate: (path: string) => void }) {
+function VendorCard({ vendor, navigate, miles }: { vendor: VendorProfile; navigate: (path: string) => void; miles: number | null }) {
   const pastWork = VENDOR_PAST_PROJECTS[vendor.name] ?? [];
 
   return (
@@ -496,7 +519,7 @@ function VendorCard({ vendor, navigate }: { vendor: VendorProfile; navigate: (pa
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              {vendor.serviceArea.split("·")[0].trim()}
+              {miles != null ? `${formatMiles(miles)} away` : vendor.serviceArea.split("·")[0].trim()}
             </span>
           </div>
 

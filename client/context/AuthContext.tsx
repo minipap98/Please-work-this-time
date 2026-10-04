@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import type { User, Session } from "@supabase/supabase-js";
 import { supabase, supabaseMissing } from "@/lib/supabase";
 import { persistDemoMode } from "@/lib/demoMode";
+import { LOCATION_KEYS, isMissingColumn, withoutKeys } from "@/lib/optionalColumns";
 import type { Tables } from "@/lib/database.types";
 
 interface AuthContextValue {
@@ -102,7 +103,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = async (patch: Partial<Tables<"profiles">>) => {
     if (!user || supabaseMissing) return;
-    const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
+    let { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
+    if (isMissingColumn(error)) {
+      ({ error } = await supabase.from("profiles").update(withoutKeys(patch, LOCATION_KEYS)).eq("id", user.id));
+    }
     if (error) throw new Error(error.message);
     await fetchProfile(user.id);
   };

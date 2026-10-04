@@ -8,6 +8,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useDemoMode } from "@/lib/demoMode";
 import { useMyBoats, uploadBoatPhoto } from "@/hooks/use-my-boat";
 import { useUpdateBoat } from "@/hooks/use-supabase";
+import LocationPicker from "@/components/LocationPicker";
+import type { PickedLocation } from "@shared/geo";
 
 const STORAGE_KEY = "hero_image";
 const DEFAULT_IMAGE = "https://cdn.builder.io/api/v1/image/assets%2F6d21a31dd9f5464480f247d960742b01%2Fbc990cddf7ea4c13b79484a350ac1943?format=webp&width=1400&height=700";
@@ -59,6 +61,18 @@ export default function Settings() {
   const [location, setLocation] = useState<string>(
     demo ? localStorage.getItem("user_location") ?? "" : ""
   );
+
+  // Live accounts pick a verified place; `placeTouched` means the owner changed it here.
+  const [place, setPlace] = useState<PickedLocation | null>(null);
+  const [placeTouched, setPlaceTouched] = useState(false);
+  useEffect(() => {
+    if (demo || placeTouched || !profile) return;
+    setPlace(
+      profile.location && profile.location_lat != null && profile.location_lng != null
+        ? { label: profile.location, address: null, lat: profile.location_lat, lng: profile.location_lng, placeId: profile.location_place_id ?? null, source: "google" }
+        : null
+    );
+  }, [demo, placeTouched, profile]);
 
   useEffect(() => {
     if (demo) return;
@@ -116,8 +130,22 @@ export default function Settings() {
       } else if (!preview && primary?.photo_url) {
         await updateBoat.mutateAsync({ id: primary.id, photo_url: null });
       }
-      if (location.trim() !== (profile?.location ?? "")) {
-        await updateProfile({ location: location.trim() || null });
+      if (placeTouched && place) {
+        await updateProfile({
+          location: place.label,
+          location_lat: place.lat,
+          location_lng: place.lng,
+          location_place_id: place.placeId,
+        });
+        if (primary) {
+          await updateBoat.mutateAsync({
+            id: primary.id,
+            home_port: place.label,
+            home_port_lat: place.lat,
+            home_port_lng: place.lng,
+            home_port_place_id: place.placeId,
+          });
+        }
       }
       setSaved(true);
       setTimeout(() => {
@@ -254,13 +282,28 @@ export default function Settings() {
             <p className="text-sm text-muted-foreground mb-4">
               Your marina or home port, shown on your dashboard.
             </p>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => { setLocation(e.target.value); setSaved(false); }}
-              placeholder="e.g. Miami, FL · Biscayne Bay Marina"
-              className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
+            {demo ? (
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => { setLocation(e.target.value); setSaved(false); }}
+                placeholder="e.g. Miami, FL · Biscayne Bay Marina"
+                className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            ) : (
+              <>
+                {!place && profile?.location && !placeTouched && (
+                  <p className="mb-2 text-xs text-amber-700">
+                    "{profile.location}" isn't verified yet. Pick it below so shops nearby can find your jobs.
+                  </p>
+                )}
+                <LocationPicker
+                  value={place}
+                  onChange={(p) => { setPlace(p); setPlaceTouched(true); setSaved(false); }}
+                  confirmLabel="Yes, this is my home port"
+                />
+              </>
+            )}
           </section>
         )}
 

@@ -1,15 +1,15 @@
 import { cn } from "@/lib/utils";
 
-/** Letter crops of the wordmark, positioned on the 1519 × 266 logo canvas. */
+/** Letter crops of the wordmark, positioned on the 1512 × 262 logo canvas. */
 const LETTERS = [
-  { ch: "B", left: 8, width: 240 },
-  { ch: "O", left: 302, width: 284 },
-  { ch: "S", left: 630, width: 240 },
-  { ch: "U", left: 937, width: 239 },
-  { ch: "N", left: 1260, width: 251 },
+  { ch: "B", left: 4, width: 240 },
+  { ch: "O", left: 297, width: 281 },
+  { ch: "S", left: 625, width: 241 },
+  { ch: "U", left: 933, width: 238 },
+  { ch: "N", left: 1256, width: 252 },
 ];
-const CANVAS_W = 1519;
-const CANVAS_H = 266;
+const CANVAS_W = 1512;
+const CANVAS_H = 262;
 
 /** Static wordmark. `tone="light"` is the white version for dark backgrounds. */
 export function BosunLogo({ className, tone = "dark" }: { className?: string; tone?: "dark" | "light" }) {

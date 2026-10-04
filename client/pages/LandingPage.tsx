@@ -352,8 +352,8 @@ export default function LandingPage() {
               <span className="text-[11px] font-semibold text-sky-800 bg-white border border-sky-200 rounded-full px-2 py-0.5">Coming soon</span>
               <h2 className="mt-2 text-xl sm:text-2xl font-bold text-foreground">Bosun Parts</h2>
               <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
-                Buy marine parts directly through Bosun. No markup for boaters, less cash tied up in inventory for shops,
-                and shops share the commission on parts for their jobs.
+                Doing it yourself? Get the exact parts that fit your boat and engine, at standard retail prices,
+                logged in your Boat Log automatically.
               </p>
             </div>
             <span className="shrink-0 text-sm font-semibold text-sky-700">Learn more →</span>

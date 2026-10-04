@@ -1,28 +1,29 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Anchor, Package, Store, Wallet, Wrench } from "lucide-react";
+import { Anchor, BookOpen, Package, Search, Tag, Wrench } from "lucide-react";
 
 const POINTS = [
   {
-    icon: Wrench,
-    title: "Shops: parts without tying up cash",
-    body: "Order the parts for a job through Bosun and have them shipped to the yard or straight to the boat. Less money sitting in stock on your shelves, and parts arrive already tied to the work order.",
+    icon: Search,
+    title: "The right part, the first time",
+    body: "Bosun already knows your boat and engine. Pick the job, whether it's an oil change, impeller, anodes or fuel filters, and see the exact parts that fit, with quantities.",
   },
   {
-    icon: Anchor,
-    title: "Boaters: the parts price, out in the open",
-    body: "Buy the filters, impellers, anodes and paint your boat needs at the price Bosun pays, with no markup added on top. Every part is matched to your boat and engine and logged in your Boat Log.",
+    icon: Tag,
+    title: "Straightforward pricing",
+    body: "Parts sold at the manufacturer's suggested retail price. No guessing between near-identical listings or hunting through part diagrams.",
   },
   {
-    icon: Store,
-    title: "Shops still earn on parts",
-    body: "When a customer buys parts for a job you're doing, you share the commission with Bosun. You keep a parts margin without having to buy, store and finance the inventory first.",
+    icon: BookOpen,
+    title: "Logged for you",
+    body: "Your order goes straight into your Boat Log, so the next owner, your surveyor or your insurer can see what was replaced and when.",
   },
 ];
 
 const STEPS = [
-  { n: "1", text: "Pick the job or the boat. Bosun knows the engine, so it suggests the right part numbers." },
-  { n: "2", text: "Order through Bosun. Shipping goes to the yard, the slip or your door, with tracking on the job." },
-  { n: "3", text: "Parts land on the work order and in the Boat Log automatically. No re-keying, no lost receipts." },
+  { n: "1", text: "Choose your boat and the job you're doing yourself." },
+  { n: "2", text: "Bosun lists the parts that fit your engine, matched by model and serial range." },
+  { n: "3", text: "Order and get it shipped to your door, slip or marina." },
+  { n: "4", text: "When you finish the job, it's already in your Boat Log." },
 ];
 
 export default function PartsComingSoon() {
@@ -49,8 +50,8 @@ export default function PartsComingSoon() {
         </span>
         <h1 className="mt-5 text-3xl sm:text-5xl font-bold tracking-tight text-foreground">Bosun Parts</h1>
         <p className="mt-4 text-lg text-muted-foreground leading-relaxed">
-          Marine parts bought directly through Bosun. Boaters pay no markup, shops carry less inventory,
-          and every part is tied to the boat it's for.
+          Doing the work yourself? Bosun will tell you exactly which parts fit your boat and engine,
+          let you order them in one place, and log the job when you're done.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <button onClick={() => navigate("/login?mode=signup")} className="px-6 py-3 rounded-xl bg-sky-500 text-white font-semibold hover:bg-sky-600">
@@ -60,7 +61,7 @@ export default function PartsComingSoon() {
             Back to Bosun
           </Link>
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">Create a free account and you'll be first to know when Parts opens in your area.</p>
+        <p className="mt-3 text-xs text-muted-foreground">Create a free account and add your boat. You'll be first to know when Parts opens.</p>
       </header>
 
       <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-14 grid gap-4 sm:grid-cols-3">
@@ -90,19 +91,18 @@ export default function PartsComingSoon() {
       </section>
 
       <section className="max-w-3xl mx-auto px-4 sm:px-6 py-14 text-center">
-        <Wallet className="w-8 h-8 mx-auto text-sky-600" />
-        <h2 className="mt-3 text-xl font-bold">Run a shop?</h2>
+        <Wrench className="w-8 h-8 mx-auto text-sky-600" />
+        <h2 className="mt-3 text-xl font-bold">Rather have a pro do it?</h2>
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-          We're lining up launch partners: yards that want parts without the carrying cost and a share of every parts order
-          on their jobs. Sign up as a vendor and tell us what you stock most.
+          Post the job on Bosun and get bids from local, insured marine shops. Their work lands in your Boat Log too.
         </p>
         <button onClick={() => navigate("/login?mode=signup")} className="mt-5 px-6 py-3 rounded-xl bg-foreground text-background font-semibold">
-          Become a launch partner
+          Post a job
         </button>
       </section>
 
       <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
-        Bosun Parts is in development. Pricing, availability and commission terms will be announced at launch.
+        Bosun Parts is in development. Catalog, brands and shipping areas will be announced at launch.
       </footer>
     </div>
   );

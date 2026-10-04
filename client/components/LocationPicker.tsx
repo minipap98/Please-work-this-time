@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2, MapPin, Search } from "lucide-react";
-import { googleLibraries, googleMapsConfigured } from "@/lib/googleMaps";
+import { MAPS_FAILED_EVENT, googleLibraries, googleMapsConfigured, mapsRenderFailed } from "@/lib/googleMaps";
 import { zipToLocation, type PickedLocation } from "@shared/geo";
 import { cn } from "@/lib/utils";
 
@@ -247,11 +247,22 @@ export default function LocationPicker({
 
 function MapPreview({ lat, lng, zoom }: { lat: number; lng: number; zoom: number }) {
   const el = useRef<HTMLDivElement>(null);
-  const [failed, setFailed] = useState(!googleMapsConfigured);
+  const [failed, setFailed] = useState(!googleMapsConfigured || mapsRenderFailed());
+
+  useEffect(() => {
+    const onFail = () => setFailed(true);
+    window.addEventListener(MAPS_FAILED_EVENT, onFail);
+    return () => window.removeEventListener(MAPS_FAILED_EVENT, onFail);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    if (!googleMapsConfigured) return;
+    if (!googleMapsConfigured || failed) return;
+    // Google sometimes draws its own error panel without calling gm_authFailure; watch for it.
+    const watch = new MutationObserver(() => {
+      if (el.current?.querySelector(".gm-err-container, .gm-err-content")) setFailed(true);
+    });
+    if (el.current) watch.observe(el.current, { childList: true, subtree: true });
     googleLibraries("maps", "marker")
       .then(() => {
         if (cancelled || !el.current) return;
@@ -268,13 +279,22 @@ function MapPreview({ lat, lng, zoom }: { lat: number; lng: number; zoom: number
       .catch(() => !cancelled && setFailed(true));
     return () => {
       cancelled = true;
+      watch.disconnect();
     };
-  }, [lat, lng, zoom]);
+  }, [lat, lng, zoom, failed]);
 
   if (failed) {
     return (
-      <div className="h-24 bg-sky-50 flex items-center justify-center text-xs text-muted-foreground">
-        {lat.toFixed(3)}, {lng.toFixed(3)}
+      <div className="h-16 bg-sky-50 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+        <MapPin className="w-3.5 h-3.5 text-sky-600" />
+        <a
+          href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-sky-700 hover:underline"
+        >
+          Check it on Google Maps
+        </a>
       </div>
     );
   }

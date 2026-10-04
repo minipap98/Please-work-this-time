@@ -3,6 +3,19 @@ const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? "";
 
 let ready: Promise<void> | null = null;
 
+// Google calls window.gm_authFailure when the key can't be used for maps (API not enabled,
+// key restricted, billing off). Components listen so they can hide the map instead of
+// showing Google's error panel.
+export const MAPS_FAILED_EVENT = "bosun:maps-failed";
+let mapsFailed = false;
+export function mapsRenderFailed(): boolean {
+  return mapsFailed;
+}
+(window as unknown as { gm_authFailure?: () => void }).gm_authFailure = () => {
+  mapsFailed = true;
+  window.dispatchEvent(new Event(MAPS_FAILED_EVENT));
+};
+
 export const googleMapsConfigured = !!API_KEY;
 
 export function loadGoogleMaps(): Promise<void> {

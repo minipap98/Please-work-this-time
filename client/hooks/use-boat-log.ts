@@ -458,7 +458,7 @@ export function useReadInvoice() {
         reason:
           json.code === "not_configured"
             ? "Automatic reading isn't switched on yet, so fill in the details below. Your invoice is saved with the entry."
-            : `${json.error ?? "We couldn't read that file."} Your invoice is saved with the entry.`,
+            : `${json.error ?? `Invoice reading failed (server error ${res.status}).`} Your invoice is saved with the entry, so fill in the details below.`,
         path,
       };
     },

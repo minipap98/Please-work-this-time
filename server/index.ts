@@ -1,11 +1,11 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { handleDemo } from "./routes/demo";
-import { handleCreatePaymentIntent, handleStripeWebhook } from "./routes/payments";
-import { handleNotifyJob } from "./routes/notify";
-import { handleInboundPartsEmail } from "./routes/inbound-email";
-import { handleExtractInvoice } from "./routes/invoice-extract";
+import { handleDemo } from "./routes/demo.js";
+import { handleCreatePaymentIntent, handleStripeWebhook } from "./routes/payments.js";
+import { handleNotifyJob } from "./routes/notify.js";
+import { handleInboundPartsEmail } from "./routes/inbound-email.js";
+import { handleExtractInvoice, handleInvoiceHealth } from "./routes/invoice-extract.js";
 
 export function createServer() {
   const app = express();
@@ -39,6 +39,7 @@ export function createServer() {
   app.post("/api/jobs/notify", handleNotifyJob);
   app.post("/api/inbound/parts-email", handleInboundPartsEmail);
   app.post("/api/invoices/extract", handleExtractInvoice);
+  app.get("/api/invoices/health", handleInvoiceHealth);
 
   return app;
 }

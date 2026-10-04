@@ -6,7 +6,7 @@ import {
   validatePaymentCents,
   type CreatePaymentIntentRequest,
   type CreatePaymentIntentResponse,
-} from "../../shared/api";
+} from "../../shared/api.js";
 
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;

@@ -8,7 +8,7 @@ import {
   parseShippingEmail,
   type ShipmentStatus,
   type WorkOrderStatus,
-} from "../../shared/shop";
+} from "../../shared/shop.js";
 
 function safeEqual(a: string, b: string): boolean {
   const x = Buffer.from(a);

@@ -1,7 +1,7 @@
 import type { RequestHandler } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
-import { INVOICE_PROMPT, INVOICE_SCHEMA, normalizeInvoice } from "../../shared/invoice";
+import { INVOICE_PROMPT, INVOICE_SCHEMA, normalizeInvoice } from "../../shared/invoice.js";
 
 const MAX_BYTES = 15 * 1024 * 1024;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
@@ -13,7 +13,55 @@ type ImageType = (typeof IMAGE_TYPES)[number];
  * the private boat-documents bucket and returns the fields for review.
  * Nothing is saved here; the owner confirms on the review screen.
  */
-export const handleExtractInvoice: RequestHandler = async (req, res) => {
+export const handleInvoiceHealth: RequestHandler = (_req, res) => {
+  res.json({ configured: !!process.env.ANTHROPIC_API_KEY, supabase: !!(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL) });
+};
+
+type Source = Anthropic.Beta.BetaContentBlockParam;
+
+async function readWithClaude(source: Source) {
+  const client = new Anthropic();
+  const base = {
+    model: "claude-opus-5-5",
+    max_tokens: 16000,
+    output_config: { effort: "low" as const, format: { type: "json_schema" as const, schema: INVOICE_SCHEMA as unknown as Record<string, unknown> } },
+    messages: [{ role: "user" as const, content: [source, { type: "text" as const, text: INVOICE_PROMPT }] }],
+  };
+  try {
+    return await client.beta.messages.create({ ...base, betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" });
+  } catch (e) {
+    // If the fallback beta isn't enabled for this key, read without it rather than failing.
+    if (e instanceof Anthropic.BadRequestError && /fallback/i.test(e.message)) {
+      console.warn("invoice extract: retrying without fallbacks:", e.message);
+      return await client.beta.messages.create(base);
+    }
+    throw e;
+  }
+}
+
+export const handleExtractInvoice: RequestHandler = async (req, res, next) => {
+  const started = Date.now();
+  try {
+    await extract(req, res, next);
+  } catch (e) {
+    if (e instanceof Anthropic.RateLimitError) {
+      res.status(429).json({ error: "Invoice reading is busy. Try again in a minute." });
+    } else if (e instanceof Anthropic.AuthenticationError) {
+      console.error("invoice extract: bad ANTHROPIC_API_KEY");
+      res.status(502).json({ error: "Invoice reading isn't set up correctly (the API key was rejected).", code: "bad_key" });
+    } else if (e instanceof Anthropic.APIError) {
+      console.error("invoice extract", e.status, e.message);
+      res.status(502).json({ error: `Invoice reading failed (${e.status ?? "error"}): ${e.message.slice(0, 200)}` });
+    } else {
+      console.error("invoice extract", e);
+      res.status(500).json({ error: `Something went wrong reading that invoice: ${String(e).slice(0, 200)}` });
+    }
+  } finally {
+    console.log(`invoice extract finished in ${Date.now() - started}ms`);
+  }
+};
+
+const extract: RequestHandler = async (req, res) => {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const anon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
   const auth = req.headers.authorization;
@@ -53,7 +101,7 @@ export const handleExtractInvoice: RequestHandler = async (req, res) => {
 
   const data = Buffer.from(await file.arrayBuffer()).toString("base64");
   const type = file.type || (path.endsWith(".pdf") ? "application/pdf" : "image/jpeg");
-  let source: Anthropic.Beta.BetaContentBlockParam;
+  let source: Source;
   if (type === "application/pdf") {
     source = { type: "document", source: { type: "base64", media_type: "application/pdf", data } };
   } else if ((IMAGE_TYPES as readonly string[]).includes(type)) {
@@ -63,16 +111,8 @@ export const handleExtractInvoice: RequestHandler = async (req, res) => {
     return;
   }
 
-  try {
-    const client = new Anthropic();
-    const msg = await client.beta.messages.create({
-      model: "claude-opus-5-5",
-      max_tokens: 16000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      output_config: { effort: "low", format: { type: "json_schema", schema: INVOICE_SCHEMA as unknown as Record<string, unknown> } },
-      messages: [{ role: "user", content: [source, { type: "text", text: INVOICE_PROMPT }] }],
-    });
+  {
+    const msg = await readWithClaude(source);
 
     if (msg.stop_reason === "refusal") {
       res.status(422).json({ error: "We couldn't read that file. Enter the details by hand." });
@@ -88,15 +128,5 @@ export const handleExtractInvoice: RequestHandler = async (req, res) => {
       return;
     }
     res.json({ invoice: normalizeInvoice(JSON.parse(text)) });
-  } catch (e) {
-    if (e instanceof Anthropic.RateLimitError) {
-      res.status(429).json({ error: "Invoice reading is busy. Try again in a minute." });
-    } else if (e instanceof Anthropic.APIError) {
-      console.error("invoice extract", e.status, e.message);
-      res.status(502).json({ error: "Invoice reading is unavailable right now. Try again shortly." });
-    } else {
-      console.error("invoice extract", e);
-      res.status(500).json({ error: "Something went wrong reading that invoice." });
-    }
   }
 };

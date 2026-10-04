@@ -3,14 +3,17 @@ import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
 import { useMyVendorProfile } from "@/hooks/use-supabase";
-import { getLocalProjectStatus, isBidAccepted } from "@/data/bidUtils";
+import { getLocalProjectStatus } from "@/data/bidUtils";
 import { useOpenRfps, useSubmitMarketplaceBid, useVendorBidProjects } from "@/hooks/use-marketplace";
 import { toast } from "sonner";
 import { isDemoMode } from "@/lib/demoMode";
 import { VENDOR_PROFILES } from "@/data/vendorData";
 import { useSendMessage } from "@/hooks/use-supabase";
-import { getVendorRevenueWithTiers, getVendorScorecard, getVendorAnalytics } from "@/data/vendorRetentionUtils";
 import { Shield, Anchor, MapPin } from "lucide-react";
+import TodayPanel from "@/components/shop/TodayPanel";
+import { useShopSettings, useWorkOrders } from "@/hooks/use-shop";
+import { DEFAULT_SHOP_SETTINGS } from "@/data/shopDemoData";
+import { openSlots, rfpFit, type RfpFit } from "@shared/shop";
 // Insurance + Templates moved to Business Hub
 
 interface LineItem {
@@ -29,14 +32,6 @@ function bidTotal(items: LineItem[]): number {
   return items.reduce((sum, item) => sum + lineTotal(item), 0);
 }
 
-function fmt(n: number) {
-  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function fmtShort(n: number) {
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`;
-  return `$${Math.round(n)}`;
-}
 
 export default function VendorDashboard() {
   const { vendorId } = useRole();
@@ -79,7 +74,7 @@ export default function VendorDashboard() {
   }
 
   const { data: myVendor } = useMyVendorProfile();
-  const vendorRow = myVendor as { business_name?: string; response_time?: string | null } | null | undefined;
+  const vendorRow = myVendor as { business_name?: string; response_time?: string | null; insurance_expiry?: string | null } | null | undefined;
   const demoVendor = isDemoMode() && vendorId ? VENDOR_PROFILES[vendorId] : null;
   const vendor = demoVendor
     ? {
@@ -94,24 +89,11 @@ export default function VendorDashboard() {
       : vendorId
         ? { name: "Your shop", responseTime: "—" }
         : null;
-  const revenue = vendorId ? getVendorRevenueWithTiers(vendorId) : null;
-  const scorecard = vendorId ? getVendorScorecard(vendorId) : null;
-  const analytics = vendorId ? getVendorAnalytics(vendorId) : null;
 
   const { data: allProjects = [] } = useOpenRfps();
   const { data: vendorProjects = [], refetch } = useVendorBidProjects(vendorId);
   const submitBid = useSubmitMarketplaceBid();
   const sendMessage = useSendMessage();
-  const bidProjects = vendorProjects.flatMap((project) => {
-    const bid = project.bids.find((b) => b.vendorProfileId === vendorId || b.vendorName === vendorId) ?? project.bids[0];
-    return bid ? [{ project, bid }] : [];
-  });
-
-  // Active jobs = accepted bids on in-progress projects
-  const activeJobs = bidProjects.filter(({ project, bid }) => {
-    const effective = getLocalProjectStatus(project.id, project.status);
-    return (effective === "in-progress" || isBidAccepted(project, bid)) && effective !== "completed";
-  });
 
   // Declined RFPs (vendor dismissed)
   const [declinedIds, setDeclinedIds] = useState<Set<string>>(() => {
@@ -151,6 +133,17 @@ export default function VendorDashboard() {
     return ["All", ...Array.from(cats).sort()];
   }, [openRFPs]);
 
+  // New jobs framed as filling open slots on the shop's own schedule.
+  const { data: shopOrders = [] } = useWorkOrders(vendorId);
+  const { data: shopSettings = DEFAULT_SHOP_SETTINGS } = useShopSettings(vendorId);
+  const [showAllJobs, setShowAllJobs] = useState(false);
+  const fits = useMemo(() => {
+    const slots = openSlots(shopOrders, shopSettings.bays.length ? shopSettings.bays : ["Shop"]);
+    const m = new Map<string, RfpFit>();
+    for (const p of openRFPs) m.set(p.id, rfpFit(p, shopOrders, slots));
+    return m;
+  }, [openRFPs, shopOrders, shopSettings.bays]);
+
   const filteredRFPs = useMemo(() => {
     return openRFPs.filter((p) => {
       const loc = p.location ?? "Fort Lauderdale";
@@ -158,8 +151,9 @@ export default function VendorDashboard() {
       if (locationFilters.size > 0 && !locationFilters.has(loc)) return false;
       if (categoryFilters.size > 0 && !categoryFilters.has(cat)) return false;
       return true;
-    });
-  }, [openRFPs, locationFilters, categoryFilters]);
+    }).sort((a, b) => (fits.get(b.id)?.score ?? 0) - (fits.get(a.id)?.score ?? 0));
+  }, [openRFPs, locationFilters, categoryFilters, fits]);
+  const shownRFPs = showAllJobs ? filteredRFPs : filteredRFPs.slice(0, 3);
 
   const detailProject = detailProjectId
     ? allProjects.find((p) => p.id === detailProjectId)
@@ -276,137 +270,58 @@ export default function VendorDashboard() {
     <div className="min-h-screen bg-[#fafaf9] pb-16 md:pb-0">
       <Header />
 
-      {/* ── Compact Metrics Strip ─────────────────────────────── */}
+      {/* ── Today ─────────────────────────────────────────────── */}
       <div className="bg-white border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          {/* Greeting + quick stats row */}
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">
-                Welcome back, {vendor.name.split(" ")[0]}
-              </h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {openRFPs.length} open RFP{openRFPs.length !== 1 ? "s" : ""} in your area
-                {activeJobs.length > 0 && ` · ${activeJobs.length} active job${activeJobs.length !== 1 ? "s" : ""}`}
-              </p>
-            </div>
-            {revenue && (
-              <div className="hidden sm:flex items-center gap-1.5">
-                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${revenue.currentTier.badgeColor}`}>
-                  {revenue.currentTier.name === "Gold" ? "🥇" : revenue.currentTier.name === "Silver" ? "🥈" : "🥉"}
-                  {revenue.currentTier.name}
-                </span>
-              </div>
-            )}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-semibold text-foreground">
+              {new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening"},{" "}
+              {vendor.name.split(" ")[0]}
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            </p>
           </div>
-
-          {/* KPI cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => navigate("/vendor-revenue")}
-              className="text-left border border-border rounded-lg px-3 py-2.5 hover:border-sky-200 hover:bg-sky-50/30 transition-colors group"
+              onClick={() => navigate("/vendor-shop?tab=orders&new=wo")}
+              className="px-3 py-2 text-sm font-semibold rounded-lg bg-foreground text-background"
             >
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Net Earnings</p>
-              <p className="text-lg font-bold text-foreground mt-0.5">{fmtShort(revenue?.tieredPaidNet ?? 0)}</p>
-              {(revenue?.tieredPendingNet ?? 0) > 0 && (
-                <p className="text-[10px] text-sky-600 font-medium mt-0.5">+{fmtShort(revenue!.tieredPendingNet)} pending</p>
-              )}
+              + Work order
             </button>
-
             <button
-              onClick={() => navigate("/vendor-my-bids")}
-              className="text-left border border-border rounded-lg px-3 py-2.5 hover:border-sky-200 hover:bg-sky-50/30 transition-colors group"
+              onClick={() => navigate("/vendor-shop?tab=parts&paste=1")}
+              className="px-3 py-2 text-sm font-medium rounded-lg border border-border hover:bg-muted"
             >
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Win Rate</p>
-              <p className="text-lg font-bold text-foreground mt-0.5">{Math.round(scorecard?.bidWinRate ?? 0)}%</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{scorecard?.acceptedBids ?? 0} of {scorecard?.totalBids ?? 0} bids</p>
+              Track a part
             </button>
-
-            <div className="border border-border rounded-lg px-3 py-2.5">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Response Time</p>
-              <p className="text-lg font-bold text-foreground mt-0.5">{vendor.responseTime}</p>
-              <p className="text-[10px] text-green-600 font-medium mt-0.5">
-                {(analytics?.avgResponseTimeHours ?? 2) <= 2 ? "Top 15% of vendors" : "Faster = more wins"}
-              </p>
-            </div>
-
-            <div className="border border-border rounded-lg px-3 py-2.5">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Repeat Clients</p>
-              <p className="text-lg font-bold text-foreground mt-0.5">{analytics?.repeatClientRate ?? 0}%</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{analytics?.repeatClients ?? 0} of {analytics?.uniqueClients ?? 0} clients</p>
-            </div>
+            <button
+              onClick={() => navigate("/vendor-shop?tab=schedule")}
+              className="px-3 py-2 text-sm font-medium rounded-lg border border-border hover:bg-muted"
+            >
+              Schedule
+            </button>
           </div>
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+        {vendorId && <TodayPanel vendorId={vendorId} coiExpiry={vendorRow?.insurance_expiry ?? null} />}
 
-
-
-
-        {/* ── Active Jobs ──────────────────────────────────────── */}
-        {activeJobs.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2.5">
-              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
-                Active Jobs
-              </h2>
-              <button
-                onClick={() => navigate("/vendor-my-bids")}
-                className="text-xs text-sky-600 hover:text-sky-700 font-medium"
-              >
-                View all bids
-              </button>
-            </div>
-            <div className="grid gap-2.5 sm:grid-cols-2">
-              {activeJobs.slice(0, 4).map(({ project, bid }) => (
-                <div
-                  key={project.id}
-                  className="bg-white border border-border rounded-xl p-4 hover:border-sky-200 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-1">{project.title}</h3>
-                    <span className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 text-[10px] font-semibold whitespace-nowrap">
-                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
-                      In Progress
-                    </span>
-                  </div>
-                  {project.boat && (
-                    <p className="text-xs text-muted-foreground mb-1.5">
-                      {project.boat.name} · {project.boat.year} {project.boat.make} {project.boat.model}
-                    </p>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-foreground">${fmt(bid.price)}</span>
-                    {project.location && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        {project.location}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-
-
-
+        <div className="mt-8" />
         {/* ── Open RFPs ────────────────────────────────────────── */}
         <div className="flex items-center justify-between mb-2.5">
-          <h2 className="text-sm font-semibold text-foreground">Open RFPs</h2>
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">New jobs near you</h2>
+            <p className="text-[11px] text-muted-foreground">Ranked by what fits your open days and the work you already do</p>
+          </div>
           <span className="text-xs text-muted-foreground">
-            {filteredRFPs.length}{filteredRFPs.length !== openRFPs.length ? ` of ${openRFPs.length}` : ""} project{filteredRFPs.length !== 1 ? "s" : ""}
+            {filteredRFPs.length}{filteredRFPs.length !== openRFPs.length ? ` of ${openRFPs.length}` : ""} job{filteredRFPs.length !== 1 ? "s" : ""}
           </span>
         </div>
 
-        {/* Filters */}
+        {/* Filters (only when browsing everything) */}
+        {showAllJobs && (
         <div className="mb-3 space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-muted-foreground w-14 flex-shrink-0">Service</span>
@@ -458,6 +373,8 @@ export default function VendorDashboard() {
           </div>
         </div>
 
+        )}
+
         {/* RFP cards */}
         {filteredRFPs.length === 0 ? (
           <div className="border border-dashed border-border rounded-xl py-16 text-center">
@@ -471,7 +388,8 @@ export default function VendorDashboard() {
           </div>
         ) : (
           <div className="space-y-2.5">
-            {filteredRFPs.map((project) => {
+            {shownRFPs.map((project) => {
+              const fit = fits.get(project.id);
               return (
                 <div
                   key={project.id}
@@ -547,6 +465,21 @@ export default function VendorDashboard() {
                     )}
                   </div>
 
+                  {fit && (fit.slot || fit.pastJobs > 0) && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {fit.slot && (
+                        <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                          Fits {new Date(`${fit.slot.day}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {fit.slot.bay}
+                        </span>
+                      )}
+                      {fit.pastJobs > 0 && (
+                        <span className="text-[11px] font-semibold text-sky-800 bg-sky-50 border border-sky-200 rounded-full px-2 py-0.5">
+                          You've done {fit.pastJobs} of these
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   <p className="text-xs sm:text-sm text-foreground leading-relaxed line-clamp-2 mb-2">
                     {project.description}
                   </p>
@@ -572,6 +505,16 @@ export default function VendorDashboard() {
             })}
           </div>
         )}
+        {filteredRFPs.length > 3 || showAllJobs ? (
+          <div className="mt-3 text-center">
+            <button
+              onClick={() => setShowAllJobs((v) => !v)}
+              className="text-xs font-semibold text-sky-700 hover:text-sky-800 border border-border bg-white rounded-lg px-3 py-2"
+            >
+              {showAllJobs ? "Show top matches only" : `Browse all ${openRFPs.length} open jobs`}
+            </button>
+          </div>
+        ) : null}
       </main>
 
       {/* ── RFP Detail Panel ───────────────────────────────────── */}

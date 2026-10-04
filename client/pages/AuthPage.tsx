@@ -49,7 +49,8 @@ export default function AuthPage() {
         if (err) {
           setError(err);
         } else {
-          navigate("/app");
+          const next = searchParams.get("next");
+          navigate(next && next.startsWith("/") && !next.startsWith("//") ? next : "/app");
         }
       } else {
         if (!name.trim()) {
@@ -109,6 +110,11 @@ export default function AuthPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {searchParams.get("next") === "/tech" && (
+            <p className="text-xs text-sky-900 bg-sky-50 border border-sky-200 rounded-lg px-3 py-2">
+              Crew login: use the email your shop invited. New here? Create an account with that email, then sign in.
+            </p>
+          )}
 
           {/* Name — signup only */}
           {mode === "signup" && (

@@ -27,6 +27,8 @@ interface Props {
   onDelete: (id: string) => void;
   draftSeed: ShipmentDraft | null;
   onDraftSeedUsed: () => void;
+  autoPaste?: boolean;
+  onAutoPasteUsed?: () => void;
 }
 
 const CARRIERS: Carrier[] = ["UPS", "FedEx", "USPS", "DHL", "Other"];
@@ -40,6 +42,7 @@ export function blankShipment(): ShipmentDraft {
 
 export default function PartsInboundPanel({
   shipments, inventory, workOrders, inboundAddress, onSave, onReceive, onDelete, draftSeed, onDraftSeedUsed,
+  autoPaste, onAutoPasteUsed,
 }: Props) {
   const [pasteOpen, setPasteOpen] = useState(false);
   const [subject, setSubject] = useState("");
@@ -50,6 +53,12 @@ export default function PartsInboundPanel({
   const NO_BOAT: BoatTarget = { workOrderId: null, boatLabel: "", customerName: "" };
   const [pasteFor, setPasteFor] = useState<BoatTarget>(NO_BOAT);
   const [pasteForTouched, setPasteForTouched] = useState(false);
+
+  useEffect(() => {
+    if (!autoPaste) return;
+    setPasteOpen(true);
+    onAutoPasteUsed?.();
+  }, [autoPaste, onAutoPasteUsed]);
 
   useEffect(() => {
     if (!draftSeed) return;

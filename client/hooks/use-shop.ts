@@ -721,3 +721,190 @@ export function useDeleteShipment(vendorId: string | null) {
 }
 
 export type { WorkOrderLine };
+
+// ── Crew logins ──────────────────────────────────────────────────────────────
+
+export interface ShopMember {
+  id: string;
+  email: string;
+  techName: string;
+  joined: boolean;
+}
+
+const DEMO_CREW_KEY = "bosun_demo_crew_v1";
+
+function loadDemoCrew(): ShopMember[] {
+  try {
+    const raw = localStorage.getItem(DEMO_CREW_KEY);
+    if (raw) return JSON.parse(raw) as ShopMember[];
+  } catch {
+    // seed
+  }
+  return [
+    { id: "crew-1", email: "marco@example.com", techName: "Marco", joined: true },
+    { id: "crew-2", email: "jess@example.com", techName: "Jess", joined: false },
+  ];
+}
+
+export function useCrew(vendorId: string | null) {
+  return useQuery({
+    queryKey: ["shop-crew", vendorId],
+    queryFn: async (): Promise<ShopMember[]> => {
+      if (isDemoMode()) return loadDemoCrew();
+      const { data, error } = await db()
+        .from("shop_members")
+        .select("*")
+        .eq("vendor_id", vendorId!)
+        .order("created_at");
+      if (error) throw error;
+      return (data ?? []).map((m) => ({ id: m.id, email: m.email, techName: m.tech_name, joined: !!m.user_id }));
+    },
+    enabled: !!vendorId,
+  });
+}
+
+export function useInviteCrew(vendorId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ email, techName }: { email: string; techName: string }) => {
+      const clean = email.trim().toLowerCase();
+      if (isDemoMode()) {
+        const crew = loadDemoCrew().filter((m) => m.email !== clean);
+        crew.push({ id: newId("crew"), email: clean, techName, joined: false });
+        try {
+          localStorage.setItem(DEMO_CREW_KEY, JSON.stringify(crew));
+        } catch {
+          // ignore
+        }
+        return;
+      }
+      const { error } = await db()
+        .from("shop_members")
+        .upsert({ vendor_id: vendorId!, email: clean, tech_name: techName }, { onConflict: "vendor_id,email" });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["shop-crew", vendorId] }),
+  });
+}
+
+export function useRemoveCrew(vendorId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (isDemoMode()) {
+        try {
+          localStorage.setItem(DEMO_CREW_KEY, JSON.stringify(loadDemoCrew().filter((m) => m.id !== id)));
+        } catch {
+          // ignore
+        }
+        return;
+      }
+      const { error } = await db().from("shop_members").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["shop-crew", vendorId] }),
+  });
+}
+
+// ── Tech view ────────────────────────────────────────────────────────────────
+
+export interface CrewMembership {
+  vendorId: string;
+  shopName: string;
+  techName: string;
+}
+
+/** Shops I'm on the crew of. Claims any invite sent to my email first. */
+export function useMyCrewMemberships(userId: string | undefined, demoTech?: string) {
+  return useQuery({
+    queryKey: ["my-crew", isDemoMode() ? `demo-${demoTech}` : userId],
+    queryFn: async (): Promise<CrewMembership[]> => {
+      if (isDemoMode()) {
+        const techs = loadDemo().settings.techs;
+        return [{ vendorId: "demo-shop", shopName: "MarineMax Service Center", techName: demoTech ?? techs[0] ?? "Marco" }];
+      }
+      const client = db();
+      await client.rpc("claim_shop_invites");
+      const { data, error } = await client
+        .from("shop_members")
+        .select("vendor_id, tech_name, vendor:vendor_profiles(business_name)")
+        .eq("user_id", userId!);
+      if (error) throw error;
+      return ((data ?? []) as unknown as { vendor_id: string; tech_name: string; vendor: { business_name: string } | null }[]).map(
+        (m) => ({ vendorId: m.vendor_id, shopName: m.vendor?.business_name ?? "Your shop", techName: m.tech_name })
+      );
+    },
+    enabled: isDemoMode() || !!userId,
+  });
+}
+
+export function useTechJobs(m: CrewMembership | undefined) {
+  return useQuery({
+    queryKey: ["tech-jobs", m?.vendorId, m?.techName],
+    queryFn: async (): Promise<WorkOrder[]> => {
+      if (isDemoMode()) return loadDemo().workOrders.filter((o) => o.assignedTo === m!.techName);
+      const { data, error } = await db()
+        .from("shop_work_orders")
+        .select("*, lines:shop_work_order_lines(*)")
+        .eq("vendor_id", m!.vendorId)
+        .eq("assigned_to", m!.techName)
+        .order("scheduled_start", { ascending: true });
+      if (error) throw error;
+      return ((data ?? []) as unknown as WorkOrderRow[]).map(mapWorkOrder);
+    },
+    enabled: !!m,
+  });
+}
+
+export function useTechInventory(m: CrewMembership | undefined) {
+  return useQuery({
+    queryKey: ["tech-inventory", m?.vendorId],
+    queryFn: async (): Promise<InventoryItem[]> => {
+      if (isDemoMode()) return loadDemo().inventory;
+      const { data, error } = await db().from("shop_inventory").select("*").eq("vendor_id", m!.vendorId);
+      if (error) throw error;
+      return (data ?? []).map(mapInventory);
+    },
+    enabled: !!m,
+  });
+}
+
+/** A tech moves their own job along and/or adds a note (notes show in the owner's Boat Log). */
+export function useTechUpdateJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ order, status, note }: { order: WorkOrder; status?: WorkOrderStatus; note?: string }) => {
+      const stamp = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const description = note?.trim()
+        ? [order.description.trim(), `${stamp} (${order.assignedTo}): ${note.trim()}`].filter(Boolean).join("\n")
+        : order.description;
+      if (isDemoMode()) {
+        const now = new Date().toISOString();
+        mutateDemo((s) => {
+          s.workOrders = s.workOrders.map((o) =>
+            o.id === order.id
+              ? {
+                  ...o,
+                  description,
+                  status: status ?? o.status,
+                  completedAt: status && DONE.includes(status) ? (o.completedAt ?? now) : o.completedAt,
+                }
+              : o
+          );
+        });
+        return;
+      }
+      const patch: Partial<Tables<"shop_work_orders">> = { description, updated_at: new Date().toISOString() };
+      if (status) {
+        patch.status = status;
+        if (DONE.includes(status) && !order.completedAt) patch.completed_at = new Date().toISOString();
+      }
+      const { error } = await db().from("shop_work_orders").update(patch).eq("id", order.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tech-jobs"] });
+      qc.invalidateQueries({ queryKey: ["shop-work-orders"] });
+    },
+  });
+}

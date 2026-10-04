@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   advanceStatus,
   matchWorkOrderRef,
+  openSlots,
   partsProgress,
+  pullList,
+  rfpFit,
+  shopAlerts,
   shipmentBoatKey,
   carrierTrackingUrl,
   inboundTokenFromAddress,
@@ -14,6 +18,7 @@ import {
   toQuickBooksOnlineCsv,
   weekDays,
   workOrderTotals,
+  type PartsShipment,
   type WorkOrder,
 } from "./shop";
 
@@ -199,5 +204,63 @@ describe("parts paired with boats", () => {
     expect(shipmentBoatKey({ workOrderId: "b", boatLabel: "x", customerName: "" })).toBe("wo:b");
     expect(shipmentBoatKey({ workOrderId: null, boatLabel: " Reel Therapy ", customerName: "" })).toBe("boat:reel therapy");
     expect(shipmentBoatKey({ workOrderId: null, boatLabel: "", customerName: "" })).toBe("stock");
+  });
+});
+
+describe("vendor Today", () => {
+  const today = new Date(2026, 9, 2, 9); // Fri Oct 2
+  const at = (d: number, h: number) => new Date(2026, 9, d, h).toISOString();
+
+  it("lists what needs the shop now, most urgent first", () => {
+    const a = order({ id: "a", number: "WO-1", status: "scheduled", bay: "Bay 1", scheduledStart: at(2, 8), scheduledEnd: at(2, 12) });
+    const b = order({ id: "b", number: "WO-2", status: "scheduled", bay: "Bay 1", scheduledStart: at(2, 10), scheduledEnd: at(2, 14) });
+    const c = order({ id: "c", number: "WO-3", status: "waiting-parts", boatLabel: "Reel Therapy" });
+    const done = order({ id: "d", number: "WO-4", status: "completed", exportedAt: null });
+    const ship = (p: Partial<PartsShipment>): PartsShipment => ({
+      id: "s", supplier: "Defender", description: "Impellers", carrier: "UPS", trackingNumber: "", status: "shipped",
+      eta: null, workOrderId: null, boatLabel: "", customerName: "", inventoryItemId: null, quantity: 1,
+      source: "manual", emailSubject: null, receivedAt: null, createdAt: at(1, 9), ...p,
+    });
+    const alerts = shopAlerts({
+      orders: [a, b, c, done],
+      shipments: [ship({ id: "s1", workOrderId: "c", receivedAt: at(1, 12), status: "delivered" }), ship({ id: "s2", status: "exception" })],
+      inventory: [{ id: "i", sku: "", name: "Oil filter", category: "", binLocation: "A1", qtyOnHand: 2, reorderPoint: 4, unitCost: 1, unitPrice: 2, supplier: "", updatedAt: "" }],
+      wonJobsNotOnBoard: 1,
+      coiExpiry: "2026-10-20",
+      today,
+    });
+    expect(alerts.map((x) => x.id)).toEqual(["conflict-a-b", "ship-s2", "ready-c", "unbilled", "low-stock", "coi", "won-jobs"]);
+    expect(alerts.find((x) => x.id === "coi")?.text).toBe("Your insurance certificate expires in 18 days");
+    expect(alerts.find((x) => x.id === "ready-c")?.action).toEqual({ label: "Start job", tab: "orders", workOrderId: "c" });
+  });
+
+  it("frames new jobs by open slots and past experience", () => {
+    const busy = order({ id: "x", status: "scheduled", bay: "Bay 1", scheduledStart: at(3, 8), scheduledEnd: at(5, 16) });
+    const slots = openSlots([busy], ["Bay 1", "Haul-out"], today, 5);
+    expect(slots[0]).toEqual({ day: "2026-10-03", bay: "Haul-out" });
+    expect(slots.some((s) => s.day === "2026-10-04")).toBe(false); // Sunday skipped
+    expect(slots.find((s) => s.bay === "Bay 1")?.day).toBe("2026-10-06");
+
+    const past = [order({ id: "p1", title: "Bottom paint, 2 coats ablative" }), order({ id: "p2", title: "Bottom paint + zincs", status: "invoiced" })];
+    const fit = rfpFit({ title: "Bottom paint before season", haulOutRequired: true }, past, slots, today);
+    expect(fit.pastJobs).toBe(2);
+    expect(fit.slot?.bay).toBe("Haul-out");
+    expect(rfpFit({ title: "Stereo install" }, past, slots, today).pastJobs).toBe(0);
+    // Generic words like "replacement" don't count as experience.
+    const trim = [order({ id: "t", title: "Trim tab actuator replacement" })];
+    expect(rfpFit({ title: "T-Top Canvas & Side Curtain Replacement", category: "Canvas & Upholstery" }, trim, slots, today).pastJobs).toBe(0);
+  });
+
+  it("builds a tech's pull list with bin locations", () => {
+    const inv = [{ id: "inv1", sku: "", name: "Oil filter (Verado)", category: "", binLocation: "A1", qtyOnHand: 9, reorderPoint: 2, unitCost: 1, unitPrice: 2, supplier: "", updatedAt: "" }];
+    const list = pullList(order({ lines: [
+      { kind: "labor", description: "Labor", quantity: 2, unitPrice: 100 },
+      { kind: "part", description: "Lenco actuator", quantity: 1, unitPrice: 189 },
+      { kind: "part", description: "Oil filter", quantity: 2, unitPrice: 18.5, inventoryItemId: "inv1" },
+    ] }), inv);
+    expect(list).toEqual([
+      { description: "Oil filter (Verado)", quantity: 2, bin: "A1", inStock: 9 },
+      { description: "Lenco actuator", quantity: 1, bin: "Special order", inStock: null },
+    ]);
   });
 });

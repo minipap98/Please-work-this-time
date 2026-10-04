@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
@@ -21,6 +21,9 @@ import {
   useShipments,
   useShopRealtime,
   useShopSettings,
+  useCrew,
+  useInviteCrew,
+  useRemoveCrew,
   useUpdateShopSettings,
   useWorkOrders,
   type ShipmentDraft,
@@ -80,6 +83,7 @@ export default function VendorShop() {
   const [editor, setEditor] = useState<WorkOrderDraft | null>(null);
   const [shipmentSeed, setShipmentSeed] = useState<ShipmentDraft | null>(null);
   const clearSeed = useCallback(() => setShipmentSeed(null), []);
+  const [autoPaste, setAutoPaste] = useState(false);
 
   const fail = (e: unknown) =>
     toast({ title: "Couldn't save", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
@@ -106,6 +110,23 @@ export default function VendorShop() {
       .reduce((s, o) => s + workOrderTotals(o.lines, o.taxRate).total, 0);
     return { today, waiting, low, arriving, unbilled };
   }, [orders, inventory, shipments, todayKey]);
+
+  const deepWo = params.get("wo");
+  const deepNew = params.get("new");
+  const deepPaste = params.get("paste");
+  useEffect(() => {
+    if (!deepWo && !deepNew && !deepPaste) return;
+    if (deepWo) {
+      const found = orders.find((o) => o.id === deepWo);
+      if (!found) return; // wait for orders to load
+      setEditor(draftFromOrder(found));
+    } else if (deepNew === "wo") {
+      setEditor({ ...blankWorkOrder(nextWorkOrderNumber(orders), settings) });
+    } else if (deepPaste) {
+      setAutoPaste(true);
+    }
+    setParams({ tab }, { replace: true });
+  }, [deepWo, deepNew, deepPaste, orders, settings, tab, setParams]);
 
   if (!vendorId) {
     return (
@@ -236,6 +257,8 @@ export default function VendorShop() {
                 inboundAddress={inboundAddress}
                 draftSeed={shipmentSeed}
                 onDraftSeedUsed={clearSeed}
+                autoPaste={autoPaste}
+                onAutoPasteUsed={() => setAutoPaste(false)}
                 onSave={(d) => saveShipment.mutate(d, { onError: fail })}
                 onReceive={(id) =>
                   receive.mutate(id, {
@@ -261,6 +284,7 @@ export default function VendorShop() {
               />
             )}
             {tab === "settings" && (
+              <>
               <ShopSettingsPanel
                 key={JSON.stringify(settings)}
                 settings={settings}
@@ -269,6 +293,8 @@ export default function VendorShop() {
                   updateSettings.mutate(patch, { onError: fail, onSuccess: () => toast({ title: "Shop settings saved" }) })
                 }
               />
+              <CrewPanel vendorId={vendorId} techs={settings.techs} />
+              </>
             )}
           </>
         )}
@@ -376,6 +402,89 @@ function ShopSettingsPanel({
           Save
         </button>
       </div>
+    </div>
+  );
+}
+
+function CrewPanel({ vendorId, techs }: { vendorId: string; techs: string[] }) {
+  const { toast } = useToast();
+  const { data: crew = [] } = useCrew(vendorId);
+  const invite = useInviteCrew(vendorId);
+  const remove = useRemoveCrew(vendorId);
+  const [email, setEmail] = useState("");
+  const [techName, setTechName] = useState(techs[0] ?? "");
+  const link = typeof window !== "undefined" ? `${window.location.origin}/tech` : "/tech";
+  const valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim()) && techName.trim().length > 0;
+
+  return (
+    <div className="max-w-xl border border-border rounded-xl p-4 bg-white space-y-3 mt-4">
+      <div>
+        <p className="text-sm font-semibold">Crew logins</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Each tech gets their own login and sees only the jobs assigned to them: the day's list, parts to pull with bin
+          locations, and buttons to start, finish and add notes. Their notes go into the owner's Boat Log.
+        </p>
+      </div>
+      <div className="grid grid-cols-5 gap-2">
+        <input
+          className={`${inputCls} col-span-3`}
+          type="email"
+          placeholder="tech@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <input
+          className={`${inputCls} col-span-2`}
+          list="crew-techs"
+          placeholder="Name on the board"
+          value={techName}
+          onChange={(e) => setTechName(e.target.value)}
+        />
+        <datalist id="crew-techs">{techs.map((t) => <option key={t} value={t} />)}</datalist>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] text-muted-foreground">
+          Then send them <code className="bg-muted px-1 rounded">{link}</code> to sign up or log in with that email.
+        </p>
+        <button
+          disabled={!valid || invite.isPending}
+          onClick={() =>
+            invite.mutate(
+              { email, techName: techName.trim() },
+              {
+                onSuccess: () => {
+                  toast({ title: `Invited ${techName.trim()}`, description: `Send them ${link}` });
+                  setEmail("");
+                },
+                onError: (e) => toast({ title: "Couldn't invite", description: String(e), variant: "destructive" }),
+              }
+            )
+          }
+          className="shrink-0 px-3 py-2 text-sm font-semibold rounded-lg bg-foreground text-background disabled:opacity-50"
+        >
+          Invite
+        </button>
+      </div>
+      {crew.length > 0 && (
+        <ul className="divide-y divide-border border border-border rounded-lg">
+          {crew.map((m) => (
+            <li key={m.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+              <span className="font-medium">{m.techName}</span>
+              <span className="text-muted-foreground truncate flex-1">{m.email}</span>
+              <span className={`text-[10px] font-semibold ${m.joined ? "text-emerald-700" : "text-amber-700"}`}>
+                {m.joined ? "JOINED" : "INVITED"}
+              </span>
+              <button
+                onClick={() => remove.mutate(m.id)}
+                className="text-xs text-muted-foreground hover:text-red-600"
+                aria-label={`Remove ${m.techName}`}
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -905,6 +905,38 @@ export interface Database {
         };
         Relationships: [];
       };
+      shop_members: {
+        Row: {
+          id: string;
+          vendor_id: string;
+          email: string;
+          tech_name: string;
+          user_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          vendor_id: string;
+          email: string;
+          tech_name: string;
+          user_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          email?: string;
+          tech_name?: string;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shop_members_vendor_id_fkey";
+            columns: ["vendor_id"];
+            isOneToOne: false;
+            referencedRelation: "vendor_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       notifications: {
         Row: {
           id: string;
@@ -971,6 +1003,10 @@ export interface Database {
       profile_cards: {
         Args: { ids: string[] };
         Returns: { id: string; name: string; initials: string; avatar_url: string | null; role: string }[];
+      };
+      claim_shop_invites: {
+        Args: Record<string, never>;
+        Returns: number;
       };
       can_see_profile: {
         Args: { pid: string };

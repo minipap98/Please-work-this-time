@@ -593,3 +593,209 @@ export function inventoryToCsv(items: InventoryItem[]): string {
     ]),
   ]);
 }
+
+// ── Today: what needs the shop now ───────────────────────────────────────────
+
+export type AlertTone = "urgent" | "warn" | "info" | "good";
+export type ShopTab = "orders" | "schedule" | "inventory" | "parts" | "quickbooks" | "settings";
+
+export interface ShopAlert {
+  id: string;
+  tone: AlertTone;
+  text: string;
+  action: { label: string; tab: ShopTab; workOrderId?: string };
+}
+
+const OPEN_STATUSES: WorkOrderStatus[] = ["scheduled", "in-progress", "waiting-parts"];
+
+/** The short "needs you now" list for the top of the vendor home page. */
+export function shopAlerts(input: {
+  orders: WorkOrder[];
+  shipments: PartsShipment[];
+  inventory: InventoryItem[];
+  wonJobsNotOnBoard?: number;
+  coiExpiry?: string | null; // YYYY-MM-DD
+  today?: Date;
+}): ShopAlert[] {
+  const today = input.today ?? new Date();
+  const todayKey = ymd(today);
+  const alerts: ShopAlert[] = [];
+  const byId = new Map(input.orders.map((o) => [o.id, o]));
+
+  const conflicts = scheduleConflicts(input.orders).filter(([a, b]) => {
+    const oa = byId.get(a);
+    const ob = byId.get(b);
+    return (oa && occupiesDay(oa, todayKey)) || (ob && occupiesDay(ob, todayKey));
+  });
+  for (const [a, b] of conflicts) {
+    const oa = byId.get(a)!;
+    const ob = byId.get(b)!;
+    const where = oa.bay && oa.bay === ob.bay ? oa.bay : oa.assignedTo;
+    alerts.push({
+      id: `conflict-${a}-${b}`,
+      tone: "urgent",
+      text: `${oa.number} and ${ob.number} are double-booked${where ? ` (${where})` : ""}`,
+      action: { label: "Fix schedule", tab: "schedule" },
+    });
+  }
+
+  for (const s of input.shipments) {
+    if (!s.receivedAt && s.status === "exception") {
+      alerts.push({
+        id: `ship-${s.id}`,
+        tone: "urgent",
+        text: `Delivery problem: ${s.description || "shipment"}${s.supplier ? ` from ${s.supplier}` : ""}${s.boatLabel ? ` for ${s.boatLabel}` : ""}`,
+        action: { label: "Call supplier", tab: "parts" },
+      });
+    }
+  }
+
+  for (const o of input.orders) {
+    if (o.status !== "waiting-parts") continue;
+    const p = partsProgress(o.id, input.shipments);
+    if (p.total > 0 && p.open === 0) {
+      alerts.push({
+        id: `ready-${o.id}`,
+        tone: "good",
+        text: `${o.number} is ready to start: all parts are in${o.boatLabel ? ` for ${o.boatLabel}` : ""}`,
+        action: { label: "Start job", tab: "orders", workOrderId: o.id },
+      });
+    }
+  }
+
+  if (input.wonJobsNotOnBoard) {
+    const n = input.wonJobsNotOnBoard;
+    alerts.push({
+      id: "won-jobs",
+      tone: "info",
+      text: `${n} job${n === 1 ? "" : "s"} you won on Bosun ${n === 1 ? "isn't" : "aren't"} on the board yet`,
+      action: { label: "Schedule", tab: "orders" },
+    });
+  }
+
+  const unbilled = input.orders.filter((o) => o.status === "completed" && !o.exportedAt);
+  if (unbilled.length) {
+    const sum = unbilled.reduce((t, o) => t + workOrderTotals(o.lines, o.taxRate).total, 0);
+    alerts.push({
+      id: "unbilled",
+      tone: "warn",
+      text: `${unbilled.length} completed job${unbilled.length === 1 ? "" : "s"} ($${Math.round(sum).toLocaleString("en-US")}) not in QuickBooks yet`,
+      action: { label: "Export", tab: "quickbooks" },
+    });
+  }
+
+  const low = input.inventory.filter(isLowStock);
+  if (low.length) {
+    alerts.push({
+      id: "low-stock",
+      tone: "warn",
+      text: low.length === 1 ? `${low[0].name} is at its reorder point` : `${low.length} parts are at their reorder point`,
+      action: { label: "Reorder", tab: "inventory" },
+    });
+  }
+
+  if (input.coiExpiry) {
+    const days = Math.round((Date.parse(`${input.coiExpiry}T12:00:00`) - Date.parse(`${todayKey}T12:00:00`)) / 86400_000);
+    if (days <= 30) {
+      alerts.push({
+        id: "coi",
+        tone: days < 0 ? "urgent" : "warn",
+        text: days < 0 ? "Your insurance certificate has expired" : `Your insurance certificate expires in ${days} day${days === 1 ? "" : "s"}`,
+        action: { label: "Upload COI", tab: "settings" },
+      });
+    }
+  }
+
+  const rank: Record<AlertTone, number> = { urgent: 0, good: 1, warn: 2, info: 3 };
+  return alerts.sort((a, b) => rank[a.tone] - rank[b.tone]);
+}
+
+// ── New jobs framed as schedule fit ──────────────────────────────────────────
+
+export interface OpenSlot {
+  day: string; // YYYY-MM-DD
+  bay: string;
+}
+
+/** Bay-days with nothing booked, over the next `days` days (Sundays skipped). */
+export function openSlots(orders: WorkOrder[], bays: string[], from: Date = new Date(), days = 10): OpenSlot[] {
+  const active = orders.filter((o) => OPEN_STATUSES.includes(o.status));
+  const out: OpenSlot[] = [];
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  for (let i = 1; i <= days; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    if (d.getDay() === 0) continue;
+    const key = ymd(d);
+    for (const bay of bays) {
+      if (!active.some((o) => o.bay === bay && occupiesDay(o, key))) out.push({ day: key, bay });
+    }
+  }
+  return out;
+}
+
+const STOPWORDS = new Set([
+  "with", "and", "the", "for", "from", "needs", "need", "boat", "service", "replace",
+  "repair", "check", "full", "new", "old", "both", "twin", "single", "annual",
+  "replacement", "replaced", "install", "installation", "installed", "upgrade", "inspection",
+  "cleaning", "clean", "removal", "remove", "rebuild", "panel", "side", "rear", "front", "port",
+  "starboard", "work", "job", "parts", "part",
+]);
+
+function keywords(text: string): Set<string> {
+  return new Set(
+    text.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 4 && !STOPWORDS.has(w))
+  );
+}
+
+export interface RfpFit {
+  slot: OpenSlot | null;
+  pastJobs: number;
+  score: number;
+}
+
+/** How well an open job fits this shop: earliest open slot and similar past work. */
+export function rfpFit(
+  rfp: { title: string; category?: string | null; haulOutRequired?: boolean },
+  orders: WorkOrder[],
+  slots: OpenSlot[],
+  from: Date = new Date()
+): RfpFit {
+  const wanted = keywords(`${rfp.title} ${rfp.category ?? ""}`);
+  const pastJobs = orders.filter((o) => {
+    if (o.status !== "completed" && o.status !== "invoiced") return false;
+    const k = keywords(o.title);
+    for (const w of wanted) if (k.has(w)) return true;
+    return false;
+  }).length;
+  const haulBays = slots.filter((s) => /haul|lift|yard/i.test(s.bay));
+  const pool = rfp.haulOutRequired && haulBays.length ? haulBays : slots;
+  const slot = pool[0] ?? null;
+  const soon = slot ? Math.max(0, 10 - Math.round((Date.parse(`${slot.day}T12:00:00`) - from.getTime()) / 86400_000)) : 0;
+  return { slot, pastJobs, score: pastJobs * 3 + soon };
+}
+
+// ── Tech view: parts to pull for a job ───────────────────────────────────────
+
+export interface PullItem {
+  description: string;
+  quantity: number;
+  bin: string;
+  inStock: number | null;
+}
+
+export function pullList(order: Pick<WorkOrder, "lines">, inventory: InventoryItem[]): PullItem[] {
+  const byId = new Map(inventory.map((i) => [i.id, i]));
+  return order.lines
+    .filter((l) => l.kind === "part")
+    .map((l) => {
+      const item = l.inventoryItemId ? byId.get(l.inventoryItemId) : undefined;
+      return {
+        description: item?.name ?? l.description,
+        quantity: Number(l.quantity) || 0,
+        bin: item?.binLocation || (item ? "" : "Special order"),
+        inStock: item ? item.qtyOnHand : null,
+      };
+    })
+    .sort((a, b) => a.bin.localeCompare(b.bin));
+}

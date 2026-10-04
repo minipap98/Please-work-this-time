@@ -28,6 +28,8 @@ import VendorRevenue from "./pages/vendor/VendorRevenue";
 import VendorBusinessHub from "./pages/vendor/VendorBusinessHub";
 import VendorShop from "./pages/vendor/VendorShop";
 import BoatLog from "./pages/BoatLog";
+import TechToday from "./pages/TechToday";
+import PartsComingSoon from "./pages/PartsComingSoon";
 import AuthPage from "./pages/AuthPage";
 import Onboarding from "./pages/Onboarding";
 import AdminPortal from "./pages/AdminPortal";
@@ -106,6 +108,16 @@ function VendorGuard() {
   return <Outlet />;
 }
 
+// Crew members only need to be logged in; they don't run owner/vendor onboarding.
+function LoginGuard() {
+  const { user, loading } = useAuth();
+  if (isDemoMode()) return <Outlet />;
+  if (supabaseMissing) return <ConfigScreen />;
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to={`/login?next=${encodeURIComponent(window.location.pathname)}`} replace />;
+  return <Outlet />;
+}
+
 // Requires login but NOT completed onboarding (for the onboarding page itself)
 function OnboardingGuard() {
   const { user, profile, loading } = useAuth();
@@ -119,10 +131,16 @@ function OnboardingGuard() {
   return <Outlet />;
 }
 
+function safeNext(): string | null {
+  const next = new URLSearchParams(window.location.search).get("next");
+  return next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+}
+
 function PublicOnlyGuard() {
   const { user, profile, loading } = useAuth();
   if (isDemoMode()) return <Outlet />;
   if (loading) return <LoadingScreen />;
+  if (user && safeNext()) return <Navigate to={safeNext()!} replace />;
   if (user && profile?.onboarding_complete) {
     return <Navigate to={postLoginPath(profile.role, true)} replace />;
   }
@@ -148,9 +166,14 @@ const App = () => (
                 <Route path="/demo" element={<DemoEnter />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/privacy" element={<Privacy />} />
+                <Route path="/parts" element={<PartsComingSoon />} />
 
                 <Route element={<PublicOnlyGuard />}>
                   <Route path="/login" element={<AuthPage />} />
+                </Route>
+
+                <Route element={<LoginGuard />}>
+                  <Route path="/tech" element={<TechToday />} />
                 </Route>
 
                 <Route element={<OnboardingGuard />}>

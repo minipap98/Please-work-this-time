@@ -127,6 +127,9 @@ export default function LandingPage() {
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
             <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Why Bosun</a>
             <a href="#vendors" className="text-sm text-muted-foreground hover:text-foreground transition-colors">For Vendors</a>
+            <button onClick={() => navigate("/parts")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Parts <span className="ml-0.5 text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-full px-1.5 py-0.5">Soon</span>
+            </button>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -335,6 +338,26 @@ export default function LandingPage() {
             Bosun is launching with boat owners and marine vendors in South Florida.
             We’re collecting real jobs and real bids first — no fake review counts.
           </p>
+        </div>
+      </section>
+
+      {/* ── Bosun Parts teaser ───────────────────────────────── */}
+      <section className="pb-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <button
+            onClick={() => navigate("/parts")}
+            className="w-full text-left border border-sky-200 bg-sky-50/60 hover:bg-sky-50 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center gap-4 transition-colors"
+          >
+            <div className="flex-1">
+              <span className="text-[11px] font-semibold text-sky-800 bg-white border border-sky-200 rounded-full px-2 py-0.5">Coming soon</span>
+              <h2 className="mt-2 text-xl sm:text-2xl font-bold text-foreground">Bosun Parts</h2>
+              <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
+                Buy marine parts directly through Bosun. No markup for boaters, less cash tied up in inventory for shops,
+                and shops share the commission on parts for their jobs.
+              </p>
+            </div>
+            <span className="shrink-0 text-sm font-semibold text-sky-700">Learn more →</span>
+          </button>
         </div>
       </section>
 

@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from "react-image-crop";
+import ReactCrop, { type Crop, type PixelCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import Header from "@/components/Header";
 import { toast } from "sonner";
@@ -10,16 +10,7 @@ import { useMyBoats, uploadBoatPhoto } from "@/hooks/use-my-boat";
 import { useUpdateBoat } from "@/hooks/use-supabase";
 
 const STORAGE_KEY = "hero_image";
-const ASPECT = 2 / 1; // 2:1 landscape, matches the hero display
 const DEFAULT_IMAGE = "https://cdn.builder.io/api/v1/image/assets%2F6d21a31dd9f5464480f247d960742b01%2Fbc990cddf7ea4c13b79484a350ac1943?format=webp&width=1400&height=700";
-
-function centerAspectCrop(width: number, height: number): Crop {
-  return centerCrop(
-    makeAspectCrop({ unit: "%", width: 100 }, ASPECT, width, height),
-    width,
-    height,
-  );
-}
 
 function getCroppedDataUrl(image: HTMLImageElement, crop: PixelCrop): string {
   const canvas = document.createElement("canvas");
@@ -91,8 +82,10 @@ export default function Settings() {
   }
 
   const onImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    const { naturalWidth, naturalHeight } = e.currentTarget;
-    setCrop(centerAspectCrop(naturalWidth, naturalHeight));
+    // Start with the whole photo selected; the hero sizes itself to whatever shape is saved.
+    const { width, height } = e.currentTarget;
+    setCrop({ unit: "%", x: 0, y: 0, width: 100, height: 100 });
+    setCompletedCrop({ unit: "px", x: 0, y: 0, width, height });
   }, []);
 
   function handleApplyCrop() {
@@ -107,7 +100,10 @@ export default function Settings() {
       localStorage.setItem(STORAGE_KEY, preview);
       localStorage.setItem("user_location", location);
       setSaved(true);
-      setTimeout(() => navigate("/app"), 700);
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+        navigate("/app");
+      }, 700);
       return;
     }
     if (!user) return;
@@ -124,7 +120,10 @@ export default function Settings() {
         await updateProfile({ location: location.trim() || null });
       }
       setSaved(true);
-      setTimeout(() => navigate("/app"), 700);
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+        navigate("/app");
+      }, 700);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't save. Try again.");
     } finally {
@@ -167,14 +166,13 @@ export default function Settings() {
           {cropSrc ? (
             <div className="space-y-4">
               <p className="text-xs text-muted-foreground">
-                Drag to reposition the crop area, then click <strong>Apply Crop</strong>.
+                Your whole photo is selected. Drag the corners to trim it if you like, then click <strong>Use this photo</strong>.
               </p>
               <div className="rounded-md overflow-hidden bg-gray-900 flex justify-center">
                 <ReactCrop
                   crop={crop}
                   onChange={(c) => setCrop(c)}
                   onComplete={(c) => setCompletedCrop(c)}
-                  aspect={ASPECT}
                   minWidth={100}
                 >
                   <img
@@ -182,7 +180,7 @@ export default function Settings() {
                     src={cropSrc}
                     alt="Crop preview"
                     onLoad={onImageLoad}
-                    className="max-h-96 object-contain"
+                    style={{ maxHeight: "24rem", width: "auto", maxWidth: "100%" }}
                   />
                 </ReactCrop>
               </div>
@@ -192,7 +190,7 @@ export default function Settings() {
                   disabled={!completedCrop}
                   className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Apply Crop
+                  Use this photo
                 </button>
                 <button
                   onClick={() => setCropSrc(null)}
@@ -205,15 +203,15 @@ export default function Settings() {
           ) : (
             <>
               {/* Preview */}
-              <div className="w-full h-52 rounded-md overflow-hidden bg-gray-100 mb-4">
+              <div className="w-full rounded-md overflow-hidden bg-gray-100 mb-4">
                 {preview ? (
                   <img
                     src={preview}
                     alt="Hero preview"
-                    className="w-full h-full object-cover"
+                    className="block w-full h-auto max-h-96 object-contain mx-auto"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
+                  <div className="w-full h-52 flex items-center justify-center text-sm text-muted-foreground">
                     No photo yet
                   </div>
                 )}

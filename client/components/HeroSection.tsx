@@ -351,15 +351,16 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
   return (
     <section>
       {/* Full-bleed hero */}
+      {/* The hero takes the photo's own shape, so nothing is cropped; very tall photos are capped and centered. */}
       <div
-        className="relative h-[240px] sm:h-[340px] overflow-hidden"
+        className={heroImage ? "relative bg-white" : "relative h-[240px] sm:h-[340px] overflow-hidden"}
         style={{ backgroundColor: "#ffffff" }}
       >
         {heroImage ? (
           <img
             src={heroImage}
             alt="Your boat"
-            className="absolute inset-0 w-full h-full object-contain"
+            className="block w-full h-auto max-h-[70vh] object-contain mx-auto"
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-sky-50 to-white text-center px-6">

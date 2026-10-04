@@ -31,6 +31,8 @@ import BoatLog from "./pages/BoatLog";
 import TechToday from "./pages/TechToday";
 import CrewShop from "./pages/CrewShop";
 import PartsComingSoon from "./pages/PartsComingSoon";
+import BoatersPage from "./pages/marketing/BoatersPage";
+import ShopsPage from "./pages/marketing/ShopsPage";
 import AuthPage from "./pages/AuthPage";
 import Onboarding from "./pages/Onboarding";
 import AdminPortal from "./pages/AdminPortal";
@@ -168,6 +170,9 @@ const App = () => (
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/parts" element={<PartsComingSoon />} />
+                <Route path="/boaters" element={<BoatersPage />} />
+                <Route path="/shops" element={<ShopsPage />} />
+                <Route path="/for-shops" element={<Navigate to="/shops" replace />} />
 
                 <Route element={<PublicOnlyGuard />}>
                   <Route path="/login" element={<AuthPage />} />

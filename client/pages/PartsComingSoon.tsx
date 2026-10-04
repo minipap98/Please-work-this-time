@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Anchor, BookOpen, Package, Search, Tag, Wrench } from "lucide-react";
+import { BosunLogo } from "@/components/marketing/BosunLogo";
+import { BookOpen, Package, Search, Tag, Wrench } from "lucide-react";
 
 const POINTS = [
   {
@@ -32,13 +33,10 @@ export default function PartsComingSoon() {
     <div className="min-h-screen bg-white">
       <nav className="border-b border-border">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center">
-              <Anchor className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-lg font-bold tracking-tight">Bosun</span>
+          <Link to="/boaters" aria-label="Bosun for boaters">
+            <BosunLogo className="h-5 sm:h-6" />
           </Link>
-          <button onClick={() => navigate("/login?mode=signup")} className="text-sm font-semibold px-4 py-2 rounded-lg bg-foreground text-background">
+          <button onClick={() => navigate("/login?mode=signup&role=owner")} className="text-sm font-semibold px-4 py-2 rounded-lg bg-foreground text-background">
             Get early access
           </button>
         </div>
@@ -54,10 +52,10 @@ export default function PartsComingSoon() {
           let you order them in one place, and log the job when you're done.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-          <button onClick={() => navigate("/login?mode=signup")} className="px-6 py-3 rounded-xl bg-sky-500 text-white font-semibold hover:bg-sky-600">
+          <button onClick={() => navigate("/login?mode=signup&role=owner")} className="px-6 py-3 rounded-xl bg-sky-500 text-white font-semibold hover:bg-sky-600">
             Get early access
           </button>
-          <Link to="/" className="px-6 py-3 rounded-xl border border-border font-semibold hover:bg-muted">
+          <Link to="/boaters" className="px-6 py-3 rounded-xl border border-border font-semibold hover:bg-muted">
             Back to Bosun
           </Link>
         </div>
@@ -96,7 +94,7 @@ export default function PartsComingSoon() {
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
           Post the job on Bosun and get bids from local, insured marine shops. Their work lands in your Boat Log too.
         </p>
-        <button onClick={() => navigate("/login?mode=signup")} className="mt-5 px-6 py-3 rounded-xl bg-foreground text-background font-semibold">
+        <button onClick={() => navigate("/login?mode=signup&role=owner")} className="mt-5 px-6 py-3 rounded-xl bg-foreground text-background font-semibold">
           Post a job
         </button>
       </section>

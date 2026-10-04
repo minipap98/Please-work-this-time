@@ -118,3 +118,33 @@
     white-space: pre;
   }
 }
+
+/* ── Brand intro (splash) ─────────────────────────────────────────────── */
+@keyframes bosun-surface {
+  0% { opacity: 0; transform: translateY(38%) scale(0.96); filter: blur(6px); }
+  60% { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+@keyframes bosun-wave-roll {
+  0% { transform: translateX(-35%); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes bosun-swell {
+  0%, 100% { transform: translateX(0) translateY(0); }
+  50% { transform: translateX(-3%) translateY(2px); }
+}
+@keyframes bosun-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes bosun-intro-out {
+  to { opacity: 0; visibility: hidden; }
+}
+.bosun-letter { opacity: 0; animation: bosun-surface 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+.bosun-wave { animation: bosun-wave-roll 1.6s cubic-bezier(0.3, 0.7, 0.2, 1) forwards, bosun-swell 6s ease-in-out 1.6s infinite; }
+.bosun-fade-up { opacity: 0; animation: bosun-fade-up 0.7s ease-out forwards; }
+.bosun-intro-out { animation: bosun-intro-out 0.6s ease-in forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .bosun-letter, .bosun-wave, .bosun-fade-up { animation: none !important; opacity: 1 !important; transform: none !important; filter: none !important; }
+}

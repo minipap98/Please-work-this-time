@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, FileText, Loader2, Sparkles, X } from "lucide-react";
+import { AlertTriangle, FileText, Loader2, Plus, Scissors, Sparkles, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   LOG_CATEGORIES,
@@ -8,7 +8,7 @@ import {
   type MaintenanceCategory,
   type NewLogEntry,
 } from "@/hooks/use-boat-log";
-import { invoiceCheck, type ExtractedInvoice, type InvoiceLine } from "@shared/invoice";
+import { invoiceCheck, splitInvoice, type ExtractedInvoice, type InvoiceLine, type InvoiceSplit } from "@shared/invoice";
 import { inputCls, labelCls, money } from "@/components/shop/shopUi";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +27,8 @@ export default function ImportInvoiceDialog({
   onOpenChange: (o: boolean) => void;
   boatId: string;
   saving: boolean;
-  onSave: (e: NewLogEntry) => void;
+  /** One entry, or several when the owner splits the invoice. */
+  onSave: (entries: NewLogEntry[]) => void;
 }) {
   const read = useReadInvoice();
   const [stage, setStage] = useState<Stage>({ step: "pick" });
@@ -35,6 +36,9 @@ export default function ImportInvoiceDialog({
   const [path, setPath] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // null = one entry for the whole invoice; otherwise each line is assigned to a split.
+  const [splits, setSplits] = useState<InvoiceSplit[] | null>(null);
+  const [assignment, setAssignment] = useState<number[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -43,6 +47,8 @@ export default function ImportInvoiceDialog({
     setPath(null);
     setNotes("");
     setError(null);
+    setSplits(null);
+    setAssignment([]);
   }, [open]);
 
   function choose(file: File | undefined) {
@@ -75,22 +81,72 @@ export default function ImportInvoiceDialog({
   const setLine = (i: number, patch: Partial<InvoiceLine>) =>
     setInv({ ...inv, lines: inv.lines.map((l, j) => (j === i ? { ...l, ...patch } : l)) });
 
+  const splitEntries = splits ? splitInvoice(inv, splits, assignment) : [];
+  const splitCost = (i: number) => {
+    const used = splits!.filter((_, gi) => assignment.some((a) => a === gi));
+    const idx = used.indexOf(splits![i]);
+    return idx >= 0 ? splitEntries[idx]?.cost ?? 0 : 0;
+  };
+
+  function startSplit() {
+    setSplits([{ title: inv.title, category: inv.category }, { title: "", category: null }]);
+    setAssignment(inv.lines.map(() => 0));
+  }
+  function addSplit() {
+    setSplits([...(splits ?? []), { title: "", category: null }]);
+  }
+  function removeSplit(i: number) {
+    const next = splits!.filter((_, j) => j !== i);
+    setAssignment(assignment.map((a) => (a === i ? 0 : a > i ? a - 1 : a)));
+    if (next.length < 2) {
+      setInv({ ...inv, title: next[0]?.title || inv.title, category: next[0]?.category ?? inv.category });
+      setSplits(null);
+    } else setSplits(next);
+  }
+  const setSplit = (i: number, patch: Partial<InvoiceSplit>) =>
+    setSplits(splits!.map((sp, j) => (j === i ? { ...sp, ...patch } : sp)));
+
+  const usedSplits = splits ? splits.filter((_, gi) => assignment.some((a) => a === gi)) : [];
+  const canSave =
+    !!inv.date &&
+    !saving &&
+    (splits ? usedSplits.length > 0 && usedSplits.every((sp) => sp.title.trim()) : !!inv.title.trim());
+
   function save() {
-    const cost = inv.total ?? (inv.lines.length ? check.computed : null);
-    onSave({
+    const base = {
       boatId,
-      title: inv.title.trim(),
-      category: inv.category as MaintenanceCategory | null,
       date: inv.date!,
       engineHours: inv.engineHours,
-      cost,
       vendorName: inv.shop,
-      notes: [notes.trim(), inv.invoiceNumber ? `Invoice #${inv.invoiceNumber}` : ""].filter(Boolean).join("\n") || null,
-      laborHours: inv.laborHours,
-      lines: invoiceToLogLines(inv),
       invoicePath: path,
       invoiceNumber: inv.invoiceNumber,
-    });
+    };
+    const note = (extra: string) =>
+      [notes.trim(), inv.invoiceNumber ? `Invoice #${inv.invoiceNumber}${extra}` : extra.replace(/^ · /, "")]
+        .filter(Boolean)
+        .join("\n") || null;
+    if (!splits) {
+      onSave([{
+        ...base,
+        title: inv.title.trim(),
+        category: inv.category as MaintenanceCategory | null,
+        cost: inv.total ?? (inv.lines.length ? check.computed : null),
+        notes: note(""),
+        laborHours: inv.laborHours,
+        lines: invoiceToLogLines(inv),
+      }]);
+      return;
+    }
+    const entries = splitInvoice(inv, splits, assignment);
+    onSave(entries.map((e, i) => ({
+      ...base,
+      title: e.title.trim(),
+      category: e.category as MaintenanceCategory | null,
+      cost: e.cost,
+      notes: note(entries.length > 1 ? ` · part ${i + 1} of ${entries.length}` : ""),
+      laborHours: e.laborHours,
+      lines: invoiceToLogLines(e),
+    })));
   }
 
   return (
@@ -147,10 +203,12 @@ export default function ImportInvoiceDialog({
             )}
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
-                <label className={labelCls}>What was done</label>
-                <input className={inputCls} value={inv.title} onChange={(e) => setInv({ ...inv, title: e.target.value })} placeholder="Annual service" />
-              </div>
+              {!splits && (
+                <div className="col-span-2">
+                  <label className={labelCls}>What was done</label>
+                  <input className={inputCls} value={inv.title} onChange={(e) => setInv({ ...inv, title: e.target.value })} placeholder="Annual service" />
+                </div>
+              )}
               <div>
                 <label className={labelCls}>Shop</label>
                 <input className={inputCls} value={inv.shop ?? ""} onChange={(e) => setInv({ ...inv, shop: e.target.value || null })} />
@@ -159,13 +217,15 @@ export default function ImportInvoiceDialog({
                 <label className={labelCls}>Date</label>
                 <input className={inputCls} type="date" value={inv.date ?? ""} onChange={(e) => setInv({ ...inv, date: e.target.value || null })} />
               </div>
-              <div>
-                <label className={labelCls}>System</label>
-                <select className={inputCls} value={inv.category ?? ""} onChange={(e) => setInv({ ...inv, category: (e.target.value || null) as ExtractedInvoice["category"] })}>
-                  <option value="">Other</option>
-                  {LOG_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
+              {!splits && (
+                <div>
+                  <label className={labelCls}>System</label>
+                  <select className={inputCls} value={inv.category ?? ""} onChange={(e) => setInv({ ...inv, category: (e.target.value || null) as ExtractedInvoice["category"] })}>
+                    <option value="">Other</option>
+                    {LOG_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className={labelCls}>Engine hours</label>
                 <input className={inputCls} type="number" min={0} value={inv.engineHours ?? ""} onChange={(e) => setInv({ ...inv, engineHours: e.target.value === "" ? null : Number(e.target.value) })} />
@@ -186,6 +246,51 @@ export default function ImportInvoiceDialog({
               </p>
             )}
 
+            {inv.lines.length > 1 && !splits && (
+              <button
+                onClick={startSplit}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-sky-700 hover:underline"
+              >
+                <Scissors className="w-4 h-4" /> Split into separate entries
+                <span className="font-normal text-muted-foreground">(e.g. paint and engine work on one bill)</span>
+              </button>
+            )}
+
+            {splits && (
+              <div className="rounded-lg border border-sky-200 bg-sky-50/50 p-3 space-y-2">
+                <p className="text-xs text-sky-900">
+                  Name each entry, then pick an entry for every line below. Tax and fees are shared out by amount, so the
+                  entries add up to what you paid.
+                </p>
+                {splits.map((sp, i) => (
+                  <div key={i} className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                    <span className="w-6 h-6 shrink-0 rounded-full bg-sky-600 text-white text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                    <input
+                      className={cn(inputCls, "flex-1 min-w-[10rem]")}
+                      value={sp.title}
+                      onChange={(e) => setSplit(i, { title: e.target.value })}
+                      placeholder={i === 0 ? "Engine service" : "Bottom paint"}
+                    />
+                    <select
+                      className={cn(inputCls, "sm:w-44")}
+                      value={sp.category ?? ""}
+                      onChange={(e) => setSplit(i, { category: (e.target.value || null) as InvoiceSplit["category"] })}
+                    >
+                      <option value="">Other</option>
+                      {LOG_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <span className="w-20 text-right text-xs font-semibold tabular-nums">{money(splitCost(i))}</span>
+                    <button aria-label="Remove entry" onClick={() => removeSplit(i)} className="text-muted-foreground hover:text-red-600">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <button onClick={addSplit} className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 hover:underline">
+                  <Plus className="w-3.5 h-3.5" /> Add another entry
+                </button>
+              </div>
+            )}
+
             {inv.lines.length > 0 && (
               <div className="rounded-lg border border-border overflow-hidden">
                 <div className="max-h-64 overflow-auto">
@@ -197,6 +302,7 @@ export default function ImportInvoiceDialog({
                         <th className="text-right font-medium px-2 py-1.5 w-16">Qty</th>
                         <th className="text-right font-medium px-2 py-1.5 w-20">Each</th>
                         <th className="text-right font-medium px-2 py-1.5 w-20">Amount</th>
+                        {splits && <th className="text-left font-medium px-2 py-1.5 w-28">Entry</th>}
                         <th className="w-6" />
                       </tr>
                     </thead>
@@ -215,10 +321,27 @@ export default function ImportInvoiceDialog({
                           <td className="px-2 py-1 text-right tabular-nums">{l.quantity}</td>
                           <td className="px-2 py-1 text-right tabular-nums">{money(l.unitPrice)}</td>
                           <td className="px-2 py-1 text-right tabular-nums">{money(l.amount)}</td>
+                          {splits && (
+                            <td className="px-2 py-1">
+                              <select
+                                aria-label="Entry for this line"
+                                className="w-full rounded border border-border bg-white px-1 py-0.5 text-xs"
+                                value={assignment[i] ?? 0}
+                                onChange={(e) => setAssignment(assignment.map((a, j) => (j === i ? Number(e.target.value) : a)))}
+                              >
+                                {splits.map((sp, gi) => (
+                                  <option key={gi} value={gi}>{gi + 1}. {sp.title.trim() || `Entry ${gi + 1}`}</option>
+                                ))}
+                              </select>
+                            </td>
+                          )}
                           <td className="px-1">
                             <button
                               aria-label="Remove line"
-                              onClick={() => setInv({ ...inv, lines: inv.lines.filter((_, j) => j !== i) })}
+                              onClick={() => {
+                                setInv({ ...inv, lines: inv.lines.filter((_, j) => j !== i) });
+                                setAssignment(assignment.filter((_, j) => j !== i));
+                              }}
                               className="text-muted-foreground hover:text-red-600"
                             >
                               <X className="w-3.5 h-3.5" />
@@ -254,11 +377,11 @@ export default function ImportInvoiceDialog({
                 Use a different file
               </button>
               <button
-                disabled={!inv.title.trim() || !inv.date || saving}
+                disabled={!canSave}
                 onClick={save}
                 className={cn("px-4 py-2 text-sm font-semibold rounded-lg bg-foreground text-background disabled:opacity-50")}
               >
-                {saving ? "Saving…" : "Add to Boat Log"}
+                {saving ? "Saving…" : splits && usedSplits.length > 1 ? `Add ${usedSplits.length} entries to Boat Log` : "Add to Boat Log"}
               </button>
             </div>
           </div>

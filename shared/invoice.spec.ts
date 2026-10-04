@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { INVOICE_SCHEMA, invoiceCheck, invoiceToLogLines, normalizeDate, normalizeInvoice } from "./invoice";
+import { INVOICE_SCHEMA, invoiceCheck, invoiceToLogLines, normalizeDate, normalizeInvoice, splitInvoice } from "./invoice";
 
 // Shaped like a real 300-hour service invoice for a Pursuit with twin F300s (shop renamed).
 const parts: [string, number, string, number][] = [
@@ -68,5 +68,45 @@ describe("invoice schema", () => {
     };
     walk(INVOICE_SCHEMA, "schema");
     expect(bad).toEqual([]);
+  });
+});
+
+describe("splitting an invoice", () => {
+  const inv = normalizeInvoice({
+    title: "Haul-out",
+    total: 1100,
+    tax: 100,
+    laborHours: 10,
+    lines: [
+      { kind: "part", description: "Bottom paint", quantity: 2, unitPrice: 150, amount: 300 },
+      { kind: "labor", description: "Paint labor", quantity: 4, unitPrice: 100, amount: 400 },
+      { kind: "part", description: "Impeller", quantity: 1, unitPrice: 100, amount: 100 },
+      { kind: "labor", description: "Engine labor", quantity: 2, unitPrice: 100, amount: 200 },
+    ],
+  });
+  const splits = [
+    { title: "Bottom paint", category: "Hull & Bottom" as const },
+    { title: "Impeller", category: "Cooling System" as const },
+  ];
+
+  it("shares tax in proportion and adds up to what was paid", () => {
+    const out = splitInvoice(inv, splits, [0, 0, 1, 1]);
+    expect(out.map((e) => [e.title, e.cost, e.laborHours, e.lines.length])).toEqual([
+      ["Bottom paint", 770, 4, 2],
+      ["Impeller", 330, 2, 2],
+    ]);
+    expect(out.reduce((s, e) => s + e.cost, 0)).toBe(1100);
+  });
+
+  it("drops empty splits and keeps a single entry whole", () => {
+    const out = splitInvoice(inv, splits, [0, 0, 0, 0]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ title: "Bottom paint", cost: 1100, laborHours: 10 });
+  });
+
+  it("never loses a cent to rounding", () => {
+    const odd = normalizeInvoice({ total: 100, lines: [1, 1, 1].map(() => ({ kind: "part", description: "x", quantity: 1, unitPrice: 1, amount: 1 })) });
+    const out = splitInvoice(odd, [{ title: "a", category: null }, { title: "b", category: null }, { title: "c", category: null }], [0, 1, 2]);
+    expect(out.map((e) => e.cost)).toEqual([33.33, 33.33, 33.34]);
   });
 });

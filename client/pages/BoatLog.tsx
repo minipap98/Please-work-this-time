@@ -331,16 +331,24 @@ export default function BoatLog() {
           onOpenChange={setImporting}
           boatId={boat.id}
           saving={add.isPending}
-          onSave={(entry) =>
-            add.mutate(entry, {
-              onSuccess: () => {
-                setImporting(false);
-                toast({ title: "Invoice added to your Boat Log" });
-              },
-              onError: (err) =>
-                toast({ title: "Couldn't save", description: err instanceof Error ? err.message : String(err), variant: "destructive" }),
-            })
-          }
+          onSave={async (entries) => {
+            let saved = 0;
+            try {
+              for (const entry of entries) {
+                await add.mutateAsync(entry);
+                saved++;
+              }
+              setImporting(false);
+              toast({ title: entries.length > 1 ? `Added ${entries.length} entries from the invoice` : "Invoice added to your Boat Log" });
+            } catch (err) {
+              toast({
+                title: saved ? `Saved ${saved} of ${entries.length} entries` : "Couldn't save",
+                description: err instanceof Error ? err.message : String(err),
+                variant: "destructive",
+              });
+              if (saved) setImporting(false);
+            }
+          }}
         />
       )}
     </div>

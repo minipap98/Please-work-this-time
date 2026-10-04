@@ -153,11 +153,52 @@ export function invoiceCheck(inv: ExtractedInvoice): { computed: number; differe
   return { computed, difference: inv.total != null ? round2(inv.total - computed) : null };
 }
 
-export function invoiceToLogLines(inv: ExtractedInvoice): LogLine[] {
+export function invoiceToLogLines(inv: Pick<ExtractedInvoice, "lines">): LogLine[] {
   return inv.lines.map((l) => ({
     kind: l.kind,
     description: l.partNumber ? `${l.description} (${l.partNumber})` : l.description,
     quantity: l.quantity,
     unitPrice: l.unitPrice,
   }));
+}
+
+// ── Splitting one invoice into several log entries ───────────────────────────
+
+export interface InvoiceSplit {
+  title: string;
+  category: InvoiceCategory | null;
+}
+
+export interface SplitEntry extends InvoiceSplit {
+  lines: InvoiceLine[];
+  cost: number;
+  laborHours: number | null;
+}
+
+/**
+ * Turn one invoice into one entry per split. `assignment[i]` is the split index for line i.
+ * Tax, and any gap between the lines and the amount paid, are shared out in proportion to
+ * each split's lines, so the entries always add up to exactly what was paid.
+ */
+export function splitInvoice(inv: ExtractedInvoice, splits: InvoiceSplit[], assignment: number[]): SplitEntry[] {
+  const paid = inv.total ?? invoiceCheck(inv).computed;
+  const groups = splits.map((s, gi) => ({
+    ...s,
+    lines: inv.lines.filter((_, li) => (assignment[li] ?? 0) === gi),
+  }));
+  const used = groups.filter((g) => g.lines.length > 0);
+  if (used.length === 0) return [];
+  if (used.length === 1) {
+    return [{ ...used[0], cost: round2(paid), laborHours: inv.laborHours }];
+  }
+  const sums = used.map((g) => g.lines.reduce((s, l) => s + l.amount, 0));
+  const all = sums.reduce((a, b) => a + b, 0);
+  let left = round2(paid);
+  return used.map((g, i) => {
+    const last = i === used.length - 1;
+    const cost = last ? left : round2(all > 0 ? (paid * sums[i]) / all : paid / used.length);
+    left = round2(left - cost);
+    const hours = g.lines.filter((l) => l.kind === "labor").reduce((s, l) => s + l.quantity, 0);
+    return { ...g, cost, laborHours: hours > 0 ? round2(hours) : null };
+  });
 }

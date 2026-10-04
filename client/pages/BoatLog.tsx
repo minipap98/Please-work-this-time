@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
+import ImportInvoiceDialog from "@/components/boatlog/ImportInvoiceDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -14,6 +15,7 @@ import {
   useBoatLog,
   useDeleteLogEntry,
   useLogBoats,
+  invoiceUrl,
   type LogBoat,
   type MaintenanceCategory,
   type NewLogEntry,
@@ -44,6 +46,7 @@ export default function BoatLog() {
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [sharing, setSharingState] = useState(params.get("share") === "1");
   const setSharing = (open: boolean) => {
     setSharingState(open);
@@ -134,7 +137,7 @@ export default function BoatLog() {
                 <p className="text-lg font-bold truncate">{boat.name}</p>
                 <p className="text-sm text-muted-foreground">{[boat.label, boat.engine].filter(Boolean).join(" · ")}</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 [&>button]:whitespace-nowrap">
                 <button
                   onClick={() => downloadFile(`${boat.name.replace(/\W+/g, "-")}-service-log.csv`, logToCsv(entries))}
                   disabled={entries.length === 0}
@@ -158,6 +161,9 @@ export default function BoatLog() {
                   className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-sky-300 text-sky-800 bg-sky-50 hover:bg-sky-100"
                 >
                   Share for a listing
+                </button>
+                <button onClick={() => setImporting(true)} className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-border hover:bg-muted">
+                  Import invoice
                 </button>
                 <button onClick={() => setAdding(true)} className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-foreground text-background">
                   + Log work
@@ -202,7 +208,7 @@ export default function BoatLog() {
             <p className="text-sm font-semibold">{entries.length === 0 ? "No work logged yet" : "Nothing matches"}</p>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
               {entries.length === 0
-                ? "Log past work yourself. Jobs you book on Bosun are added automatically when the shop closes them out."
+                ? "Import old invoices or log past work yourself. Jobs you book on Bosun are added automatically when the shop closes them out."
                 : "Try another filter."}
             </p>
           </div>
@@ -249,6 +255,18 @@ export default function BoatLog() {
                               {e.lines.length > 0 && (
                                 <button onClick={() => toggle(e.id)} className="text-xs text-sky-700 hover:underline mt-1">
                                   {open ? "Hide" : "Itemized"}
+                                </button>
+                              )}
+                              {e.invoicePath && (
+                                <button
+                                  onClick={async () => {
+                                    const url = await invoiceUrl(e.invoicePath!);
+                                    if (url) window.open(url, "_blank", "noopener");
+                                    else toast({ title: "Couldn't open the invoice", variant: "destructive" });
+                                  }}
+                                  className="block ml-auto text-xs text-sky-700 hover:underline mt-1"
+                                >
+                                  Invoice
                                 </button>
                               )}
                               {!verified && (
@@ -302,6 +320,25 @@ export default function BoatLog() {
                 toast({ title: "Logged" });
               },
               onError: (err) => toast({ title: "Couldn't save", description: String(err), variant: "destructive" }),
+            })
+          }
+        />
+      )}
+
+      {boat && (
+        <ImportInvoiceDialog
+          open={importing}
+          onOpenChange={setImporting}
+          boatId={boat.id}
+          saving={add.isPending}
+          onSave={(entry) =>
+            add.mutate(entry, {
+              onSuccess: () => {
+                setImporting(false);
+                toast({ title: "Invoice added to your Boat Log" });
+              },
+              onError: (err) =>
+                toast({ title: "Couldn't save", description: err instanceof Error ? err.message : String(err), variant: "destructive" }),
             })
           }
         />

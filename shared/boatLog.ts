@@ -24,6 +24,8 @@ export interface LogEntry {
   notes: string | null;
   source: LogSource;
   lines: LogLine[];
+  /** Private file in boat-documents when the entry was imported from an invoice. Never shared. */
+  invoicePath?: string | null;
 }
 
 export function isVerified(e: Pick<LogEntry, "source">): boolean {

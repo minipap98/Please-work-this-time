@@ -617,6 +617,8 @@ export interface Database {
           work_order_id: string | null;
           labor_hours: number | null;
           line_items: Json;
+          invoice_path?: string | null;
+          invoice_number?: string | null;
           created_at: string;
         };
         Insert: {
@@ -631,6 +633,10 @@ export interface Database {
           cost?: number | null;
           vendor_name?: string | null;
           notes?: string | null;
+          labor_hours?: number | null;
+          line_items?: Json;
+          invoice_path?: string | null;
+          invoice_number?: string | null;
         };
         Update: {
           title?: string;

@@ -1,4 +1,10 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { isDemoMode, useDemoMode } from "@/lib/demoMode";
+import { useAuth } from "@/context/AuthContext";
+import { useMyBoats } from "@/hooks/use-my-boat";
+import { useBoatLog } from "@/hooks/use-boat-log";
+import { DEMO_BOAT } from "@/data/demoBoat";
+import { mergeRecords, recordsFromLog } from "@shared/maintenanceMatch";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -64,7 +70,9 @@ interface CustomTask {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
-const TODAY = new Date("2026-03-08");
+// The demo's sample history is dated around March 2026; live accounts use the real date.
+const DEMO_TODAY = new Date("2026-03-08");
+const today = () => (isDemoMode() ? DEMO_TODAY : new Date());
 
 const ALL_CATEGORIES: MaintenanceCategory[] = [
   "Engine Oil & Fuel",
@@ -117,7 +125,7 @@ function computeStatus(
   if (lastDate) {
     const last = new Date(lastDate);
     const next = addMonths(last, task.intervalMonths);
-    daysUntilDue = daysBetween(TODAY, next);
+    daysUntilDue = daysBetween(today(), next);
     nextDueDate = next;
     timeStatus = daysUntilDue < 0 ? "overdue" : daysUntilDue <= 60 ? "due-soon" : "ok";
   }
@@ -179,64 +187,80 @@ const STATUS_STYLES: Record<TaskStatus["status"], { bar: string; badge: string }
   ok:         { bar: "bg-green-500", badge: "bg-green-50 text-green-700 border border-green-200" },
 };
 
+/** localStorage-backed state that reloads when its key changes (e.g. once the account's boat loads). */
+function useStored<T>(key: string, fallback: T): [T, (next: T) => void] {
+  const read = (): T => {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? (JSON.parse(raw) as T) : fallback;
+    } catch {
+      return fallback;
+    }
+  };
+  const [value, setValue] = useState<T>(read);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => setValue(read()), [key]);
+  const save = (next: T) => {
+    setValue(next);
+    try {
+      localStorage.setItem(key, JSON.stringify(next));
+    } catch { /* storage full or blocked */ }
+  };
+  return [value, save];
+}
+
 // ─── Component ───────────────────────────────────────────────
 export default function MaintenancePage() {
   const navigate = useNavigate();
+  const { demo } = useDemoMode();
+  const { user } = useAuth();
+  const { primary } = useMyBoats();
 
+  // Demo reads the demo boat from this browser; live accounts use their primary boat.
   const boatInfo = useMemo(() => {
+    if (!demo) {
+      return primary
+        ? {
+            name: primary.name,
+            year: primary.year,
+            make: primary.make,
+            model: primary.model,
+            engineMake: primary.engine_make ?? "",
+            engineModel: primary.engine_model ?? "",
+            engineType: primary.engine_type ?? "",
+            engineCount:
+              primary.engine_type === "Outboard" && (primary.engine_count ?? 1) > 1
+                ? ["Single", "Twin", "Triple", "Quad", "Quint", "Sextuple"][(primary.engine_count ?? 1) - 1]
+                : "",
+          }
+        : null;
+    }
     try {
       const stored = localStorage.getItem("my_boat");
-      return stored ? JSON.parse(stored) : null;
-    } catch { return null; }
-  }, []);
+      return stored ? JSON.parse(stored) : DEMO_BOAT;
+    } catch { return DEMO_BOAT; }
+  }, [demo, primary]);
 
-  const engineMake  = boatInfo?.engineMake  ?? "Mercury";
-  const engineModel = boatInfo?.engineModel ?? "Verado 250 (2021–present)";
-  const engineType  = boatInfo?.engineType  ?? "Outboard";
+  const engineMake  = boatInfo?.engineMake  ?? (demo ? "Mercury" : "");
+  const engineModel = boatInfo?.engineModel ?? (demo ? "Verado 250 (2021–present)" : "");
+  const engineType  = boatInfo?.engineType  ?? (demo ? "Outboard" : "");
+  // Each live boat keeps its own schedule; the demo keeps the original keys.
+  const keyFor = (name: string) => (demo ? name : `${name}:${user?.id ?? "anon"}:${primary?.id ?? "none"}`);
+  const { data: logEntries = [] } = useBoatLog(demo ? undefined : primary?.id);
   const boatName    = boatInfo?.name ?? [boatInfo?.year, boatInfo?.make, boatInfo?.model].filter(Boolean).join(" ") ?? "My Boat";
 
-  // Service records
-  const [records, setRecords] = useState<ServiceRecord[]>(() => {
-    try {
-      const stored = localStorage.getItem("maintenance_records");
-      return stored ? JSON.parse(stored) : DEFAULT_SERVICE_RECORDS;
-    } catch { return DEFAULT_SERVICE_RECORDS; }
-  });
-
-  function saveRecords(next: ServiceRecord[]) {
-    setRecords(next);
-    localStorage.setItem("maintenance_records", JSON.stringify(next));
-  }
+  // Service records the owner marked here (demo starts with sample history).
+  const [records, saveRecords] = useStored<ServiceRecord[]>(keyFor("maintenance_records"), demo ? DEFAULT_SERVICE_RECORDS : []);
 
   // Disabled task IDs
-  const [disabled, setDisabled] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem("maintenance_disabled");
-      return stored ? JSON.parse(stored) : [];
-    } catch { return []; }
-  });
-
-  function saveDisabled(next: string[]) {
-    setDisabled(next);
-    localStorage.setItem("maintenance_disabled", JSON.stringify(next));
-  }
+  const [disabled, saveDisabled] = useStored<string[]>(keyFor("maintenance_disabled"), []);
 
   function toggleDisabled(id: string) {
     saveDisabled(disabled.includes(id) ? disabled.filter((d) => d !== id) : [...disabled, id]);
   }
 
   // Custom tasks
-  const [customTasks, setCustomTasks] = useState<CustomTask[]>(() => {
-    try {
-      const stored = localStorage.getItem("maintenance_custom");
-      return stored ? JSON.parse(stored) : [];
-    } catch { return []; }
-  });
-
-  function saveCustomTasks(next: CustomTask[]) {
-    setCustomTasks(next);
-    localStorage.setItem("maintenance_custom", JSON.stringify(next));
-  }
+  const [customTasks, saveCustomTasks] = useStored<CustomTask[]>(keyFor("maintenance_custom"), []);
 
   function deleteCustomTask(id: string) {
     saveCustomTasks(customTasks.filter((t) => t.id !== id));
@@ -245,12 +269,12 @@ export default function MaintenancePage() {
   }
 
   // Engine hours
-  const [currentEngineHours, setCurrentEngineHours] = useState<number | null>(() => {
-    try {
-      const stored = localStorage.getItem("maintenance_engine_hours");
-      return stored ? JSON.parse(stored) : 312; // demo default
-    } catch { return null; }
-  });
+  const latestLoggedHours = useMemo(
+    () => [...logEntries].sort((a, b) => b.date.localeCompare(a.date)).find((e) => e.engineHours != null)?.engineHours ?? null,
+    [logEntries]
+  );
+  const [storedHours, setCurrentEngineHours] = useStored<number | null>(keyFor("maintenance_engine_hours"), demo ? 312 : null);
+  const currentEngineHours = storedHours ?? latestLoggedHours;
   const [editingHours, setEditingHours] = useState(false);
   const [hoursInputValue, setHoursInputValue] = useState(() => currentEngineHours?.toString() ?? "");
   const hoursInputRef = useRef<HTMLInputElement>(null);
@@ -259,7 +283,6 @@ export default function MaintenancePage() {
     const val = parseFloat(hoursInputValue);
     const next = isNaN(val) || val < 0 ? null : Math.round(val * 10) / 10;
     setCurrentEngineHours(next);
-    localStorage.setItem("maintenance_engine_hours", JSON.stringify(next));
     setEditingHours(false);
   }
 
@@ -269,12 +292,27 @@ export default function MaintenancePage() {
     [engineMake, engineModel, engineType]
   );
 
+  // Work in the Boat Log (shop jobs, imported invoices, DIY entries) counts as done.
+  const effectiveRecords = useMemo<ServiceRecord[]>(() => {
+    if (demo) return records;
+    const ids = [...allBuiltInTasks, ...customTasks].map((t) => t.id);
+    const derived = recordsFromLog(
+      ids,
+      logEntries.map((e) => ({
+        date: e.date,
+        engineHours: e.engineHours,
+        text: [e.title, e.notes, ...e.lines.map((l) => l.description)].filter(Boolean).join(" · "),
+      }))
+    );
+    return mergeRecords(records, derived as ServiceRecord[]);
+  }, [demo, records, logEntries, allBuiltInTasks, customTasks]);
+
   const tasks = useMemo<TaskStatus[]>(() => {
     const combined: MaintenanceTask[] = [...allBuiltInTasks, ...customTasks];
     return combined
       .filter((t) => !disabled.includes(t.id))
       .map((task) => {
-        const rec = records
+        const rec = effectiveRecords
           .filter((r) => r.taskId === task.id)
           .sort((a, b) => b.date.localeCompare(a.date))[0];
         return {
@@ -286,14 +324,14 @@ export default function MaintenancePage() {
         const d = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
         return d !== 0 ? d : (a.daysUntilDue ?? 9999) - (b.daysUntilDue ?? 9999);
       });
-  }, [records, disabled, customTasks, allBuiltInTasks, currentEngineHours]);
+  }, [effectiveRecords, disabled, customTasks, allBuiltInTasks, currentEngineHours]);
 
   const hiddenTasks = useMemo<TaskStatus[]>(() => {
     const combined: MaintenanceTask[] = [...allBuiltInTasks, ...customTasks];
     return combined
       .filter((t) => disabled.includes(t.id))
       .map((task) => {
-        const rec = records
+        const rec = effectiveRecords
           .filter((r) => r.taskId === task.id)
           .sort((a, b) => b.date.localeCompare(a.date))[0];
         return {
@@ -301,7 +339,7 @@ export default function MaintenancePage() {
           isCustom: (task as CustomTask).isCustom,
         };
       });
-  }, [records, disabled, customTasks, allBuiltInTasks, currentEngineHours]);
+  }, [effectiveRecords, disabled, customTasks, allBuiltInTasks, currentEngineHours]);
 
   const counts = useMemo(() => ({
     overdue:  tasks.filter((t) => t.status === "overdue" || t.status === "never").length,
@@ -347,6 +385,14 @@ export default function MaintenancePage() {
   const equipment = useMemo<EquipmentItem[]>(() => {
     // Load from all boats in fleet
     const items: EquipmentItem[] = [];
+    if (!demo) {
+      // Live boats only show equipment the owner added; never the demo gear.
+      try {
+        const stored = primary ? localStorage.getItem(`bosun_boat_equipment_${primary.id}`) : null;
+        if (stored) items.push(...JSON.parse(stored));
+      } catch { /* ignore */ }
+      return items;
+    }
     try {
       const fleetRaw = localStorage.getItem("my_fleet");
       const fleet: { id: string }[] = fleetRaw ? JSON.parse(fleetRaw) : [{ id: DEFAULT_BOAT_ID }];
@@ -362,7 +408,7 @@ export default function MaintenancePage() {
       }
     } catch { /* ignore */ }
     return items;
-  }, []);
+  }, [demo, primary?.id]);
 
   function getWarrantyStatus(warrantyExpiry: string): "active" | "expiring" | "expired" {
     if (!warrantyExpiry) return "expired";
@@ -431,11 +477,12 @@ export default function MaintenancePage() {
   const [claimsOpen, setClaimsOpen] = useState(false);
 
   // Spending — all owner's boats (all projects belong to the logged-in owner)
-  const ownerSpending = useMemo(() => getOwnerSpendingByBoat(), []);
+  // Demo-only: spending from sample jobs. Live history lives in the Boat Log.
+  const ownerSpending = useMemo(() => (demo ? getOwnerSpendingByBoat() : []), [demo]);
   const [spendingOpen, setSpendingOpen] = useState(false);
   const [expandedBoats, setExpandedBoats] = useState<Set<string>>(new Set());
   const [expandedYears, setExpandedYears] = useState<Map<string, Set<number>>>(new Map());
-  const currentYear = TODAY.getFullYear();
+  const currentYear = today().getFullYear();
 
   // Filter
   const [filter, setFilter] = useState<StatusFilter>("all");
@@ -473,13 +520,13 @@ export default function MaintenancePage() {
 
   // Log service modal
   const [logTask, setLogTask] = useState<TaskStatus | null>(null);
-  const [logDate, setLogDate] = useState(TODAY.toISOString().slice(0, 10));
+  const [logDate, setLogDate] = useState(() => today().toISOString().slice(0, 10));
   const [logHours, setLogHours] = useState("");
   const [logNotes, setLogNotes] = useState("");
 
   function openLog(task: TaskStatus) {
     setLogTask(task);
-    setLogDate(TODAY.toISOString().slice(0, 10));
+    setLogDate(today().toISOString().slice(0, 10));
     setLogHours(currentEngineHours?.toString() ?? "");
     setLogNotes("");
   }
@@ -548,7 +595,17 @@ export default function MaintenancePage() {
           <div className="flex-1">
             <h1 className="text-base font-bold text-foreground leading-tight">Maintenance</h1>
             <p className="text-xs text-muted-foreground leading-tight">
-              {boatName} · {boatInfo?.engineCount ? `${boatInfo.engineCount} ` : ""}{engineMake} {engineModel.replace(/\s*\(.*?\)$/, "")}
+              {boatName}
+              {engineMake ? (
+                <> · {boatInfo?.engineCount ? `${boatInfo.engineCount} ` : ""}{engineMake} {engineModel.replace(/\s*\(.*?\)$/, "")}</>
+              ) : (
+                <>
+                  {" · "}
+                  <button onClick={() => navigate("/my-boats")} className="text-sky-700 font-semibold hover:underline">
+                    Add your engine for an engine-specific schedule
+                  </button>
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -1215,7 +1272,7 @@ export default function MaintenancePage() {
                 <input
                   type="date"
                   value={logDate}
-                  max={TODAY.toISOString().slice(0, 10)}
+                  max={today().toISOString().slice(0, 10)}
                   onChange={(e) => setLogDate(e.target.value)}
                   className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />

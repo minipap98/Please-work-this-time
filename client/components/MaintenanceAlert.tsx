@@ -1,8 +1,12 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMaintenanceTasks, DEFAULT_SERVICE_RECORDS } from "@/data/maintenanceData";
+import { useDemoMode } from "@/lib/demoMode";
+import { useAuth } from "@/context/AuthContext";
+import { useMyBoats } from "@/hooks/use-my-boat";
+import { useBoatLog } from "@/hooks/use-boat-log";
+import { mergeRecords, recordsFromLog } from "@shared/maintenanceMatch";
 
-const TODAY = new Date("2026-03-08");
 
 function addMonths(date: Date, months: number): Date {
   const d = new Date(date);
@@ -10,41 +14,27 @@ function addMonths(date: Date, months: number): Date {
   return d;
 }
 
-function getStatusCounts() {
-  // Load boat info
-  let engineMake = "Mercury";
-  let engineModel = "Verado 250 (2021–present)";
-  let engineType = "Outboard";
+function readJson<T>(key: string, fallback: T): T {
   try {
-    const b = JSON.parse(localStorage.getItem("my_boat") ?? "null");
-    if (b) { engineMake = b.engineMake; engineModel = b.engineModel; engineType = b.engineType; }
-  } catch {}
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
-  // Load service records
-  let records: { taskId: string; date: string }[] = DEFAULT_SERVICE_RECORDS;
-  try {
-    const stored = localStorage.getItem("maintenance_records");
-    if (stored) records = JSON.parse(stored);
-  } catch {}
+interface Inputs {
+  engineMake: string;
+  engineModel: string;
+  engineType: string;
+  records: { taskId: string; date: string }[];
+  disabled: string[];
+  custom: { id: string }[];
+}
 
-  // Load disabled task IDs
-  let disabled: string[] = [];
-  try {
-    const stored = localStorage.getItem("maintenance_disabled");
-    if (stored) disabled = JSON.parse(stored);
-  } catch {}
-
-  const tasks = getMaintenanceTasks(engineMake, engineModel, engineType)
+function getStatusCounts({ engineMake, engineModel, engineType, records, disabled, custom }: Inputs, today = new Date()) {
+  const tasks = [...getMaintenanceTasks(engineMake, engineModel, engineType), ...(custom as ReturnType<typeof getMaintenanceTasks>)]
     .filter((t) => !disabled.includes(t.id));
-
-  // Load custom tasks
-  try {
-    const stored = localStorage.getItem("maintenance_custom");
-    if (stored) {
-      const custom = JSON.parse(stored);
-      tasks.push(...custom.filter((t: { id: string }) => !disabled.includes(t.id)));
-    }
-  } catch {}
 
   let overdue = 0;
   let dueSoon = 0;
@@ -57,7 +47,7 @@ function getStatusCounts() {
     if (!rec) { overdue++; continue; }
 
     const next = addMonths(new Date(rec.date), task.intervalMonths);
-    const days = Math.round((next.getTime() - TODAY.getTime()) / 86400000);
+    const days = Math.round((next.getTime() - today.getTime()) / 86400000);
     if (days < 0) overdue++;
     else if (days <= 60) dueSoon++;
   }
@@ -67,7 +57,48 @@ function getStatusCounts() {
 
 export default function MaintenanceAlert() {
   const navigate = useNavigate();
-  const { overdue, dueSoon, total } = useMemo(getStatusCounts, []);
+  const { demo } = useDemoMode();
+  const { user } = useAuth();
+  const { primary } = useMyBoats();
+  const { data: logEntries = [] } = useBoatLog(demo ? undefined : primary?.id);
+
+  const { overdue, dueSoon, total } = useMemo(() => {
+    if (demo) {
+      const b = readJson<{ engineMake?: string; engineModel?: string; engineType?: string } | null>("my_boat", null);
+      return getStatusCounts({
+        engineMake: b?.engineMake ?? "Mercury",
+        engineModel: b?.engineModel ?? "Verado 250 (2021–present)",
+        engineType: b?.engineType ?? "Outboard",
+        records: readJson("maintenance_records", DEFAULT_SERVICE_RECORDS),
+        disabled: readJson("maintenance_disabled", []),
+        custom: readJson("maintenance_custom", []),
+      }, new Date("2026-03-08")); // the demo's sample history is dated around March 2026
+    }
+    // Same per-boat keys as the Maintenance page, plus work found in the Boat Log.
+    const key = (name: string) => `${name}:${user?.id ?? "anon"}:${primary?.id ?? "none"}`;
+    const engineMake = primary?.engine_make ?? "";
+    const engineModel = primary?.engine_model ?? "";
+    const engineType = primary?.engine_type ?? "";
+    const custom = readJson<{ id: string }[]>(key("maintenance_custom"), []);
+    const ids = [...getMaintenanceTasks(engineMake, engineModel, engineType), ...custom].map((t) => t.id);
+    const derived = recordsFromLog(
+      ids,
+      logEntries.map((e) => ({
+        date: e.date,
+        engineHours: e.engineHours,
+        text: [e.title, e.notes, ...e.lines.map((l) => l.description)].filter(Boolean).join(" · "),
+      }))
+    );
+    return getStatusCounts({
+      engineMake,
+      engineModel,
+      engineType,
+      records: mergeRecords(readJson(key("maintenance_records"), []), derived),
+      disabled: readJson(key("maintenance_disabled"), []),
+      custom,
+    });
+  }, [demo, user?.id, primary, logEntries]);
+
 
   const issueCount = overdue + dueSoon;
 

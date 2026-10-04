@@ -14,11 +14,26 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || "https://lqzlevmeihpzxarlimzu.supabase.co";
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Demo accounts get this password. No default: a known password on a live
+// database lets anyone sign in as the sample shops.
+const SEED_PASSWORD = process.env.SEED_PASSWORD ?? "";
 
-if (!SERVICE_ROLE_KEY) {
-  console.error("Missing SUPABASE_SERVICE_ROLE_KEY. Get it from Supabase Dashboard → Settings → API → service_role key");
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error("Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (Supabase Dashboard → Settings → API).");
+  process.exit(1);
+}
+if (SEED_PASSWORD.length < 12) {
+  console.error("Set SEED_PASSWORD to a password of at least 12 characters for the demo accounts.");
+  process.exit(1);
+}
+const isLocal = /localhost|127\.0\.0\.1/.test(SUPABASE_URL);
+if (!isLocal && process.env.SEED_ALLOW_REMOTE !== "yes") {
+  console.error(
+    `Refusing to seed ${SUPABASE_URL}: it isn't a local database. Sample shops would appear to real users.\n` +
+      "If you really mean it, re-run with SEED_ALLOW_REMOTE=yes."
+  );
   process.exit(1);
 }
 
@@ -34,7 +49,7 @@ async function seed() {
 
   const { data: ownerAuth, error: ownerErr } = await supabase.auth.admin.createUser({
     email: "dean@bosun.app",
-    password: "password",
+    password: SEED_PASSWORD,
     email_confirm: true,
     user_metadata: { name: "Dean", role: "owner" },
   });
@@ -46,7 +61,7 @@ async function seed() {
 
   const { data: vendorAuth, error: vendorErr } = await supabase.auth.admin.createUser({
     email: "vendor@bosun.app",
-    password: "password",
+    password: SEED_PASSWORD,
     email_confirm: true,
     user_metadata: { name: "MarineMax Service Center", role: "vendor" },
   });
@@ -121,7 +136,7 @@ async function seed() {
   for (const v of additionalVendors) {
     const { data: auth } = await supabase.auth.admin.createUser({
       email: v.email,
-      password: "password",
+      password: SEED_PASSWORD,
       email_confirm: true,
       user_metadata: { name: v.name, role: "vendor" },
     });
@@ -257,8 +272,8 @@ async function seed() {
 
   console.log("\nSeed complete!");
   console.log("\nDemo accounts:");
-  console.log("  Owner: dean@bosun.app / password");
-  console.log("  Vendor: vendor@bosun.app / password");
+  console.log("  Owner: dean@bosun.app (password from SEED_PASSWORD)");
+  console.log("  Vendor: vendor@bosun.app (password from SEED_PASSWORD)");
 }
 
 seed().catch(console.error);

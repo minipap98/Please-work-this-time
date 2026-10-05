@@ -359,7 +359,7 @@ export default function WarrantyTracker() {
                 setShowAddForm(true);
               }
             }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
           >
             {showAddForm ? "Cancel" : "+ Add Equipment"}
           </button>
@@ -474,7 +474,7 @@ export default function WarrantyTracker() {
                         ? "bg-red-50 border-red-200"
                         : recall.severity === "performance"
                         ? "bg-orange-50 border-orange-200"
-                        : "bg-blue-50 border-blue-200"
+                        : "bg-blue-50 border-sky-200"
                     }`}
                   >
                     <div className="flex items-start gap-3">

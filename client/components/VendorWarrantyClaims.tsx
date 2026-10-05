@@ -36,7 +36,7 @@ const STATUS_CONFIG: Record<
 > = {
   submitted: {
     label: "Submitted",
-    classes: "bg-blue-50 text-blue-700 border-blue-200",
+    classes: "bg-sky-50 text-sky-700 border-sky-200",
   },
   pending_manufacturer: {
     label: "Pending Manufacturer",

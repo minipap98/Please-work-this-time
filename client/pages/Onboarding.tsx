@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { BosunLogo } from "@/components/marketing/BosunLogo";
 import { useRole } from "@/context/RoleContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase, supabaseMissing } from "@/lib/supabase";
@@ -238,20 +239,20 @@ export default function Onboarding() {
   const progressPercent = currentStep === "done" ? 100 : Math.round((stepIndex / totalContentSteps) * 100);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* ── Header with progress ───────────────────────────────── */}
       <div className="bg-white border-b border-border px-4 py-4">
         <div className="max-w-lg mx-auto">
-          <span className="text-lg font-bold tracking-tight text-foreground">Bosun</span>
+          <BosunLogo className="h-5" />
           {currentStep !== "done" && (
             <div className="mt-3">
               <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
                 <span>Step {stepIndex + 1} of {totalContentSteps}</span>
                 <span>{progressPercent}%</span>
               </div>
-              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-primary rounded-full transition-all duration-300"
+                  className="h-full bg-sky-500 rounded-full transition-all duration-300"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
@@ -289,7 +290,7 @@ export default function Onboarding() {
               </p>
               <button
                 onClick={next}
-                className="px-8 py-3 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+                className="px-8 py-3 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
               >
                 Get Started
               </button>
@@ -708,7 +709,7 @@ export default function Onboarding() {
               <button
                 onClick={handleComplete}
                 disabled={finishing}
-                className="px-8 py-3 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
+                className="px-8 py-3 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
               >
                 {finishing ? "Saving…" : isVendor ? "Go to Vendor Dashboard" : "Go to Dashboard"}
               </button>
@@ -758,7 +759,7 @@ function StepNav({
         )}
         <button
           onClick={onNext}
-          className="px-5 py-2.5 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+          className="px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
         >
           Continue
         </button>

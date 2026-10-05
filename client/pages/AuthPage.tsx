@@ -1,8 +1,16 @@
 import { useState, FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Check } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { supabaseMissing } from "@/lib/supabase";
+import { BosunLogo } from "@/components/marketing/BosunLogo";
+
+const PROMISES = [
+  "Every service on your boat in one log, verified by the shop that did it",
+  "Local shops bid on the work you post; you pick who gets it",
+  "Maintenance reminders built from your engine's own schedule",
+];
 
 type Mode = "signin" | "signup";
 
@@ -78,18 +86,44 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
-      {/* Logo */}
-      <div className="mb-8 text-center">
-        <span className="text-2xl font-bold tracking-tight text-foreground">Bosun</span>
-        <p className="text-sm text-muted-foreground mt-1">Marine services, simplified</p>
-        {supabaseMissing && (
-          <p className="text-xs text-red-600 mt-2">Supabase keys are missing. Sign-in will not work until they are set.</p>
-        )}
+    <div className="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      {/* Brand panel (desktop) */}
+      <aside className="hidden lg:flex relative overflow-hidden bg-[#052443] text-white flex-col justify-between p-12">
+        <div className="absolute -top-32 -right-24 w-[480px] h-[480px] rounded-full bg-sky-500/10 blur-3xl" />
+        <Link to="/" className="relative inline-flex w-fit">
+          <BosunLogo tone="light" className="h-7" />
+        </Link>
+        <div className="relative">
+          <h2 className="text-3xl font-bold tracking-tight leading-tight">
+            Your boat's whole story,
+            <br />
+            <span className="text-sky-300">in one place.</span>
+          </h2>
+          <ul className="mt-8 space-y-3">
+            {PROMISES.map((t) => (
+              <li key={t} className="flex items-start gap-3 text-sm text-slate-200">
+                <Check className="w-4 h-4 mt-0.5 shrink-0 text-sky-300" />
+                {t}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="relative text-xs text-slate-400">
+          Shop or yard? <Link to="/shops" className="font-semibold text-slate-200 hover:text-white">See Bosun for shops →</Link>
+        </p>
+      </aside>
+
+      {/* Form */}
+      <div className="flex flex-col items-center justify-center px-4 py-10 sm:py-16">
+      <div className="mb-8 text-center lg:hidden">
+        <Link to="/" className="inline-flex"><BosunLogo className="h-7" /></Link>
       </div>
+      {supabaseMissing && (
+        <p className="mb-4 text-xs text-red-600">Supabase keys are missing. Sign-in will not work until they are set.</p>
+      )}
 
       {/* Card */}
-      <div className="w-full max-w-sm bg-white rounded-xl border border-border shadow-sm">
+      <div className="w-full max-w-sm bg-white rounded-xl border border-border shadow-card">
 
         {/* Mode toggle */}
         <div className="flex border-b border-border">
@@ -98,9 +132,9 @@ export default function AuthPage() {
               key={m}
               onClick={() => switchMode(m)}
               className={cn(
-                "flex-1 py-3.5 text-sm font-medium transition-colors",
+                "flex-1 py-3.5 text-sm font-semibold transition-colors",
                 mode === m
-                  ? "text-foreground border-b-2 border-primary -mb-px"
+                  ? "text-foreground border-b-2 border-sky-500 -mb-px"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -129,7 +163,7 @@ export default function AuthPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Jane Smith"
-                className="w-full px-3 py-2 text-sm rounded-md border border-border bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400 transition"
               />
             </div>
           )}
@@ -146,7 +180,7 @@ export default function AuthPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full px-3 py-2 text-sm rounded-md border border-border bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400 transition"
             />
           </div>
 
@@ -163,7 +197,7 @@ export default function AuthPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={mode === "signup" ? "At least 6 characters" : "••••••••"}
-                className="w-full px-3 py-2 pr-10 text-sm rounded-md border border-border bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
+                className="w-full px-3 py-2 pr-10 text-sm rounded-lg border border-border bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400 transition"
               />
               <button
                 type="button"
@@ -199,8 +233,8 @@ export default function AuthPage() {
                     className={cn(
                       "flex flex-col items-center gap-1.5 py-3 px-2 rounded-lg border text-sm font-medium transition-colors",
                       role === r
-                        ? "border-primary bg-primary text-white"
-                        : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        ? "border-sky-500 bg-sky-50 text-sky-900"
+                        : "border-border text-muted-foreground hover:border-sky-300 hover:text-foreground"
                     )}
                   >
                     {r === "owner" ? (
@@ -237,15 +271,15 @@ export default function AuthPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {mode === "signin" ? "Sign In" : "Create Account"}
           </button>
 
-          {/* Demo credentials hint */}
           {mode === "signin" && (
             <p className="text-center text-xs text-muted-foreground">
-              Demo: <span className="font-mono">dean@bosun.app</span> or <span className="font-mono">vendor@bosun.app</span> — password: <span className="font-mono">password</span>
+              Just looking?{" "}
+              <Link to="/demo" className="font-semibold text-sky-700 hover:underline">Try the demo</Link>, no account needed.
             </p>
           )}
         </form>
@@ -255,18 +289,19 @@ export default function AuthPage() {
       <p className="mt-5 text-sm text-muted-foreground">
         {mode === "signin" ? (
           <>Don't have an account?{" "}
-            <button onClick={() => switchMode("signup")} className="font-medium text-foreground hover:underline">
+            <button onClick={() => switchMode("signup")} className="font-semibold text-sky-700 hover:underline">
               Sign up
             </button>
           </>
         ) : (
           <>Already have an account?{" "}
-            <button onClick={() => switchMode("signin")} className="font-medium text-foreground hover:underline">
+            <button onClick={() => switchMode("signin")} className="font-semibold text-sky-700 hover:underline">
               Sign in
             </button>
           </>
         )}
       </p>
+      </div>
     </div>
   );
 }

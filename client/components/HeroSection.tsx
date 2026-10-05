@@ -383,7 +383,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
             <p className="text-sm text-slate-600">{boatInfo?.id ? "Add a photo of your boat" : "Add your boat to get started"}</p>
             <button
               onClick={() => navigate(boatInfo?.id ? "/settings" : "/my-boats")}
-              className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90"
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90"
             >
               {boatInfo?.id ? "Upload photo" : "Add boat"}
             </button>
@@ -520,7 +520,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
               <div className="space-y-5 pt-1">
                 {/* Shortcut: use registered engine */}
                 {boatEquipment.filter((e) => e.category === "engine").length > 0 && (
-                  <div className="border border-blue-200 bg-blue-50 rounded-lg p-3">
+                  <div className="border border-sky-200 bg-blue-50 rounded-lg p-3">
                     <p className="text-xs font-semibold text-blue-800 mb-2">Your registered engine{boatEquipment.filter((e) => e.category === "engine").length > 1 ? "s" : ""}</p>
                     <div className="space-y-2">
                       {boatEquipment.filter((e) => e.category === "engine").map((eng) => (
@@ -533,7 +533,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                             setProjectDescription("");
                             setStep("details");
                           }}
-                          className="w-full flex items-center justify-between gap-2 p-2.5 rounded-md bg-white border border-blue-200 hover:border-blue-400 transition-colors text-left"
+                          className="w-full flex items-center justify-between gap-2 p-2.5 rounded-md bg-white border border-sky-200 hover:border-blue-400 transition-colors text-left"
                         >
                           <div>
                             <p className="text-sm font-semibold text-foreground">{eng.manufacturer} {eng.model}</p>
@@ -630,7 +630,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                   <button
                     disabled={!canSubmit}
                     onClick={() => setStep("details")}
-                    className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     Next →
                   </button>
@@ -670,7 +670,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                   </p>
                   <button
                     onClick={handleClose}
-                    className="mt-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+                    className="mt-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
                   >
                     Done
                   </button>
@@ -815,7 +815,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
 
                     {/* Auto-suggest for hull work */}
                     {selectedCategory === "Hull & Gelcoat" && !haulOutRequired && (
-                      <div className="mt-2 p-2.5 rounded-lg bg-blue-50 border border-blue-200">
+                      <div className="mt-2 p-2.5 rounded-lg bg-blue-50 border border-sky-200">
                         <p className="text-xs text-blue-800">
                           <span className="font-semibold">Tip:</span> Hull & gelcoat work typically requires haul-out.{" "}
                           <button
@@ -980,7 +980,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                           setPosting(false);
                         }
                       }}
-                      className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       {posting ? "Posting…" : "Post Project"}
                     </button>

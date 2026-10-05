@@ -188,7 +188,7 @@ export default function VendorRFPs() {
                         <span
                           className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                             project.status === "gathering"
-                              ? "bg-blue-50 text-blue-700"
+                              ? "bg-sky-50 text-sky-700"
                               : "bg-sky-50 text-sky-700"
                           }`}
                         >
@@ -201,7 +201,7 @@ export default function VendorRFPs() {
                           </span>
                         )}
                         {project.haulOutRequired && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700 border border-sky-200">
                             <Anchor className="w-3 h-3" />
                             Haul-Out Required
                           </span>
@@ -266,7 +266,7 @@ export default function VendorRFPs() {
                       ) : (
                         <button
                           onClick={() => openDialog(project.id)}
-                          className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+                          className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
                         >
                           Submit Bid
                         </button>
@@ -454,7 +454,7 @@ export default function VendorRFPs() {
                   <button
                     onClick={handleSubmit}
                     disabled={submitting || !isValid}
-                    className="px-5 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {submitting ? "Submitting…" : "Submit Bid"}
                   </button>

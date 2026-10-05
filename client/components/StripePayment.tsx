@@ -159,7 +159,7 @@ function PaymentForm({ amount, label, vendorName, projectTitle, projectId, bidId
             <button
               type="submit"
               disabled={!stripe || processing}
-              className="flex-1 px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {processing ? "Processing…" : `Pay $${amount.toLocaleString()}`}
             </button>

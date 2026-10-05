@@ -1,5 +1,8 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
+import { ChevronLeft } from "lucide-react";
+import { googleMapsConfigured } from "@/lib/googleMaps";
+import { useDemoMode } from "@/lib/demoMode";
 import ReviewsList from "@/components/ReviewsList";
 import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
@@ -16,6 +19,7 @@ export default function VendorProfile() {
   const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
   const { role, vendorId } = useRole();
+  const { demo } = useDemoMode();
   const decodedName = decodeURIComponent(name ?? "");
   const looksLikeId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decodedName);
   const { data: live, isLoading: liveLoading } = useVendorProfile(looksLikeId ? decodedName : undefined);
@@ -71,24 +75,22 @@ export default function VendorProfile() {
         {/* Back */}
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
+          className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-6"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+          <ChevronLeft className="w-4 h-4" />
           Back
         </button>
 
         {/* Header card */}
-        <div className="border border-border rounded-lg p-6 mb-8">
+        <div className="rounded-xl border border-border bg-white shadow-card p-6 mb-6">
           <div className="flex items-start gap-5">
-            <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xl font-bold flex-shrink-0">
+            <div className="w-16 h-16 rounded-full bg-sky-100 text-brand flex items-center justify-center text-xl font-bold flex-shrink-0">
               {vendor.initials}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
-                  <h1 className="text-xl font-semibold text-foreground">{vendor.name}</h1>
+                  <h1 className="text-2xl font-bold tracking-tight text-foreground">{vendor.name}</h1>
                   <div className="flex items-center gap-1 mt-1">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <svg
@@ -112,7 +114,7 @@ export default function VendorProfile() {
                     </span>
                   )}
                   {vendor.licensed && (
-                    <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full">
+                    <span className="text-xs font-semibold text-sky-700 bg-sky-50 border border-sky-200 px-2.5 py-1 rounded-full">
                       ✓ Licensed
                     </span>
                   )}
@@ -120,18 +122,18 @@ export default function VendorProfile() {
               </div>
 
               {/* Stats row */}
-              <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border/50">
+              <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border">
                 <div>
-                  <p className="text-lg font-bold text-foreground">{vendor.completedJobs.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">Jobs completed</p>
+                  <p className="text-xl font-bold tabular-nums text-foreground">{vendor.completedJobs.toLocaleString()}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Jobs completed</p>
                 </div>
                 <div>
-                  <p className="text-lg font-bold text-foreground">{vendor.yearsInBusiness} yrs</p>
-                  <p className="text-xs text-muted-foreground">In business</p>
+                  <p className="text-xl font-bold tabular-nums text-foreground">{vendor.yearsInBusiness} yrs</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">In business</p>
                 </div>
                 <div>
-                  <p className="text-lg font-bold text-foreground">{vendor.responseTime}</p>
-                  <p className="text-xs text-muted-foreground">Response time</p>
+                  <p className="text-xl font-bold tabular-nums text-foreground">{vendor.responseTime}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Response time</p>
                 </div>
               </div>
             </div>
@@ -154,7 +156,7 @@ export default function VendorProfile() {
                 </h2>
                 <div className="space-y-3">
                   {pastWork.map((project, i) => (
-                    <div key={i} className="border border-border rounded-lg p-4">
+                    <div key={i} className="rounded-xl border border-border bg-white shadow-card p-4">
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <p className="text-sm font-semibold text-foreground">{project.title}</p>
                         <span className="text-xs text-muted-foreground flex-shrink-0">{project.completedDate}</span>
@@ -187,22 +189,22 @@ export default function VendorProfile() {
               </section>
             )}
 
-            {/* Reviews from Supabase */}
-            <section>
-              <h2 className="text-base font-semibold text-foreground mb-3">
-                Reviews
-              </h2>
-              <ReviewsList vendorId={decodedName} />
-            </section>
+            {/* Reviews from Supabase (the demo shop's reviews are in its past work above) */}
+            {!demo && (
+              <section>
+                <h2 className="text-base font-semibold text-foreground mb-3">Reviews</h2>
+                <ReviewsList vendorId={decodedName} />
+              </section>
+            )}
           </div>
 
           {/* Sidebar */}
           <div className="space-y-5">
-            <section className="border border-border rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-foreground mb-3">Specialties</h3>
+            <section className="rounded-xl border border-border bg-white shadow-card p-4">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Specialties</h3>
               <div className="flex flex-wrap gap-1.5">
                 {vendor.specialties.map((s) => (
-                  <span key={s} className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                  <span key={s} className="text-xs font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
                     {s}
                   </span>
                 ))}
@@ -210,8 +212,8 @@ export default function VendorProfile() {
             </section>
 
             {vendor.certifications.length > 0 && (
-              <section className="border border-border rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-foreground mb-3">Certifications</h3>
+              <section className="rounded-xl border border-border bg-white shadow-card p-4">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Certifications</h3>
                 <ul className="space-y-1.5">
                   {vendor.certifications.map((c) => (
                     <li key={c} className="flex items-start gap-2 text-xs text-muted-foreground">
@@ -225,10 +227,10 @@ export default function VendorProfile() {
               </section>
             )}
 
-            <section className="border border-border rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-foreground mb-3">Service Area</h3>
+            <section className="rounded-xl border border-border bg-white shadow-card p-4">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Service Area</h3>
               <p className="text-xs text-muted-foreground leading-relaxed mb-3">{vendor.serviceArea}</p>
-              {vendor.lat != null && vendor.lng != null && (
+              {googleMapsConfigured && vendor.lat != null && vendor.lng != null && (
                 <Suspense fallback={
                   <div className="h-[200px] bg-muted/30 rounded-lg flex items-center justify-center">
                     <span className="text-xs text-muted-foreground">Loading map…</span>
@@ -240,14 +242,14 @@ export default function VendorProfile() {
             </section>
 
             {isOwnProfile ? (
-              <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 text-center">
+              <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 text-center">
                 <p className="text-xs font-semibold text-amber-700 mb-0.5">This is your public profile</p>
                 <p className="text-xs text-amber-600">This is how boat owners see you on Bosun.</p>
               </div>
             ) : (
               <button
                 onClick={() => navigate("/")}
-                className="w-full px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+                className="w-full px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
               >
                 Post a Project
               </button>

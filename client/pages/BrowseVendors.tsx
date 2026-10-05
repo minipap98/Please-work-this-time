@@ -480,7 +480,7 @@ function VendorCard({ vendor, navigate, miles }: { vendor: VendorProfile; naviga
                 </span>
               )}
               {vendor.licensed && (
-                <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-sky-200 px-2 py-0.5 rounded-full">
                   Licensed
                 </span>
               )}

@@ -60,8 +60,8 @@ const FILTER_CONFIG: {
   {
     key: "completed",
     label: "Completed",
-    activeClass: "bg-blue-600 text-white",
-    badgeClass: "bg-blue-50 text-blue-700",
+    activeClass: "bg-sky-600 text-white",
+    badgeClass: "bg-sky-50 text-sky-700",
   },
   {
     key: "lost",

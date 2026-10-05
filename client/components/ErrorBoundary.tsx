@@ -34,7 +34,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               this.setState({ error: null });
               window.location.assign("/");
             }}
-            className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold"
+            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold"
           >
             Go home
           </button>

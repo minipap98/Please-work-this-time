@@ -204,7 +204,7 @@ export default function Settings() {
                 <button
                   onClick={handleApplyCrop}
                   disabled={!completedCrop}
-                  className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Use this photo
                 </button>
@@ -307,7 +307,7 @@ export default function Settings() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-5 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+              className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
             >
               {saved ? "Saved!" : saving ? "Saving…" : "Save Changes"}
             </button>

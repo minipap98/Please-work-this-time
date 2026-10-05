@@ -256,7 +256,7 @@ function BoatForm({
         </button>
         <button
           onClick={() => onSave(form)}
-          className="px-5 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+          className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
         >
           Save Boat
         </button>

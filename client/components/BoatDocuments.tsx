@@ -139,7 +139,7 @@ export default function BoatDocuments({ boatId }: { boatId: string }) {
           <button
             onClick={handleUpload}
             disabled={!selectedFile || !uploadForm.title || uploadMutation.isPending}
-            className="w-full py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="w-full py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {uploadMutation.isPending ? "Uploading..." : "Upload Document"}
           </button>

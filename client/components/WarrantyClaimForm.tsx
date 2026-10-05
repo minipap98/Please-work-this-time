@@ -81,7 +81,7 @@ const STATUS_OPTIONS: { value: ClaimStatus; label: string }[] = [
 
 const STATUS_STYLES: Record<ClaimStatus, string> = {
   draft: "bg-gray-100 text-gray-700",
-  submitted: "bg-blue-50 text-blue-700",
+  submitted: "bg-sky-50 text-sky-700",
   approved: "bg-green-50 text-green-700",
   denied: "bg-red-50 text-red-700",
 };
@@ -286,7 +286,7 @@ export default function WarrantyClaimForm({
 
         {/* Manufacturer portal info box */}
         {portal && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 space-y-2">
+          <div className="rounded-lg border border-sky-200 bg-blue-50 px-4 py-3 space-y-2">
             <div className="flex items-start gap-3">
               <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
               <div className="space-y-1">
@@ -484,7 +484,7 @@ export default function WarrantyClaimForm({
         <div className="no-print flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
           <button
             onClick={handlePrint}
-            className="flex items-center justify-center gap-2 px-5 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+            className="flex items-center justify-center gap-2 px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
           >
             <Printer className="w-4 h-4" />
             Generate PDF

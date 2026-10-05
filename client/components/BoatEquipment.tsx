@@ -467,7 +467,7 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
           <button
             onClick={handleSubmit}
             disabled={!form.manufacturer || !form.model || !form.serialNumber}
-            className="w-full py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="w-full py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {editingId ? "Update Equipment" : "Add Equipment"}
           </button>
@@ -476,7 +476,7 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
 
       {/* Engine pre-fill prompt */}
       {!engineAlreadyRegistered && !showForm && engineInfo?.engineMake && (
-        <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 mb-3">
+        <div className="border border-sky-200 bg-blue-50 rounded-lg p-3 mb-3">
           <p className="text-xs font-semibold text-blue-800 mb-1">
             Register your {engineInfo.engineMake} {engineInfo.engineModel?.replace(/\s*\([\d–\-]+.*?\)$/, "")}?
           </p>
@@ -493,7 +493,7 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
               });
               setShowForm(true);
             }}
-            className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors"
+            className="px-3 py-1.5 rounded-md bg-sky-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors"
           >
             Add Serial Number{engineInfo.engineCount && engineInfo.engineCount !== "Single" ? "s" : ""} & Warranty Info
           </button>
@@ -616,7 +616,7 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
                                     ? "bg-red-50 border border-red-200"
                                     : recall.severity === "performance"
                                     ? "bg-orange-50 border border-orange-200"
-                                    : "bg-blue-50 border border-blue-200"
+                                    : "bg-blue-50 border border-sky-200"
                                 }`}
                               >
                                 <div className="flex items-start gap-2">
@@ -715,7 +715,7 @@ export default function BoatEquipment({ boatId, boatInfo, engineInfo }: BoatEqui
                           <a
                             href={item.manualUrl}
                             download={item.manualName || "service-manual.pdf"}
-                            className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-primary/5 border border-primary/20 text-xs text-primary font-medium hover:bg-primary/10 transition-colors"
+                            className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-primary font-medium hover:bg-primary/10 transition-colors"
                           >
                             <BookOpen className="w-3.5 h-3.5" />
                             <span className="truncate">{item.manualName || "Service Manual"}</span>

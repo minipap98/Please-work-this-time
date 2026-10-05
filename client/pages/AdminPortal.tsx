@@ -512,7 +512,7 @@ function AdminDashboard() {
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                             user.role === "owner"
-                              ? "bg-blue-50 text-blue-700"
+                              ? "bg-sky-50 text-sky-700"
                               : "bg-sky-50 text-sky-700"
                           }`}
                         >

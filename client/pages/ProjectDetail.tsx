@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
 import ReviewForm from "@/components/ReviewForm";
 import StripePayment from "@/components/StripePayment";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
@@ -193,14 +194,20 @@ export default function ProjectDetail() {
 
   // Project status progression (stored locally for demo)
   const statusKey = `project_status_${id}`;
-  const [projectStatus, setProjectStatus] = useState<string>(() => {
+  const [storedStatus, setStoredStatus] = useState<string>(() => {
     try { return localStorage.getItem(statusKey) ?? ""; } catch { return ""; }
   });
+  // Locally advanced status wins; otherwise the project's own status, with every "still taking bids" state as "active".
+  const projectStatus =
+    storedStatus ||
+    (project?.status === "in-progress" || project?.status === "completed" || project?.status === "expired"
+      ? project.status
+      : "active");
 
   function advanceStatus() {
-    const next = projectStatus === "active" ? "in-progress" : projectStatus === "in-progress" ? "completed" : "completed";
+    const next = projectStatus === "active" ? "in-progress" : "completed";
     localStorage.setItem(statusKey, next);
-    setProjectStatus(next);
+    setStoredStatus(next);
   }
 
   function daysUntil(dateStr: string) {
@@ -251,28 +258,28 @@ export default function ProjectDetail() {
         {/* Back */}
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
+          className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-6"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+          <ChevronLeft className="w-4 h-4" />
           Back
         </button>
 
         {/* Project header */}
         <div className="mb-8">
           <div className="flex items-start justify-between gap-4 mb-2">
-            <h1 className="text-2xl font-semibold text-foreground">{project.title}</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">{project.title}</h1>
             <span
-              className={`text-xs font-semibold px-2.5 py-1 rounded flex-shrink-0 capitalize ${
+              className={`text-xs font-semibold px-2.5 py-1 rounded-full border flex-shrink-0 capitalize ${
                 projectStatus === "active"
-                  ? "bg-primary text-white"
+                  ? "bg-sky-50 text-sky-700 border-sky-200"
                   : projectStatus === "in-progress"
-                  ? "bg-amber-500 text-white"
-                  : "bg-muted text-foreground"
+                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                  : projectStatus === "completed"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-slate-100 text-slate-600 border-slate-200"
               }`}
             >
-              {projectStatus === "in-progress" ? "In Progress" : projectStatus}
+              {projectStatus === "in-progress" ? "In Progress" : projectStatus === "active" ? "Taking bids" : projectStatus}
             </span>
           </div>
           <p className="text-sm text-muted-foreground">{project.description}</p>
@@ -308,7 +315,7 @@ export default function ProjectDetail() {
           )}
 
         {/* Status progression */}
-        <div className="mb-10 border border-border rounded-lg px-5 py-4">
+        <div className="mb-8 rounded-xl border border-border bg-white shadow-card px-5 py-4">
           <div className="flex items-center justify-between relative">
             {/* Line */}
             <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-0.5 bg-border mx-5" />
@@ -323,7 +330,7 @@ export default function ProjectDetail() {
               const isDone = stepIdx <= currentIdx;
               return (
                 <div key={step.key} className="flex flex-col items-center gap-1.5 z-10">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 ${isDone ? "bg-primary border-primary text-white" : "bg-white border-border text-muted-foreground"}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 ${isDone ? "bg-sky-500 border-sky-500 text-white" : "bg-white border-border text-muted-foreground"}`}>
                     {isDone ? (
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
@@ -391,7 +398,7 @@ export default function ProjectDetail() {
               <button
                 onClick={handleAddNote}
                 disabled={!newNoteText.trim()}
-                className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity"
+                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity"
               >
                 Add Note
               </button>
@@ -484,7 +491,7 @@ export default function ProjectDetail() {
           return (
             <section className="mb-10">
               <h2 className="text-base font-semibold text-foreground mb-4">Equipment &amp; Warranty</h2>
-              <div className="border border-border rounded-lg p-5">
+              <div className="rounded-xl border border-border bg-white shadow-card p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-1">{eq.category}</p>
@@ -495,7 +502,7 @@ export default function ProjectDetail() {
                       {warrantyBadge.icon} {warrantyBadge.label}
                     </span>
                     {showWarrantyClaim && (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200">
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-sky-50 text-sky-700 border-sky-200">
                         Potential Warranty Claim
                       </span>
                     )}
@@ -540,7 +547,7 @@ export default function ProjectDetail() {
                           localStorage.setItem("bosun_vendor_warranty_claims", JSON.stringify(claims));
                           alert("Warranty claim filed successfully.");
                         }}
-                        className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+                        className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-md bg-sky-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -577,9 +584,9 @@ export default function ProjectDetail() {
               return (
                 <div
                   key={bid.id}
-                  className={`border rounded-lg p-5 transition-colors ${
+                  className={`rounded-xl border bg-white shadow-card p-5 transition-colors ${
                     isChosen
-                      ? "border-primary bg-primary/5"
+                      ? "border-sky-400 ring-1 ring-sky-200"
                       : isRescinded
                       ? "border-border bg-zinc-50 opacity-50"
                       : isRejected
@@ -590,7 +597,7 @@ export default function ProjectDetail() {
                   <div className="flex items-start justify-between gap-4">
                     {/* Left: avatar + vendor info */}
                     <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${isRejected ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"}`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${isRejected ? "bg-muted text-muted-foreground" : "bg-sky-100 text-brand"}`}>
                         {bid.vendorInitials}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -649,7 +656,7 @@ export default function ProjectDetail() {
                             return null;
                           })()}
                           {VENDOR_PROFILES[bid.vendorName]?.licensed && (
-                            <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full">
+                            <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-sky-200 px-1.5 py-0.5 rounded-full">
                               Licensed
                             </span>
                           )}
@@ -704,7 +711,7 @@ export default function ProjectDetail() {
                           </button>
                           <button
                             onClick={() => handleAcceptBid(bid.id)}
-                            className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+                            className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
                           >
                             Accept Bid
                           </button>
@@ -848,7 +855,7 @@ export default function ProjectDetail() {
         {bookingConfirmed && (project.status === "active" || project.status === "bidding") && (
           <section className="mt-10">
             <h2 className="text-base font-semibold text-foreground mb-4">Payment</h2>
-            <div className="border border-border rounded-lg p-6">
+            <div className="rounded-xl border border-border bg-white shadow-card p-6">
               <div className="flex items-start justify-between gap-4 mb-5">
                 <div>
                   <p className="text-sm font-semibold text-foreground">{bookingConfirmed.vendorName}</p>
@@ -901,7 +908,7 @@ export default function ProjectDetail() {
           <section className="mt-12">
             <h2 className="text-base font-semibold text-foreground mb-4">Invoice</h2>
 
-            <div className="border border-border rounded-lg overflow-hidden">
+            <div className="rounded-xl border border-border bg-white shadow-card overflow-hidden">
               {/* Invoice header bar */}
               <div className="bg-muted/40 px-6 py-4 flex items-start justify-between gap-4 border-b border-border">
                 <div>
@@ -1097,7 +1104,7 @@ export default function ProjectDetail() {
               <button
                 disabled={selectedWeek === null || !selectedTime}
                 onClick={handleConfirmBooking}
-                className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Confirm Booking
               </button>

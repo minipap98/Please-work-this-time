@@ -390,7 +390,7 @@ export default function VendorDashboard() {
                       <div className="flex flex-wrap items-center gap-1">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${
                           project.status === "gathering"
-                            ? "bg-blue-50 text-blue-700"
+                            ? "bg-sky-50 text-sky-700"
                             : "bg-sky-50 text-sky-700"
                         }`}>
                           {project.status === "gathering" ? "Gathering" : "Accepting bids"}
@@ -407,7 +407,7 @@ export default function VendorDashboard() {
                           </span>
                         )}
                         {project.haulOutRequired && (
-                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-sky-50 text-sky-700 border border-sky-200 whitespace-nowrap">
                             <Anchor className="w-3 h-3" />
                             Haul-Out
                           </span>
@@ -523,7 +523,7 @@ export default function VendorDashboard() {
                       <h2 className="text-base font-semibold text-foreground leading-snug">{detailProject.title}</h2>
                       <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${
-                          detailProject.status === "gathering" ? "bg-blue-50 text-blue-700" : "bg-sky-50 text-sky-700"
+                          detailProject.status === "gathering" ? "bg-sky-50 text-sky-700" : "bg-sky-50 text-sky-700"
                         }`}>
                           {detailProject.status === "gathering" ? "Gathering Candidates" : "Accepting Bids"}
                         </span>

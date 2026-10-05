@@ -40,6 +40,7 @@ const LINKS: Record<Audience, { href: string; label: string }[]> = {
   shops: [
     { href: "#jobs", label: "New customers" },
     { href: "#tools", label: "Shop tools" },
+    { href: "#insights", label: "Insights" },
     { href: "#crew", label: "Your crew" },
   ],
 };

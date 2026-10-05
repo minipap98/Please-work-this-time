@@ -3,6 +3,76 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import type { BoatDraft, CustomerDraft } from "@/hooks/use-shop";
 import { boatLabel, type ShopBoat, type ShopCustomer } from "@shared/shop";
 import { inputCls, labelCls } from "./shopUi";
+import { ENGINE_DATA, ENGINE_TYPES, type EngineType } from "@/data/engineData";
+import EngineModelField from "@/components/EngineModelField";
+
+const COUNTS = ["Single", "Twin", "Triple", "Quad"] as const;
+
+interface EnginePick {
+  count: string;
+  type: EngineType | "";
+  make: string;
+  model: string;
+}
+
+/** "Twin Yamaha F300" ⇄ count / make / model, so the saved text stays readable everywhere. */
+function parseEngine(text: string): EnginePick {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const count = COUNTS.find((c) => c.toLowerCase() === words[0]?.toLowerCase()) ?? "";
+  const rest = count ? words.slice(1) : words;
+  for (const type of ENGINE_TYPES) {
+    for (const make of Object.keys(ENGINE_DATA[type])) {
+      const mw = make.split(" ");
+      if (mw.every((w, i) => rest[i]?.toLowerCase() === w.toLowerCase())) {
+        return { count, type, make, model: rest.slice(mw.length).join(" ") };
+      }
+    }
+  }
+  return { count, type: "", make: "", model: rest.join(" ") };
+}
+
+function engineText(e: EnginePick): string {
+  return [e.count, e.make, e.model].filter(Boolean).join(" ").trim();
+}
+
+function EngineFields({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [e, setE] = useState<EnginePick>(() => parseEngine(value));
+  const update = (patch: Partial<EnginePick>) => {
+    const next = { ...e, ...patch };
+    setE(next);
+    onChange(engineText(next));
+  };
+  const makes = e.type ? Object.keys(ENGINE_DATA[e.type]) : [];
+  return (
+    <div className="col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div>
+        <label className={labelCls}>Engines</label>
+        <select className={inputCls} value={e.count} onChange={(ev) => update({ count: ev.target.value })}>
+          <option value="">How many…</option>
+          {COUNTS.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className={labelCls}>Type</label>
+        <select className={inputCls} value={e.type} onChange={(ev) => update({ type: ev.target.value as EngineType | "", make: "", model: "" })}>
+          <option value="">Type…</option>
+          {ENGINE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className={labelCls}>Make</label>
+        <select className={inputCls} value={e.make} disabled={!e.type} onChange={(ev) => update({ make: ev.target.value, model: "" })}>
+          <option value="">{e.type ? "Make…" : "Pick a type first"}</option>
+          {makes.map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className={labelCls}>Model</label>
+        <EngineModelField engineType={e.type} engineMake={e.make} value={e.model} onChange={(model) => update({ model })} selectClassName={inputCls}/>
+      </div>
+    </div>
+  );
+}
 
 export const blankBoat = (): BoatDraft => ({ name: "", year: null, make: "", model: "", engine: "", hullId: "", slip: "" });
 const blankCustomer = (): CustomerDraft => ({ name: "", email: "", phone: "", notes: "" });
@@ -67,19 +137,19 @@ export default function CustomerDialog({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="sm:col-span-2">
             <label className={labelCls}>Customer name</label>
-            <input className={inputCls} value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} placeholder="Name as it appears in QuickBooks" autoFocus={!customer} />
+            <input className={inputCls} value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} autoFocus={!customer}/>
           </div>
           <div>
             <label className={labelCls}>Email</label>
-            <input className={inputCls} type="email" value={c.email} onChange={(e) => setC({ ...c, email: e.target.value })} />
+            <input className={inputCls} type="email" value={c.email} onChange={(e) => setC({ ...c, email: e.target.value })}/>
           </div>
           <div>
             <label className={labelCls}>Phone</label>
-            <input className={inputCls} type="tel" value={c.phone} onChange={(e) => setC({ ...c, phone: e.target.value })} />
+            <input className={inputCls} type="tel" value={c.phone} onChange={(e) => setC({ ...c, phone: e.target.value })}/>
           </div>
           <div className="sm:col-span-2">
             <label className={labelCls}>Notes (private to the shop)</label>
-            <input className={inputCls} value={c.notes} onChange={(e) => setC({ ...c, notes: e.target.value })} placeholder="Gate code, preferred contact, billing quirks" />
+            <input className={inputCls} value={c.notes} onChange={(e) => setC({ ...c, notes: e.target.value })} />
           </div>
         </div>
 
@@ -104,31 +174,28 @@ export default function CustomerDialog({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
                   <label className={labelCls}>Year</label>
-                  <input className={inputCls} type="number" min={1900} max={2100} value={b.year ?? ""} onChange={(e) => setBoat(i, { year: e.target.value ? Number(e.target.value) : null })} placeholder="2021" />
+                  <input className={inputCls} type="number" min={1900} max={2100} value={b.year ?? ""} onChange={(e) => setBoat(i, { year: e.target.value ? Number(e.target.value) : null })} />
                 </div>
                 <div>
                   <label className={labelCls}>Make</label>
-                  <input className={inputCls} value={b.make} onChange={(e) => setBoat(i, { make: e.target.value })} placeholder="Grady-White" />
+                  <input className={inputCls} value={b.make} onChange={(e) => setBoat(i, { make: e.target.value })} />
                 </div>
                 <div className="col-span-2">
                   <label className={labelCls}>Model</label>
-                  <input className={inputCls} value={b.model} onChange={(e) => setBoat(i, { model: e.target.value })} placeholder="Canyon 336" />
+                  <input className={inputCls} value={b.model} onChange={(e) => setBoat(i, { model: e.target.value })} />
                 </div>
                 <div className="col-span-2">
                   <label className={labelCls}>Boat name</label>
-                  <input className={inputCls} value={b.name} onChange={(e) => setBoat(i, { name: e.target.value })} placeholder="Reel Therapy" />
+                  <input className={inputCls} value={b.name} onChange={(e) => setBoat(i, { name: e.target.value })} />
                 </div>
-                <div className="col-span-2">
-                  <label className={labelCls}>Engines</label>
-                  <input className={inputCls} value={b.engine} onChange={(e) => setBoat(i, { engine: e.target.value })} placeholder="Twin Yamaha F300" />
-                </div>
+                <EngineFields key={b.id ?? i} value={b.engine} onChange={(engine) => setBoat(i, { engine })}/>
                 <div className="col-span-2">
                   <label className={labelCls}>Hull ID (HIN)</label>
-                  <input className={inputCls} value={b.hullId} onChange={(e) => setBoat(i, { hullId: e.target.value.toUpperCase() })} placeholder="NGW12345L021" />
+                  <input className={inputCls} value={b.hullId} onChange={(e) => setBoat(i, { hullId: e.target.value.toUpperCase() })} />
                 </div>
                 <div className="col-span-2">
-                  <label className={labelCls}>Slip / where she lives</label>
-                  <input className={inputCls} value={b.slip} onChange={(e) => setBoat(i, { slip: e.target.value })} placeholder="Pier 66, slip C-14" />
+                  <label className={labelCls}>Slip / marina</label>
+                  <input className={inputCls} value={b.slip} onChange={(e) => setBoat(i, { slip: e.target.value })} />
                 </div>
               </div>
             </div>

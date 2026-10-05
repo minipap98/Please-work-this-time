@@ -107,7 +107,9 @@ export default function WorkOrderEditor({
   );
   const pickBoat = (id: string) => {
     if (id === NEW_CUSTOMER) {
-      onAddCustomer({ name: d.customerName, email: d.customerEmail, boatLabel: d.boatLabel });
+      // Only carry details over when the order names a boat that isn't on file (a won Bosun job);
+      // switching away from a boat on file starts a blank form.
+      onAddCustomer(d.boatId ? { name: "", email: "", boatLabel: "" } : { name: d.customerName, email: d.customerEmail, boatLabel: d.boatLabel });
       return;
     }
     const b = boats.find((x) => x.id === id);

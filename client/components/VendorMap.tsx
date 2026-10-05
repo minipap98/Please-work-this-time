@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { VendorProfile } from "@/data/vendorData";
 
-import { googleLibraries, googleMapsConfigured } from "@/lib/googleMaps";
+import { MAPS_FAILED_EVENT, googleLibraries, googleMapsConfigured, mapsRenderFailed } from "@/lib/googleMaps";
+
+// Advanced (HTML) markers need a Map ID from Google Cloud. Without one we fall back to classic pins.
+const MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID ?? "";
 const DEFAULT_CENTER = { lat: 25.82, lng: -80.19 };
 const DEFAULT_ZOOM = 11;
 
@@ -14,7 +17,7 @@ interface VendorMapProps {
 export default function VendorMap({ vendors, onVendorClick, height = "400px" }: VendorMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const markersRef = useRef<(google.maps.marker.AdvancedMarkerElement | google.maps.Marker)[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, setSelectedVendor] = useState<VendorProfile | null>(null);
@@ -24,8 +27,12 @@ export default function VendorMap({ vendors, onVendorClick, height = "400px" }: 
 
   // Load script
   useEffect(() => {
-    if (!googleMapsConfigured) { setError("Google Maps API key not configured"); return; }
-    googleLibraries("maps", "marker").then(() => setLoaded(true)).catch(() => setError("Failed to load Google Maps"));
+    if (!googleMapsConfigured) { setError("Map isn't set up yet."); return; }
+    if (mapsRenderFailed()) { setError("Map unavailable: the Google key isn't allowed to use the Maps JavaScript API."); return; }
+    const onFail = () => setError("Map unavailable: the Google key isn't allowed to use the Maps JavaScript API.");
+    window.addEventListener(MAPS_FAILED_EVENT, onFail);
+    googleLibraries("maps", "marker").then(() => setLoaded(true)).catch(() => setError("Couldn't load Google Maps."));
+    return () => window.removeEventListener(MAPS_FAILED_EVENT, onFail);
   }, []);
 
   // Init map
@@ -34,7 +41,7 @@ export default function VendorMap({ vendors, onVendorClick, height = "400px" }: 
     mapInstanceRef.current = new google.maps.Map(mapRef.current, {
       center: DEFAULT_CENTER,
       zoom: DEFAULT_ZOOM,
-      mapId: "bosun-vendor-map",
+      ...(MAP_ID ? { mapId: MAP_ID } : {}),
       disableDefaultUI: true,
       zoomControl: true,
       fullscreenControl: true,
@@ -49,7 +56,7 @@ export default function VendorMap({ vendors, onVendorClick, height = "400px" }: 
     if (!map || !loaded) return;
 
     // Clear existing
-    markersRef.current.forEach((m) => (m.map = null));
+    markersRef.current.forEach((m) => ("setMap" in m ? m.setMap(null) : (m.map = null)));
     markersRef.current = [];
 
     vendorsWithCoords.forEach((vendor) => {
@@ -67,12 +74,10 @@ export default function VendorMap({ vendors, onVendorClick, height = "400px" }: 
         </div>
       `;
 
-      const marker = new google.maps.marker.AdvancedMarkerElement({
-        map,
-        position: { lat: vendor.lat!, lng: vendor.lng! },
-        title: vendor.name,
-        content: pinDiv,
-      });
+      const position = { lat: vendor.lat!, lng: vendor.lng! };
+      const marker = MAP_ID
+        ? new google.maps.marker.AdvancedMarkerElement({ map, position, title: vendor.name, content: pinDiv })
+        : new google.maps.Marker({ map, position, title: vendor.name, label: { text: vendor.initials, fontSize: "11px", fontWeight: "700" } });
 
       marker.addListener("click", () => {
         setSelectedVendor(vendor);

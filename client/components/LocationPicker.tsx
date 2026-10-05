@@ -285,7 +285,8 @@ function MapPreview({ lat, lng, zoom }: { lat: number; lng: number; zoom: number
 
   if (failed) {
     return (
-      <div className="h-16 bg-sky-50 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+      <div className="h-16 bg-sky-50 flex flex-col items-center justify-center gap-0.5 text-xs text-muted-foreground">
+        <span className="flex items-center gap-2">
         <MapPin className="w-3.5 h-3.5 text-sky-600" />
         <a
           href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
@@ -295,6 +296,10 @@ function MapPreview({ lat, lng, zoom }: { lat: number; lng: number; zoom: number
         >
           Check it on Google Maps
         </a>
+        </span>
+        {googleMapsConfigured && (
+          <span className="text-[10px] text-muted-foreground/80">Map preview unavailable: the key isn't allowed to use the Maps JavaScript API.</span>
+        )}
       </div>
     );
   }

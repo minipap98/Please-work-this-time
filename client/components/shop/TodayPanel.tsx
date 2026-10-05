@@ -22,27 +22,20 @@ import {
   useShopRealtime,
   useWorkOrders,
 } from "@/hooks/use-shop";
-import { ShipmentBadge, money } from "./shopUi";
+import { ShipmentBadge, WorkOrderBadge, money } from "./shopUi";
+import { Panel, StatGrid, StatTile } from "@/components/app/Page";
+import { CalendarDays, Clock, DollarSign, Package, PackageCheck } from "lucide-react";
 
-const TONE: Record<AlertTone, { dot: string; row: string }> = {
-  urgent: { dot: "bg-red-500", row: "border-red-200 bg-red-50/60" },
-  warn: { dot: "bg-amber-500", row: "border-amber-200 bg-amber-50/50" },
-  good: { dot: "bg-emerald-500", row: "border-emerald-200 bg-emerald-50/60" },
-  info: { dot: "bg-sky-500", row: "border-sky-200 bg-sky-50/50" },
+const TONE: Record<AlertTone, string> = {
+  urgent: "bg-red-500",
+  warn: "bg-amber-500",
+  good: "bg-emerald-500",
+  info: "bg-sky-500",
 };
 
 function hhmm(iso: string | null) {
   if (!iso) return "Any time";
   return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-}
-
-function serviceType(title: string): string {
-  const t = title.toLowerCase();
-  if (/paint|bottom|hull|gelcoat|wax|detail|zinc|anode|fiberglass/.test(t)) return "Hull & bottom";
-  if (/electr|battery|wiring|electronics|stereo|radar|gps|charger/.test(t)) return "Electrical";
-  if (/canvas|upholster|interior|cushion/.test(t)) return "Canvas & interior";
-  if (/engine|service|oil|impeller|pump|outboard|inboard|verado|yamaha|lower unit|fuel|tune|winteriz|commission/.test(t)) return "Engine & mechanical";
-  return "Other";
 }
 
 export default function TodayPanel({ vendorId, coiExpiry }: { vendorId: string; coiExpiry?: string | null }) {
@@ -102,54 +95,64 @@ export default function TodayPanel({ vendorId, coiExpiry }: { vendorId: string; 
     let week = 0;
     let ready = 0;
     let sentMonth = 0;
-    const byType = new Map<string, number>();
     for (const o of orders) {
       if (o.status !== "completed" && o.status !== "invoiced") continue;
       const total = workOrderTotals(o.lines, o.taxRate).total;
       const done = Date.parse(o.completedAt ?? o.createdAt);
-      if (done >= weekAgo) {
-        week += total;
-        byType.set(serviceType(o.title), (byType.get(serviceType(o.title)) ?? 0) + total);
-      }
+      if (done >= weekAgo) week += total;
       if (o.status === "completed" && !o.exportedAt) ready += total;
       if (o.exportedAt && Date.parse(o.exportedAt) >= monthStart) sentMonth += total;
     }
-    const types = [...byType.entries()].sort((a, b) => b[1] - a[1]);
-    return { week, ready, sentMonth, types };
+    return { week, ready, sentMonth };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders, todayKey]);
 
   const go = (tab: string, extra = "") => navigate(`/vendor-shop?tab=${tab}${extra}`);
 
+  const waitingParts = orders.filter((o) => o.status === "waiting-parts").length;
+  const arrivingCount = arriving.reduce((n, [, list]) => n + list.length, 0);
+  const todayJobs = board[0].list.length;
+
+  const runAlert = (a: (typeof alerts)[number]) => {
+    if (a.action.workOrderId && a.action.label === "Start job") {
+      setStatus.mutate(
+        { id: a.action.workOrderId, status: "in-progress" },
+        { onSuccess: () => toast.success("Job started"), onError: (e) => toast.error(String(e)) }
+      );
+    } else if (a.id === "coi") {
+      navigate("/vendor-insights?tab=insurance");
+    } else {
+      go(a.action.tab);
+    }
+  };
+
   return (
     <div className="space-y-5">
+      <StatGrid className="sm:grid-cols-3 lg:grid-cols-5">
+        <StatTile icon={<CalendarDays />} label="Board today" value={todayJobs} sub={`${board[1].list.length} tomorrow`} onClick={() => go("schedule")} />
+        <StatTile icon={<Clock />} label="Waiting on parts" value={waitingParts} tone={waitingParts ? "warn" : "default"} onClick={() => go("orders")} />
+        <StatTile icon={<Package />} label="Arriving" value={arrivingCount} sub="parts due today" onClick={() => go("parts")} />
+        <StatTile icon={<DollarSign />} label="To invoice" value={money(money7.ready)} tone={money7.ready > 0 ? "warn" : "default"} onClick={() => go("quickbooks")} />
+        <StatTile icon={<PackageCheck />} label="Done this week" value={money(money7.week)} sub={`${money(money7.sentMonth)} in QuickBooks`} onClick={() => go("orders")} />
+      </StatGrid>
+
       {/* Needs you now */}
-      <section>
-        <h2 className="text-sm font-semibold text-foreground mb-2">Needs you now</h2>
+      <Panel padded={false}>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <h2 className="text-sm font-semibold text-foreground">Needs you now</h2>
+          <span className="text-xs text-muted-foreground">{alerts.length === 0 ? "All clear" : `${alerts.length} item${alerts.length === 1 ? "" : "s"}`}</span>
+        </div>
         {alerts.length === 0 ? (
-          <p className="text-sm text-muted-foreground border border-dashed border-border rounded-xl px-4 py-3 bg-white">
-            All clear. Nothing overdue, short or stuck.
-          </p>
+          <p className="px-5 py-4 text-sm text-muted-foreground">Nothing overdue, short or stuck.</p>
         ) : (
-          <ul className="space-y-1.5">
+          <ul className="divide-y divide-border">
             {alerts.slice(0, 7).map((a) => (
-              <li key={a.id} className={cn("flex items-center gap-3 border rounded-xl px-3 py-2.5", TONE[a.tone].row)}>
-                <span className={cn("w-2 h-2 rounded-full shrink-0", TONE[a.tone].dot)} />
+              <li key={a.id} className="flex items-center gap-3 px-5 py-3">
+                <span className={cn("w-2 h-2 rounded-full shrink-0", TONE[a.tone])} />
                 <span className="text-sm text-foreground flex-1 min-w-0">{a.text}</span>
                 <button
-                  onClick={() => {
-                    if (a.action.workOrderId && a.action.label === "Start job") {
-                      setStatus.mutate(
-                        { id: a.action.workOrderId, status: "in-progress" },
-                        { onSuccess: () => toast.success("Job started"), onError: (e) => toast.error(String(e)) }
-                      );
-                    } else if (a.id === "coi") {
-                      navigate("/vendor-insights?tab=insurance");
-                    } else {
-                      go(a.action.tab);
-                    }
-                  }}
-                  className="shrink-0 text-xs font-semibold bg-white border border-border rounded-lg px-2.5 py-1.5 hover:bg-muted"
+                  onClick={() => runAlert(a)}
+                  className="shrink-0 text-xs font-semibold border border-border rounded-lg px-2.5 py-1.5 hover:bg-muted"
                 >
                   {a.action.label}
                 </button>
@@ -157,137 +160,100 @@ export default function TodayPanel({ vendorId, coiExpiry }: { vendorId: string; 
             ))}
           </ul>
         )}
-      </section>
+      </Panel>
 
       <div className="grid gap-5 lg:grid-cols-5">
         {/* Board */}
-        <section className="lg:col-span-3">
-          <div className="flex items-center justify-between mb-2">
+        <Panel padded={false} className="lg:col-span-3">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border">
             <h2 className="text-sm font-semibold text-foreground">On the board</h2>
-            <Link to="/vendor-shop?tab=schedule" className="text-xs text-sky-600 hover:text-sky-700 font-medium">
+            <Link to="/vendor-shop?tab=schedule" className="text-xs text-sky-700 hover:underline font-semibold">
               Full schedule
             </Link>
           </div>
-          <div className="grid sm:grid-cols-2 gap-3">
-            {board.map((col) => (
-              <div key={col.key} className="bg-white border border-border rounded-xl p-3">
-                <p className="text-xs font-semibold text-muted-foreground mb-2">
-                  {col.label} · {col.list.length} job{col.list.length === 1 ? "" : "s"}
-                </p>
-                {col.list.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-3">Open. A good day to take a new job.</p>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {col.list.map((o) => {
-                      const parts = partsProgress(o.id, shipments);
-                      const partsDot =
-                        parts.total === 0 ? "" : parts.problems ? "bg-red-500" : parts.open ? "bg-amber-500" : "bg-emerald-500";
-                      return (
-                        <li key={o.id}>
-                          <button
-                            onClick={() => go("orders", `&wo=${o.id}`)}
-                            className="w-full text-left border border-border rounded-lg px-2.5 py-2 hover:border-sky-300"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-mono text-muted-foreground">{hhmm(o.scheduledStart)}</span>
-                              {partsDot && <span className={cn("w-1.5 h-1.5 rounded-full", partsDot)} title="Parts status" />}
-                              {o.status === "completed" && <span className="text-[10px] font-semibold text-emerald-700">DONE</span>}
-                            </div>
-                            <p className="text-sm font-medium text-foreground truncate">{o.title}</p>
-                            <p className="text-[11px] text-muted-foreground truncate">
-                              {[o.boatLabel || o.customerName, o.bay, o.assignedTo].filter(Boolean).join(" · ")}
-                            </p>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Arriving + money */}
-        <div className="lg:col-span-2 space-y-5">
-          <section>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-semibold text-foreground">Arriving today</h2>
-              <Link to="/vendor-shop?tab=parts" className="text-xs text-sky-600 hover:text-sky-700 font-medium">
-                All parts
-              </Link>
-            </div>
-            {arriving.length === 0 ? (
-              <p className="text-xs text-muted-foreground bg-white border border-border rounded-xl px-3 py-3">
-                No deliveries due today.
+          {board.map((col) => (
+            <div key={col.key}>
+              <p className="px-5 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {col.label} · {col.list.length} job{col.list.length === 1 ? "" : "s"}
               </p>
-            ) : (
-              <div className="space-y-2">
-                {arriving.map(([key, list]) => (
-                  <div key={key} className="bg-white border border-border rounded-xl p-3">
-                    <p className="text-xs font-semibold text-foreground mb-1.5">
-                      {key === "stock" ? "Shop stock" : list[0].boatLabel || "Boat"}
-                      {list[0].customerName && <span className="font-normal text-muted-foreground"> · {list[0].customerName}</span>}
-                    </p>
-                    <ul className="space-y-1.5">
-                      {list.map((s) => (
-                        <li key={s.id} className="flex items-center gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm truncate">{s.description || s.supplier || "Shipment"}</p>
-                            <ShipmentBadge status={s.status} />
-                          </div>
-                          <button
-                            onClick={() =>
-                              receive.mutate(s.id, {
-                                onSuccess: () => toast.success("Checked in"),
-                                onError: (e) => toast.error(String(e)),
-                              })
-                            }
-                            className="shrink-0 px-3 py-2 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
-                          >
-                            Check in
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="bg-white border border-border rounded-xl p-3">
-            <h2 className="text-sm font-semibold text-foreground mb-2">Money</h2>
-            <div className="grid grid-cols-3 gap-2">
-              <button onClick={() => go("orders")} className="text-left">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Done this week</p>
-                <p className="text-base font-bold tabular-nums">{money(money7.week)}</p>
-              </button>
-              <button onClick={() => go("quickbooks")} className="text-left">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Ready to invoice</p>
-                <p className={cn("text-base font-bold tabular-nums", money7.ready > 0 && "text-amber-700")}>{money(money7.ready)}</p>
-              </button>
-              <button onClick={() => go("quickbooks")} className="text-left">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">In QuickBooks</p>
-                <p className="text-base font-bold tabular-nums">{money(money7.sentMonth)}</p>
-                <p className="text-[10px] text-muted-foreground">this month</p>
-              </button>
+              {col.list.length === 0 ? (
+                <p className="px-5 pb-3 text-sm text-muted-foreground">Open. A good day to take a new job.</p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {col.list.map((o) => {
+                    const parts = partsProgress(o.id, shipments);
+                    const partsNote =
+                      parts.total === 0 ? null : parts.problems ? "delivery problem" : parts.open ? `parts ${parts.total - parts.open}/${parts.total} in` : "parts in";
+                    return (
+                      <li key={o.id}>
+                        <button
+                          onClick={() => go("orders", `&wo=${o.id}`)}
+                          className="w-full text-left px-5 py-2.5 hover:bg-slate-50 flex items-center gap-3"
+                        >
+                          <span className="w-16 shrink-0 text-xs font-mono text-muted-foreground">{hhmm(o.scheduledStart)}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-medium text-foreground truncate">{o.title}</span>
+                            <span className="block text-xs text-muted-foreground truncate">
+                              {[o.boatLabel || o.customerName, o.bay, o.assignedTo].filter(Boolean).join(" · ")}
+                            </span>
+                          </span>
+                          {partsNote && (
+                            <span className={cn("hidden sm:inline text-[11px] font-medium", parts.problems ? "text-red-600" : parts.open ? "text-amber-700" : "text-emerald-700")}>
+                              {partsNote}
+                            </span>
+                          )}
+                          <WorkOrderBadge status={o.status} />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
-            {money7.types.length > 0 && (
-              <div className="mt-3 space-y-1">
-                {money7.types.map(([type, amt]) => (
-                  <div key={type} className="flex items-center gap-2 text-xs">
-                    <span className="w-32 text-muted-foreground truncate">{type}</span>
-                    <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-sky-500" style={{ width: `${Math.max(4, (amt / money7.week) * 100)}%` }} />
+          ))}
+          <div className="h-2" />
+        </Panel>
+
+        {/* Arriving */}
+        <Panel padded={false} className="lg:col-span-2">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+            <h2 className="text-sm font-semibold text-foreground">Arriving today</h2>
+            <Link to="/vendor-shop?tab=parts" className="text-xs text-sky-700 hover:underline font-semibold">
+              All parts
+            </Link>
+          </div>
+          {arriving.length === 0 ? (
+            <p className="px-5 py-4 text-sm text-muted-foreground">No deliveries due today.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {arriving.flatMap(([key, list]) =>
+                list.map((s) => (
+                  <li key={s.id} className="px-5 py-3 flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{s.description || s.supplier || "Shipment"}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {key === "stock" ? "Shop stock" : s.boatLabel || "Boat"}
+                        {s.customerName ? ` · ${s.customerName}` : ""}
+                      </p>
+                      <div className="mt-1"><ShipmentBadge status={s.status} /></div>
                     </div>
-                    <span className="tabular-nums w-16 text-right">{money(amt)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
+                    <button
+                      onClick={() =>
+                        receive.mutate(s.id, {
+                          onSuccess: () => toast.success("Checked in"),
+                          onError: (e) => toast.error(String(e)),
+                        })
+                      }
+                      className="shrink-0 px-3 py-2 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                    >
+                      Check in
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
+          )}
+        </Panel>
       </div>
     </div>
   );

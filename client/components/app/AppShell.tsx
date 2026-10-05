@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Anchor, BarChart3, BookOpen, Briefcase, ChevronDown, ClipboardList, Compass, DollarSign, Home, LogOut,
@@ -54,6 +54,10 @@ const VENDOR_TABS = ["/vendor-dashboard", "/vendor-rfps", "/vendor-shop", "/inbo
 export default function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  // Each page opens at the top, not wherever the last one was scrolled to.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
   const { role, vendorId, vendorName, setVendorMode, setOwnerMode } = useRole();
   const { user, profile, signOut } = useAuth();
   const { demo, exit: exitDemo } = useDemoMode();

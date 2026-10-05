@@ -1,6 +1,6 @@
+import { PageContainer, PageHeader, Panel, StatGrid, StatTile } from "@/components/app/Page";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import Header from "@/components/Header";
 import ImportInvoiceDialog from "@/components/boatlog/ImportInvoiceDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -94,13 +94,12 @@ export default function BoatLog() {
   if (!isLoading && boats.length === 0) {
     return (
       <>
-        <Header />
         <main className="max-w-3xl mx-auto px-4 py-16 text-center">
           <h1 className="text-xl font-bold">Boat Log</h1>
           <p className="text-muted-foreground mt-2">
             Add your boat during onboarding or in My Boats, and every job — yours and your yard's — will be logged here.
           </p>
-          <Link to="/my-boats" className="inline-block mt-4 px-4 py-2 text-sm font-semibold rounded-lg bg-foreground text-background">
+          <Link to="/my-boats" className="inline-block mt-4 px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground">
             Go to My Boats
           </Link>
         </main>
@@ -109,41 +108,49 @@ export default function BoatLog() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50">
-      <Header />
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
-        <div className="flex flex-col sm:flex-row sm:items-end gap-3 mb-5">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold">Boat Log</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              The full service history of your boat. Jobs done through Bosun are itemized and verified by the shop.
-            </p>
-          </div>
-          {boats.length > 1 && (
-            <select
-              className="px-3 py-2 text-sm border border-border rounded-lg bg-background"
-              value={boatId}
-              onChange={(e) => setParams({ boat: e.target.value })}
-            >
-              {boats.map((b) => <option key={b.id} value={b.id}>{b.name} · {b.label}</option>)}
-            </select>
-          )}
-        </div>
+    <div className="min-h-full">
+      <PageContainer>
+        <PageHeader
+          title="Boat Log"
+          description="The full service history of your boat. Jobs done through Bosun are itemized and verified by the shop."
+          actions={
+            <>
+              {boats.length > 1 && (
+                <select
+                  className="px-3 py-2 text-sm border border-border rounded-lg bg-white"
+                  value={boatId}
+                  onChange={(e) => setParams({ boat: e.target.value })}
+                >
+                  {boats.map((b) => <option key={b.id} value={b.id}>{b.name} · {b.label}</option>)}
+                </select>
+              )}
+              {boat && (
+                <>
+                  <button onClick={() => setImporting(true)} className="px-3.5 py-2 text-sm font-medium rounded-lg border border-border bg-white hover:bg-muted">
+                    Import invoice
+                  </button>
+                  <button onClick={() => setAdding(true)} className="px-3.5 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-brand-600">
+                    + Log work
+                  </button>
+                </>
+              )}
+            </>
+          }
+        />
 
         {boat && (
-          <div className="border border-border rounded-xl bg-white p-4 mb-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="flex-1 min-w-0">
+          <Panel className="mb-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
                 <p className="text-lg font-bold truncate">{boat.name}</p>
                 <p className="text-sm text-muted-foreground">{[boat.label, boat.engine].filter(Boolean).join(" · ")}</p>
               </div>
               <div className="flex flex-wrap gap-2 [&>button]:whitespace-nowrap">
                 <button
-                  onClick={() => downloadFile(`${boat.name.replace(/\W+/g, "-")}-service-log.csv`, logToCsv(entries))}
-                  disabled={entries.length === 0}
-                  className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-muted disabled:opacity-50"
+                  onClick={() => setSharing(true)}
+                  className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-sky-300 text-sky-800 bg-sky-50 hover:bg-sky-100"
                 >
-                  CSV
+                  Share for a listing
                 </button>
                 <button
                   onClick={() =>
@@ -152,31 +159,26 @@ export default function BoatLog() {
                     )
                   }
                   disabled={entries.length === 0}
-                  className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-muted disabled:opacity-50"
+                  className="px-3 py-1.5 text-sm border border-border rounded-lg bg-white hover:bg-muted disabled:opacity-50"
                 >
-                  Service history PDF
+                  PDF
                 </button>
                 <button
-                  onClick={() => setSharing(true)}
-                  className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-sky-300 text-sky-800 bg-sky-50 hover:bg-sky-100"
+                  onClick={() => downloadFile(`${boat.name.replace(/\W+/g, "-")}-service-log.csv`, logToCsv(entries))}
+                  disabled={entries.length === 0}
+                  className="px-3 py-1.5 text-sm border border-border rounded-lg bg-white hover:bg-muted disabled:opacity-50"
                 >
-                  Share for a listing
-                </button>
-                <button onClick={() => setImporting(true)} className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-border hover:bg-muted">
-                  Import invoice
-                </button>
-                <button onClick={() => setAdding(true)} className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-foreground text-background">
-                  + Log work
+                  CSV
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-              <Stat label="Entries" value={String(summary.entries)} sub={`${summary.verified} shop-verified`} />
-              <Stat label="Last service" value={summary.lastService ? longDate(summary.lastService) : "—"} />
-              <Stat label="Engine hours" value={summary.latestEngineHours != null ? String(summary.latestEngineHours) : "—"} sub="last recorded" />
-              <Stat label="Lifetime spend" value={money(summary.totalSpent)} sub={summary.spentByYear[0] ? `${money(summary.spentByYear[0].total)} in ${summary.spentByYear[0].year}` : undefined} />
-            </div>
-          </div>
+            <StatGrid className="mt-4">
+              <StatTile label="Entries" value={summary.entries} sub={`${summary.verified} shop-verified`} />
+              <StatTile label="Last service" value={summary.lastService ? longDate(summary.lastService) : "—"} />
+              <StatTile label="Engine hours" value={summary.latestEngineHours != null ? summary.latestEngineHours : "—"} sub="last recorded" />
+              <StatTile label="Lifetime spend" value={money(summary.totalSpent)} sub={summary.spentByYear[0] ? `${money(summary.spentByYear[0].total)} in ${summary.spentByYear[0].year}` : undefined} />
+            </StatGrid>
+          </Panel>
         )}
 
         <div className="flex flex-col sm:flex-row gap-2 mb-4">
@@ -185,7 +187,7 @@ export default function BoatLog() {
               <button
                 key={v}
                 onClick={() => setSource(v)}
-                className={cn("text-xs font-medium rounded-full px-3 py-1.5 border whitespace-nowrap", source === v ? "bg-foreground text-background border-foreground" : "border-border bg-white hover:bg-muted")}
+                className={cn("text-xs font-medium rounded-full px-3 py-1.5 border whitespace-nowrap", source === v ? "bg-primary text-primary-foreground border-primary" : "border-border bg-white hover:bg-muted")}
               >
                 {l}
               </button>
@@ -302,7 +304,7 @@ export default function BoatLog() {
             ))}
           </div>
         )}
-      </main>
+      </PageContainer>
 
       {boat && <ShareDialog open={sharing} onOpenChange={setSharing} boat={boat} entryCount={entries.length} />}
 
@@ -355,15 +357,6 @@ export default function BoatLog() {
   );
 }
 
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="bg-slate-50 rounded-lg p-2.5">
-      <p className="text-[11px] text-muted-foreground">{label}</p>
-      <p className="text-base font-bold tabular-nums truncate">{value}</p>
-      {sub && <p className="text-[10px] text-muted-foreground truncate">{sub}</p>}
-    </div>
-  );
-}
 
 function AddEntryDialog({
   open, onOpenChange, boatId, lastHours, saving, onSave,
@@ -438,7 +431,7 @@ function AddEntryDialog({
             <button
               disabled={!d.title.trim() || !d.date || saving}
               onClick={() => onSave(d)}
-              className="px-4 py-2 text-sm font-semibold rounded-lg bg-foreground text-background disabled:opacity-50"
+              className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
             >
               Save
             </button>
@@ -603,7 +596,7 @@ function ShareDialog({
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1500);
                 }}
-                className="px-3 py-2 text-sm font-semibold rounded-lg bg-foreground text-background"
+                className="px-3 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground"
               >
                 {copied ? "Copied" : "Copy"}
               </button>
@@ -630,7 +623,7 @@ function ShareDialog({
                 { onError: fail, onSuccess: () => toast({ title: "Link ready", description: "Copy it into your listing." }) }
               )
             }
-            className="w-full py-2.5 text-sm font-semibold rounded-lg bg-foreground text-background disabled:opacity-50"
+            className="w-full py-2.5 text-sm font-semibold rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
           >
             {create.isPending ? "Creating…" : `Create share link${entryCount ? ` (${entryCount} services)` : ""}`}
           </button>

@@ -1,3 +1,4 @@
+import { PageContainer, PageHeader } from "@/components/app/Page";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMyVendorProfile } from "@/hooks/use-supabase";
@@ -7,7 +8,6 @@ import { DEMO_CITY_COORDS } from "@/data/demoLocations";
 import { distanceMiles, formatMiles, hasCoords } from "@shared/geo";
 import type { Tables } from "@/lib/database.types";
 import { Shield, Anchor, MapPin } from "lucide-react";
-import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
 import { useOpenRfps, useSubmitMarketplaceBid, useVendorBidProjects } from "@/hooks/use-marketplace";
 import { toast } from "sonner";
@@ -137,41 +137,39 @@ export default function VendorRFPs() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <Header />
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <h1 className="text-2xl font-semibold text-foreground mb-1">Open RFPs</h1>
-        <p className="text-sm text-muted-foreground mb-6">
-          {openProjects.length} project{openProjects.length !== 1 ? "s" : ""} currently accepting bids
-          {limit != null ? ` within ${limit} miles` : ""}
-        </p>
-        <div className="flex flex-wrap items-center gap-2 mb-6 -mt-3">
-          {shop ? (
-            <>
-              <span className="text-xs text-muted-foreground">Distance from your shop:</span>
-              <select
-                value={limit ?? "any"}
-                onChange={(e) => setMaxMiles(e.target.value === "any" ? null : Number(e.target.value))}
-                className="border border-border rounded-md px-2 py-1 text-xs bg-white"
-              >
-                {[10, 25, 50, 100, 200].map((m) => (
-                  <option key={m} value={m}>Within {m} mi{m === serviceRadius ? " (your radius)" : ""}</option>
-                ))}
-                <option value="any">Any distance</option>
-              </select>
-            </>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              <MapPin className="inline w-3.5 h-3.5 -mt-0.5" />{" "}
-              <Link to="/vendor-shop?tab=settings" className="font-semibold text-sky-700 hover:underline">Add your shop location</Link>{" "}
-              to see how far each job is and filter by distance.
-            </p>
-          )}
-        </div>
+    <div className="min-h-full">
+      <PageContainer>
+        <PageHeader
+          title="Jobs near you"
+          description={`${openProjects.length} job${openProjects.length !== 1 ? "s" : ""} accepting bids${limit != null ? ` within ${limit} miles` : ""}`}
+          actions={
+            shop ? (
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                Distance
+                <select
+                  value={limit ?? "any"}
+                  onChange={(e) => setMaxMiles(e.target.value === "any" ? null : Number(e.target.value))}
+                  className="border border-border rounded-lg px-2.5 py-1.5 text-sm bg-white text-foreground"
+                >
+                  {[10, 25, 50, 100, 200].map((m) => (
+                    <option key={m} value={m}>Within {m} mi{m === serviceRadius ? " (your radius)" : ""}</option>
+                  ))}
+                  <option value="any">Any distance</option>
+                </select>
+              </label>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                <MapPin className="inline w-3.5 h-3.5 -mt-0.5" />{" "}
+                <Link to="/vendor-shop?tab=settings" className="font-semibold text-sky-700 hover:underline">Add your shop location</Link>{" "}
+                to filter by distance.
+              </p>
+            )
+          }
+        />
 
         {openProjects.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <p className="text-muted-foreground text-sm">No open RFPs at the moment. Check back soon.</p>
+            <p className="text-muted-foreground text-sm">No open jobs right now. Check back soon.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -280,7 +278,7 @@ export default function VendorRFPs() {
             })}
           </div>
         )}
-      </main>
+      </PageContainer>
 
       {/* Submit Bid Dialog */}
       {dialogProject && (

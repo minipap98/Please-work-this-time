@@ -66,7 +66,7 @@ export default function InventoryPanel({ items, live, onAdjust, onSave, onDelete
           >
             Export CSV
           </button>
-          <button onClick={() => setEditing({ ...BLANK })} className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-foreground text-background">
+          <button onClick={() => setEditing({ ...BLANK })} className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-primary text-primary-foreground">
             + Part
           </button>
         </div>
@@ -147,7 +147,7 @@ export default function InventoryPanel({ items, live, onAdjust, onSave, onDelete
                 <button
                   disabled={!editing.name.trim() || saving}
                   onClick={() => { onSave(editing); setEditing(null); }}
-                  className="px-4 py-2 text-sm font-semibold rounded-lg bg-foreground text-background disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
                 >
                   Save
                 </button>

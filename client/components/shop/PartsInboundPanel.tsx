@@ -163,7 +163,7 @@ export default function PartsInboundPanel({
           </p>
         )}
         <div className="mt-3 flex gap-2">
-          <button onClick={() => setPasteOpen(true)} className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-foreground text-background">Paste an email</button>
+          <button onClick={() => setPasteOpen(true)} className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-primary text-primary-foreground">Paste an email</button>
           <button onClick={() => setEditing(blankShipment())} className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-muted">+ Add tracking #</button>
         </div>
       </div>
@@ -288,7 +288,7 @@ export default function PartsInboundPanel({
               <button
                 disabled={!parsed || parsed.shipments.length === 0}
                 onClick={importParsed}
-                className="px-4 py-2 text-sm font-semibold rounded-lg bg-foreground text-background disabled:opacity-50"
+                className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
               >
                 Add to inbound
               </button>
@@ -354,7 +354,7 @@ export default function PartsInboundPanel({
                 ) : <span />}
                 <button
                   onClick={() => { onSave(editing); setEditing(null); }}
-                  className="px-4 py-2 text-sm font-semibold rounded-lg bg-foreground text-background"
+                  className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground"
                 >
                   Save
                 </button>

@@ -99,7 +99,7 @@ export default function TechToday() {
 
       <main className="max-w-xl mx-auto px-4 py-4 space-y-5">
         {isLoading ? (
-          <div className="py-16 flex justify-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-foreground" /></div>
+          <div className="py-16 flex justify-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>
         ) : !m ? (
           <div className="bg-white border border-border rounded-xl p-5 text-center">
             <p className="text-sm font-semibold">You're not on a shop's crew yet</p>

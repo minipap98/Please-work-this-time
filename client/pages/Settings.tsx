@@ -1,8 +1,8 @@
+import { PageContainer, PageHeader } from "@/components/app/Page";
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactCrop, { type Crop, type PixelCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
-import Header from "@/components/Header";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useDemoMode } from "@/lib/demoMode";
@@ -166,22 +166,10 @@ export default function Settings() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <Header />
+    <div className="min-h-full">
 
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Back */}
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back
-        </button>
-
-        <h1 className="text-2xl font-semibold text-foreground mb-8">Settings</h1>
+      <PageContainer className="max-w-3xl">
+        <PageHeader title="Settings" description="Your boat's photo and home port." />
 
         {/* Hero Photo section */}
         <section className="border border-border rounded-lg p-6">
@@ -325,7 +313,7 @@ export default function Settings() {
             </button>
           </div>
         )}
-      </main>
+      </PageContainer>
     </div>
   );
 }

@@ -1,6 +1,6 @@
+import { PageContainer, PageHeader } from "@/components/app/Page";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
 import {
   getVendorBidProjects,
@@ -222,8 +222,7 @@ export default function VendorRevenue() {
 
   if (!vendorId || !revenue) {
     return (
-      <div className="min-h-screen bg-white">
-        <Header />
+      <div className="min-h-full">
         <div className="flex items-center justify-center py-32">
           <p className="text-muted-foreground text-sm">No vendor profile selected.</p>
         </div>
@@ -320,17 +319,9 @@ export default function VendorRevenue() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-16 md:pb-0">
-      <Header />
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-        {/* Page header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-foreground">Analytics & Revenue</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Performance insights and financial data for your business.
-          </p>
-        </div>
+    <div className="min-h-full">
+      <PageContainer>
+        <PageHeader title="Revenue" description="What you've booked, invoiced and been paid through Bosun." />
         {liveBooked.length > 0 && (
           <div className="mb-6 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
             {liveBooked.length} booked job{liveBooked.length === 1 ? "" : "s"} in Bosun · ${liveGross.toLocaleString()} quoted.
@@ -812,7 +803,7 @@ export default function VendorRevenue() {
         </div>
         )}
 
-      </main>
+      </PageContainer>
     </div>
   );
 }

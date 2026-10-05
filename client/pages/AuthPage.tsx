@@ -100,7 +100,7 @@ export default function AuthPage() {
               className={cn(
                 "flex-1 py-3.5 text-sm font-medium transition-colors",
                 mode === m
-                  ? "text-foreground border-b-2 border-foreground -mb-px"
+                  ? "text-foreground border-b-2 border-primary -mb-px"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -129,7 +129,7 @@ export default function AuthPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Jane Smith"
-                className="w-full px-3 py-2 text-sm rounded-md border border-border bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-foreground transition"
+                className="w-full px-3 py-2 text-sm rounded-md border border-border bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
               />
             </div>
           )}
@@ -146,7 +146,7 @@ export default function AuthPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full px-3 py-2 text-sm rounded-md border border-border bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-foreground transition"
+              className="w-full px-3 py-2 text-sm rounded-md border border-border bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
             />
           </div>
 
@@ -163,7 +163,7 @@ export default function AuthPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={mode === "signup" ? "At least 6 characters" : "••••••••"}
-                className="w-full px-3 py-2 pr-10 text-sm rounded-md border border-border bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-foreground transition"
+                className="w-full px-3 py-2 pr-10 text-sm rounded-md border border-border bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
               />
               <button
                 type="button"
@@ -199,8 +199,8 @@ export default function AuthPage() {
                     className={cn(
                       "flex flex-col items-center gap-1.5 py-3 px-2 rounded-lg border text-sm font-medium transition-colors",
                       role === r
-                        ? "border-foreground bg-foreground text-white"
-                        : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+                        ? "border-primary bg-primary text-white"
+                        : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
                     )}
                   >
                     {r === "owner" ? (
@@ -237,7 +237,7 @@ export default function AuthPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-md bg-foreground text-white text-sm font-medium hover:bg-foreground/90 transition-colors disabled:opacity-50"
+            className="w-full py-2.5 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {mode === "signin" ? "Sign In" : "Create Account"}
           </button>

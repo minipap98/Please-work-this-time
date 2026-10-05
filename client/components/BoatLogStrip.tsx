@@ -10,7 +10,7 @@ export default function BoatLogStrip() {
   const verified = entries.filter((e) => e.source !== "owner").length;
 
   return (
-    <div className="w-full flex items-center gap-3 px-4 py-3 bg-white border-b border-border">
+    <div className="w-full h-full flex items-center gap-3 px-4 py-3.5 rounded-xl border border-border bg-white shadow-card">
       <button onClick={() => navigate("/boat-log")} className="flex-1 min-w-0 flex items-center gap-3 text-left hover:opacity-80">
         <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
           <BookOpen className="w-4 h-4 text-gray-500" />

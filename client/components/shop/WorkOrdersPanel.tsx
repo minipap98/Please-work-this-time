@@ -60,7 +60,7 @@ export default function WorkOrdersPanel({ orders, shipments, wonJobs, onOpen, on
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
-              className={`text-xs font-medium rounded-full px-3 py-1.5 whitespace-nowrap border ${filter === f.value ? "bg-foreground text-background border-foreground" : "border-border hover:bg-muted"}`}
+              className={`text-xs font-medium rounded-full px-3 py-1.5 whitespace-nowrap border ${filter === f.value ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}
             >
               {f.label}
             </button>
@@ -72,7 +72,7 @@ export default function WorkOrdersPanel({ orders, shipments, wonJobs, onOpen, on
           placeholder="Search WO#, customer, boat, tech…"
           className="sm:ml-auto sm:w-64 px-3 py-1.5 text-sm border border-border rounded-lg bg-background"
         />
-        <button onClick={onNew} className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-foreground text-background whitespace-nowrap">
+        <button onClick={onNew} className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-primary text-primary-foreground whitespace-nowrap">
           + Work order
         </button>
       </div>
@@ -94,7 +94,7 @@ export default function WorkOrdersPanel({ orders, shipments, wonJobs, onOpen, on
                 tabIndex={0}
                 onClick={() => onOpen(o)}
                 onKeyDown={(e) => e.key === "Enter" && onOpen(o)}
-                className="border border-border rounded-xl p-3 sm:p-4 hover:border-foreground/30 cursor-pointer bg-white"
+                className="border border-border rounded-xl p-3 sm:p-4 hover:border-primary/30 cursor-pointer bg-white"
               >
                 <div className="flex items-start gap-3">
                   <div className="min-w-0 flex-1">

@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
 import ReviewForm from "@/components/ReviewForm";
 import StripePayment from "@/components/StripePayment";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
@@ -219,8 +218,7 @@ export default function ProjectDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white">
-        <Header />
+      <div className="min-h-full">
         <main className="max-w-4xl mx-auto px-4 py-10">
           <p className="text-muted-foreground">Loading job…</p>
         </main>
@@ -230,8 +228,7 @@ export default function ProjectDetail() {
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-white">
-        <Header />
+      <div className="min-h-full">
         <main className="max-w-4xl mx-auto px-4 py-10">
           <p className="text-muted-foreground">Project not found.</p>
         </main>
@@ -248,8 +245,7 @@ export default function ProjectDetail() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-white">
-      <Header />
+    <div className="min-h-full">
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Back */}
@@ -390,7 +386,7 @@ export default function ProjectDetail() {
                 onChange={(e) => setNewNoteText(e.target.value)}
                 placeholder="Add a note for vendors — additional details, schedule changes, clarifications…"
                 rows={3}
-                className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30 resize-none mb-2"
+                className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none mb-2"
               />
               <button
                 onClick={handleAddNote}

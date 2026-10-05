@@ -36,7 +36,7 @@ export default function PartsComingSoon() {
           <Link to="/boaters" aria-label="Bosun for boaters">
             <BosunLogo className="h-5 sm:h-6" />
           </Link>
-          <button onClick={() => navigate("/login?mode=signup&role=owner")} className="text-sm font-semibold px-4 py-2 rounded-lg bg-foreground text-background">
+          <button onClick={() => navigate("/login?mode=signup&role=owner")} className="text-sm font-semibold px-4 py-2 rounded-lg bg-primary text-primary-foreground">
             Get early access
           </button>
         </div>
@@ -80,7 +80,7 @@ export default function PartsComingSoon() {
           <ol className="mt-6 space-y-3">
             {STEPS.map((s) => (
               <li key={s.n} className="flex gap-3 bg-white border border-border rounded-xl p-4">
-                <span className="w-7 h-7 shrink-0 rounded-full bg-foreground text-background text-sm font-bold flex items-center justify-center">{s.n}</span>
+                <span className="w-7 h-7 shrink-0 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center">{s.n}</span>
                 <p className="text-sm text-foreground leading-relaxed">{s.text}</p>
               </li>
             ))}
@@ -94,7 +94,7 @@ export default function PartsComingSoon() {
         <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
           Post the job on Bosun and get bids from local, insured marine shops. Their work lands in your Boat Log too.
         </p>
-        <button onClick={() => navigate("/login?mode=signup&role=owner")} className="mt-5 px-6 py-3 rounded-xl bg-foreground text-background font-semibold">
+        <button onClick={() => navigate("/login?mode=signup&role=owner")} className="mt-5 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold">
           Post a job
         </button>
       </section>

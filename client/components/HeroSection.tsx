@@ -366,13 +366,9 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
   ].filter(Boolean).join(" ");
 
   return (
-    <section>
-      {/* Full-bleed hero */}
-      {/* The hero keeps the photo's own shape (nothing cropped), capped in height and centered. */}
-      <div
-        className={heroImage ? "relative bg-white py-2" : "relative h-[240px] sm:h-[340px] overflow-hidden"}
-        style={{ backgroundColor: "#ffffff" }}
-      >
+    <section className="rounded-xl border border-border bg-white shadow-card overflow-hidden">
+      {/* The photo keeps its own shape (nothing cropped), capped in height and centered. */}
+      <div className={heroImage ? "relative bg-white pt-4 px-4" : "relative h-[200px] sm:h-[260px] overflow-hidden"}>
         {heroImage ? (
           <img
             src={heroImage}
@@ -387,7 +383,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
             <p className="text-sm text-slate-600">{boatInfo?.id ? "Add a photo of your boat" : "Add your boat to get started"}</p>
             <button
               onClick={() => navigate(boatInfo?.id ? "/settings" : "/my-boats")}
-              className="px-4 py-2 rounded-md bg-foreground text-background text-sm font-semibold hover:opacity-90"
+              className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90"
             >
               {boatInfo?.id ? "Upload photo" : "Add boat"}
             </button>
@@ -395,8 +391,9 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
         )}
       </div>
 
-      {/* Boat info strip */}
-      <div className="px-4 sm:px-6 lg:px-8 pt-3 pb-1 max-w-6xl mx-auto">
+      {/* Boat info + actions */}
+      <div className="px-5 pt-4 pb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="min-w-0">
         <h1 className="text-xl font-bold text-foreground leading-tight">
           {boatInfo?.name ||
             (boatInfo?.make
@@ -426,10 +423,10 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
       </div>
 
       {/* CTA buttons */}
-      <div className="px-4 sm:px-6 lg:px-8 pt-2 pb-1 flex flex-col sm:flex-row gap-2 sm:gap-3 max-w-6xl mx-auto">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 shrink-0">
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center justify-center gap-2 bg-foreground text-background px-4 py-3 sm:py-2.5 rounded-md text-sm font-semibold hover:opacity-90 transition-opacity"
+          className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-3 sm:py-2.5 rounded-lg text-sm font-semibold hover:bg-brand-600 transition-colors"
         >
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
             <path d="M12 4v16m8-8H4" />
@@ -438,13 +435,14 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
         </button>
         <button
           onClick={() => navigate("/vendors")}
-          className="flex items-center justify-center gap-2 border border-border text-foreground px-4 py-3 sm:py-2.5 rounded-md text-sm font-semibold hover:bg-muted transition-colors"
+          className="flex items-center justify-center gap-2 border border-border bg-white text-foreground px-4 py-3 sm:py-2.5 rounded-lg text-sm font-semibold hover:bg-muted transition-colors"
         >
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
           Browse Vendors
         </button>
+      </div>
       </div>
 
       <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
@@ -469,7 +467,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                     <button
                       key={t.label}
                       onClick={() => handleSelectTemplate(t)}
-                      className="flex items-center gap-2 text-left p-2.5 rounded-md border border-border hover:border-foreground/30 hover:bg-muted/50 transition-colors group"
+                      className="flex items-center gap-2 text-left p-2.5 rounded-md border border-border hover:border-primary/30 hover:bg-muted/50 transition-colors group"
                     >
                       <div className="w-7 h-7 rounded flex items-center justify-center bg-muted flex-shrink-0 group-hover:bg-muted">
                         <SvgIcon d={ICONS[t.icon].d} d2={(ICONS[t.icon] as { d: string; d2?: string }).d2} className="w-4 h-4 text-foreground/70" />
@@ -488,7 +486,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                   {PROJECT_CATEGORIES.map((cat) => (
                     <button
                       key={cat.label}
-                      className="flex items-center gap-3 text-left px-3 py-2.5 rounded-md border border-border hover:border-foreground/30 hover:bg-muted/50 transition-colors group"
+                      className="flex items-center gap-3 text-left px-3 py-2.5 rounded-md border border-border hover:border-primary/30 hover:bg-muted/50 transition-colors group"
                       onClick={() => handleSelectCategory(cat.label)}
                     >
                       <div className="w-8 h-8 rounded flex items-center justify-center bg-muted flex-shrink-0">
@@ -567,8 +565,8 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                         onClick={() => handleEngineTypeSelect(type)}
                         className={`px-3 py-2.5 rounded-md border text-center text-sm font-medium transition-colors ${
                           engineType === type
-                            ? "border-foreground bg-foreground text-background"
-                            : "border-border hover:border-foreground/30 text-foreground"
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border hover:border-primary/30 text-foreground"
                         }`}
                       >
                         {type}
@@ -588,8 +586,8 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                           onClick={() => handleMakeSelect(m)}
                           className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
                             make === m
-                              ? "border-foreground bg-foreground text-background"
-                              : "border-border hover:border-foreground/30 text-foreground"
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border hover:border-primary/30 text-foreground"
                           }`}
                         >
                           {m}
@@ -632,7 +630,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                   <button
                     disabled={!canSubmit}
                     onClick={() => setStep("details")}
-                    className="px-4 py-2 rounded-md bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     Next →
                   </button>
@@ -672,7 +670,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                   </p>
                   <button
                     onClick={handleClose}
-                    className="mt-2 px-4 py-2 rounded-md bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
+                    className="mt-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
                   >
                     Done
                   </button>
@@ -686,7 +684,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                       value={projectTitle}
                       onChange={(e) => setProjectTitle(e.target.value)}
                       placeholder="e.g. Annual Engine Service"
-                      className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                      className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
                     />
                   </div>
 
@@ -697,7 +695,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                       onChange={(e) => setProjectDescription(e.target.value)}
                       placeholder="Describe the work needed, any issues you've noticed, your timeline, and any special requirements…"
                       rows={4}
-                      className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30 resize-none"
+                      className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none"
                     />
                   </div>
 
@@ -705,7 +703,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                     <label className="block text-sm font-semibold text-foreground mb-1.5">
                       Photos <span className="text-muted-foreground font-normal">(optional)</span>
                     </label>
-                    <label className="flex flex-col items-center justify-center w-full border border-dashed border-border rounded-md p-4 cursor-pointer hover:border-foreground/30 hover:bg-muted/30 transition-colors">
+                    <label className="flex flex-col items-center justify-center w-full border border-dashed border-border rounded-md p-4 cursor-pointer hover:border-primary/30 hover:bg-muted/30 transition-colors">
                       <svg className="w-5 h-5 text-muted-foreground mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
@@ -725,7 +723,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                             <img src={src} className="w-16 h-16 rounded-md object-cover border border-border" />
                             <button
                               onClick={() => setProjectPhotos((prev) => prev.filter((_, j) => j !== i))}
-                              className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-foreground text-background rounded-full text-[10px] flex items-center justify-center"
+                              className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary text-primary-foreground rounded-full text-[10px] flex items-center justify-center"
                             >
                               ×
                             </button>
@@ -844,7 +842,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                           setSelectedEquipmentId(e.target.value);
                           if (!e.target.value) setIsWarrantyClaim(false);
                         }}
-                        className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                        className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-1 focus:ring-primary/30"
                       >
                         <option value="">None / Not applicable</option>
                         {boatEquipment.map((eq) => (
@@ -982,7 +980,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                           setPosting(false);
                         }
                       }}
-                      className="px-4 py-2 rounded-md bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       {posting ? "Posting…" : "Post Project"}
                     </button>

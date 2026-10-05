@@ -116,7 +116,7 @@ export default function MaintenanceAlert() {
   return (
     <button
       onClick={() => navigate("/maintenance")}
-      className="w-full flex items-center gap-3 px-4 py-3 text-left bg-white border-y border-border hover:bg-gray-50 transition-colors"
+      className="w-full h-full flex items-center gap-3 px-4 py-3.5 text-left rounded-xl border border-border bg-white shadow-card hover:border-sky-300 transition-colors"
     >
       {/* Wrench icon */}
       <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">

@@ -1,3 +1,4 @@
+import { PageHeader, StatTile } from "@/components/app/Page";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { isDemoMode, useDemoMode } from "@/lib/demoMode";
 import { useAuth } from "@/context/AuthContext";
@@ -608,22 +609,12 @@ export default function MaintenancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ── Sticky header ── */}
-      <header className="sticky top-0 z-40 bg-white border-b border-border">
-        <div className="flex items-center gap-3 px-4 py-3 max-w-2xl mx-auto">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors -ml-1"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back
-          </button>
-          <div className="flex-1">
-            <h1 className="text-base font-bold text-foreground leading-tight">Maintenance</h1>
-            <p className="text-xs text-muted-foreground leading-tight">
+    <div className="min-h-full">
+      <div className="max-w-2xl mx-auto px-4 pt-6 sm:pt-8">
+        <PageHeader
+          title="Maintenance"
+          description={
+            <>
               {boatName}
               {engineMake ? (
                 <> · {boatInfo?.engineCount ? `${boatInfo.engineCount} ` : ""}{engineMake} {engineModel.replace(/\s*\(.*?\)$/, "")}</>
@@ -635,10 +626,11 @@ export default function MaintenancePage() {
                   </button>
                 </>
               )}
-            </p>
-          </div>
-        </div>
-      </header>
+            </>
+          }
+          className="mb-2"
+        />
+      </div>
 
       <ServiceIntervalsDialog
         open={planOpen}
@@ -667,25 +659,11 @@ export default function MaintenancePage() {
 
       <div className="max-w-2xl mx-auto px-4 pb-12">
         {/* ── Summary strip ── */}
-        <div className={`grid ${openRecallCount > 0 ? "grid-cols-4" : "grid-cols-3"} gap-3 mt-4 mb-3`}>
-          <div className="bg-white rounded-xl border border-border px-4 py-3 text-center">
-            <div className="text-2xl font-bold text-red-500">{counts.overdue}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">Overdue</div>
-          </div>
-          <div className="bg-white rounded-xl border border-border px-4 py-3 text-center">
-            <div className="text-2xl font-bold text-amber-500">{counts.dueSoon}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">Due Soon</div>
-          </div>
-          <div className="bg-white rounded-xl border border-border px-4 py-3 text-center">
-            <div className="text-2xl font-bold text-green-600">{counts.ok}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">Up to Date</div>
-          </div>
-          {openRecallCount > 0 && (
-            <div className="bg-white rounded-xl border border-red-300 px-4 py-3 text-center">
-              <div className="text-2xl font-bold text-red-600">{openRecallCount}</div>
-              <div className="text-xs text-red-600 mt-0.5">Recalls</div>
-            </div>
-          )}
+        <div className={`grid ${openRecallCount > 0 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"} gap-3 mb-3`}>
+          <StatTile label="Overdue" value={counts.overdue} tone={counts.overdue ? "bad" : "default"} onClick={() => setFilter("overdue")} />
+          <StatTile label="Due soon" value={counts.dueSoon} tone={counts.dueSoon ? "warn" : "default"} onClick={() => setFilter("due-soon")} />
+          <StatTile label="Up to date" value={counts.ok} tone="good" onClick={() => setFilter("ok")} />
+          {openRecallCount > 0 && <StatTile label="Recalls" value={openRecallCount} tone="bad" />}
         </div>
 
         {/* ── Service schedule source ── */}
@@ -707,7 +685,7 @@ export default function MaintenancePage() {
             </div>
             <button
               onClick={() => setPlanOpen(true)}
-              className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg ${plan ? "border border-border hover:bg-muted" : "bg-foreground text-background hover:opacity-90"}`}
+              className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg ${plan ? "border border-border hover:bg-muted" : "bg-primary text-primary-foreground hover:opacity-90"}`}
             >
               {plan ? "Edit" : "Get service intervals"}
             </button>
@@ -902,7 +880,7 @@ export default function MaintenancePage() {
         {/* ── Add custom item button ── */}
         <button
           onClick={() => setShowAddModal(true)}
-          className="mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-border bg-white text-sm font-medium text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+          className="mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-border bg-white text-sm font-medium text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

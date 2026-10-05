@@ -1,6 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
-import Header from "@/components/Header";
 import ReviewsList from "@/components/ReviewsList";
 import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
@@ -48,8 +47,7 @@ export default function VendorProfile() {
 
   if (liveLoading && !vendor) {
     return (
-      <div className="min-h-screen bg-white">
-        <Header />
+      <div className="min-h-full">
         <main className="max-w-4xl mx-auto px-4 py-10">
           <p className="text-muted-foreground">Loading vendor…</p>
         </main>
@@ -59,8 +57,7 @@ export default function VendorProfile() {
 
   if (!vendor) {
     return (
-      <div className="min-h-screen bg-white">
-        <Header />
+      <div className="min-h-full">
         <main className="max-w-4xl mx-auto px-4 py-10">
           <p className="text-muted-foreground">Vendor not found.</p>
         </main>
@@ -69,8 +66,7 @@ export default function VendorProfile() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <Header />
+    <div className="min-h-full">
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Back */}
         <button

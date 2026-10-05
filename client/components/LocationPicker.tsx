@@ -161,7 +161,7 @@ export default function LocationPicker({
                 onChange(pending);
                 setPending(null);
               }}
-              className="px-3 py-2 rounded-md bg-foreground text-background text-sm font-semibold hover:opacity-90"
+              className="px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90"
             >
               {confirmLabel}
             </button>
@@ -175,7 +175,7 @@ export default function LocationPicker({
   }
 
   const inputCls =
-    "w-full border border-border rounded-md pl-9 pr-9 py-2.5 text-sm bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20";
+    "w-full border border-border rounded-md pl-9 pr-9 py-2.5 text-sm bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20";
 
   return (
     <div className={className}>
@@ -218,7 +218,7 @@ export default function LocationPicker({
             onKeyDown={(e) => e.key === "Enter" && lookupZip()}
             inputMode="numeric"
             placeholder="ZIP code"
-            className="w-32 border border-border rounded-md px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-foreground/20"
+            className="w-32 border border-border rounded-md px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
           <button
             onClick={lookupZip}

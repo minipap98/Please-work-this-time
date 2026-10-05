@@ -142,7 +142,7 @@ export default function CrewProfile() {
 
         {/* ── Contact ── */}
         <div className="mt-4 flex flex-col gap-3">
-          <button className="w-full py-3 rounded-xl bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity">
+          <button className="w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity">
             Send Enquiry
           </button>
           <button

@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
 import QuickStats from "@/components/QuickStats";
 import MaintenanceAlert from "@/components/MaintenanceAlert";
 import BoatLogStrip from "@/components/BoatLogStrip";
 import ProjectCard from "@/components/ProjectCard";
 import { cn } from "@/lib/utils";
+import { PageContainer } from "@/components/app/Page";
 import { isActiveProjectStatus } from "@shared/api";
 import { useOwnerMarketplaceProjects, useUpdateProjectStatus } from "@/hooks/use-marketplace";
 import { supabaseMissing } from "@/lib/supabase";
@@ -94,22 +94,24 @@ export default function Index() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <Header />
+    <div className="min-h-full">
+      <PageContainer wide className="space-y-4">
+        {/* The boat; posting a job re-fetches so it appears right away */}
+        <HeroSection onProjectPosted={() => refetch()} />
 
-      {/* Full-bleed hero — callback triggers re-render so new projects appear instantly */}
-      <HeroSection onProjectPosted={() => refetch()} />
+        <QuickStats projects={allProjects} />
 
-      <QuickStats projects={allProjects} />
+        <div className="grid gap-3 md:grid-cols-2">
+          <MaintenanceAlert />
+          <BoatLogStrip />
+        </div>
 
-      {/* Maintenance alert strip */}
-      <MaintenanceAlert />
-      <BoatLogStrip />
-
-      <main className="max-w-6xl mx-auto pt-4 pb-8">
-        <section>
+        <section className="rounded-xl border border-border bg-white shadow-card">
+          <div className="flex items-center justify-between px-5 pt-4">
+            <h2 className="text-base font-semibold">Your jobs</h2>
+          </div>
           {/* Tab bar */}
-          <div className="flex border-b border-border px-4 sm:px-6 lg:px-8 mb-4">
+          <div className="flex border-b border-border px-5 mt-2 mb-4">
             {TABS.map(({ label, value }) => {
               const count = tabCount(value);
               return (
@@ -119,7 +121,7 @@ export default function Index() {
                   className={cn(
                     "mr-5 pb-2.5 text-sm font-medium border-b-2 transition-colors",
                     tab === value
-                      ? "border-foreground text-foreground"
+                      ? "border-primary text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground"
                   )}
                 >
@@ -134,11 +136,11 @@ export default function Index() {
 
           {/* Project card row */}
           {isLoading ? (
-            <p className="px-4 sm:px-6 lg:px-8 text-sm text-muted-foreground py-8">Loading your jobs…</p>
+            <p className="px-5 text-sm text-muted-foreground pb-8">Loading your jobs…</p>
           ) : !demo && supabaseMissing ? (
-            <p className="px-4 sm:px-6 lg:px-8 text-sm text-muted-foreground py-8">Connect Supabase to load live jobs.</p>
+            <p className="px-5 text-sm text-muted-foreground pb-8">Connect Supabase to load live jobs.</p>
           ) : visibleProjects.length > 0 ? (
-            <div className="flex overflow-x-auto gap-3 pb-2 px-4 sm:px-6 lg:px-8 [&::-webkit-scrollbar]:hidden">
+            <div className="flex overflow-x-auto gap-3 pb-5 px-5 [&::-webkit-scrollbar]:hidden">
               {visibleProjects.map((project) => {
                 return (
                   <ProjectCard
@@ -157,12 +159,12 @@ export default function Index() {
               <div className="w-1 flex-shrink-0" />
             </div>
           ) : (
-            <p className="px-4 sm:px-6 lg:px-8 text-sm text-muted-foreground">
-              No {tab} projects yet.
+            <p className="px-5 pb-6 text-sm text-muted-foreground">
+              No {tab} jobs yet.
             </p>
           )}
         </section>
-      </main>
+      </PageContainer>
     </div>
   );
 }

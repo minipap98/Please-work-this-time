@@ -386,7 +386,7 @@ export default function VendorBidTemplates({ vendorId, onUpdate }: Props) {
                     className={`flex-1 px-3 py-2.5 rounded-lg border text-xs font-medium transition-colors text-center ${
                       formEngineType === et
                         ? "border-sky-400 bg-sky-50 text-sky-800"
-                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
                     }`}
                   >
                     {et}
@@ -407,7 +407,7 @@ export default function VendorBidTemplates({ vendorId, onUpdate }: Props) {
                       className={`px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
                         formEngineMake === m
                           ? "border-sky-400 bg-sky-50 text-sky-800"
-                          : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                          : "border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
                       }`}
                     >
                       {m}

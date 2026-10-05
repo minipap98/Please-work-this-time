@@ -43,13 +43,14 @@ import Privacy from "./pages/Privacy";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { RoleProvider, useRole } from "./context/RoleContext";
 import ErrorBoundary from "./components/ErrorBoundary";
+import AppShell from "./components/app/AppShell";
 import { DemoModeProvider, isDemoMode, useDemoMode } from "./lib/demoMode";
 import { useEffect } from "react";
 
 function LoadingScreen() {
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" />
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
     </div>
   );
 }
@@ -80,12 +81,12 @@ function DemoEnter() {
 
 function AuthGuard() {
   const { user, profile, loading } = useAuth();
-  if (isDemoMode()) return <Outlet />;
+  if (isDemoMode()) return <AppShell><Outlet /></AppShell>;
   if (supabaseMissing) return <ConfigScreen />;
   if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   if (profile && !profile.onboarding_complete) return <Navigate to="/onboarding" replace />;
-  return <Outlet />;
+  return <AppShell><Outlet /></AppShell>;
 }
 
 function OwnerGuard() {

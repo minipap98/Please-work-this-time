@@ -1,6 +1,6 @@
+import { PageContainer, PageHeader } from "@/components/app/Page";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
 import { useMyVendorProfile } from "@/hooks/use-supabase";
 import { getLocalProjectStatus } from "@/data/bidUtils";
@@ -257,8 +257,7 @@ export default function VendorDashboard() {
 
   if (!vendor) {
     return (
-      <div className="min-h-screen bg-white">
-        <Header />
+      <div className="min-h-full">
         <div className="flex items-center justify-center py-32">
           <p className="text-muted-foreground text-sm">No vendor profile selected.</p>
         </div>
@@ -267,45 +266,34 @@ export default function VendorDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fafaf9] pb-16 md:pb-0">
-      <Header />
-
-      {/* ── Today ─────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-border">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-semibold text-foreground">
-              {new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening"},{" "}
-              {vendor.name.split(" ")[0]}
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => navigate("/vendor-shop?tab=orders&new=wo")}
-              className="px-3 py-2 text-sm font-semibold rounded-lg bg-foreground text-background"
-            >
-              + Work order
-            </button>
-            <button
-              onClick={() => navigate("/vendor-shop?tab=parts&paste=1")}
-              className="px-3 py-2 text-sm font-medium rounded-lg border border-border hover:bg-muted"
-            >
-              Track a part
-            </button>
-            <button
-              onClick={() => navigate("/vendor-shop?tab=schedule")}
-              className="px-3 py-2 text-sm font-medium rounded-lg border border-border hover:bg-muted"
-            >
-              Schedule
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+    <div className="min-h-full">
+      <PageContainer wide>
+        <PageHeader
+          title={`${new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening"}, ${vendor.name.split(" ")[0]}`}
+          description="Here's what needs you today."
+          actions={
+            <>
+              <button
+                onClick={() => navigate("/vendor-shop?tab=orders&new=wo")}
+                className="px-3.5 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-brand-600"
+              >
+                + Work order
+              </button>
+              <button
+                onClick={() => navigate("/vendor-shop?tab=parts&paste=1")}
+                className="px-3.5 py-2 text-sm font-medium rounded-lg border border-border bg-white hover:bg-muted"
+              >
+                Track a part
+              </button>
+              <button
+                onClick={() => navigate("/vendor-shop?tab=schedule")}
+                className="px-3.5 py-2 text-sm font-medium rounded-lg border border-border bg-white hover:bg-muted"
+              >
+                Schedule
+              </button>
+            </>
+          }
+        />
         {vendorId && <TodayPanel vendorId={vendorId} coiExpiry={vendorRow?.insurance_expiry ?? null} />}
 
         <div className="mt-8" />
@@ -515,7 +503,7 @@ export default function VendorDashboard() {
             </button>
           </div>
         ) : null}
-      </main>
+      </PageContainer>
 
       {/* ── RFP Detail Panel ───────────────────────────────────── */}
       {detailProject && (() => {

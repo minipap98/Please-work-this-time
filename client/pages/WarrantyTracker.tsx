@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
 import BoatEquipment from "@/components/BoatEquipment";
 import {
   Shield,
@@ -335,8 +334,7 @@ export default function WarrantyTracker() {
   }, [allEquipment]);
 
   return (
-    <div className="min-h-screen bg-white">
-      <Header />
+    <div className="min-h-full">
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Back button */}
         <button

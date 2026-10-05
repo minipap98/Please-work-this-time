@@ -273,7 +273,7 @@ export default function WorkOrderEditor({
               type="button"
               disabled={!canSave || saving}
               onClick={() => onSave(d)}
-              className="px-4 py-2 text-sm font-semibold rounded-lg bg-foreground text-background disabled:opacity-50"
+              className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
             >
               {saving ? "Saving…" : "Save work order"}
             </button>

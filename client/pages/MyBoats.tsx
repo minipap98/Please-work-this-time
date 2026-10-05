@@ -1,3 +1,4 @@
+import { PageContainer, PageHeader } from "@/components/app/Page";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useDemoMode } from "@/lib/demoMode";
@@ -5,7 +6,6 @@ import { useMyBoats } from "@/hooks/use-my-boat";
 import { useCreateBoat, useDeleteBoat, useUpdateBoat } from "@/hooks/use-supabase";
 import type { Tables } from "@/lib/database.types";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
 import { BOAT_MAKES, BOAT_MODELS, type BoatMake } from "@/data/boatData";
 import { ENGINE_DATA, ENGINE_TYPES, OUTBOARD_COUNTS, type EngineType } from "@/data/engineData";
 import EngineModelField from "@/components/EngineModelField";
@@ -386,27 +386,13 @@ function FleetView({
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <Header />
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back
-        </button>
-
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-semibold text-foreground">My Boats</h1>
-          {savedMsg && (
-            <span className="text-xs text-green-600 font-semibold bg-green-50 px-2.5 py-1 rounded-full">
-              Saved!
-            </span>
-          )}
-        </div>
+    <div className="min-h-full">
+      <PageContainer className="max-w-3xl">
+        <PageHeader
+          title="My Boats"
+          description="Your boats, their engines and gear. The primary boat is what the dashboard and Maintenance follow."
+          actions={savedMsg && <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-full">Saved</span>}
+        />
 
         {/* Fleet list */}
         <div className="space-y-4">
@@ -545,7 +531,7 @@ function FleetView({
             </button>
           )}
         </div>
-      </main>
+      </PageContainer>
     </div>
   );
 }

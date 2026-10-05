@@ -1,6 +1,6 @@
+import { PageContainer, PageHeader } from "@/components/app/Page";
 import { useState, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
 import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 import type { VendorProfile } from "@/data/vendorData";
@@ -170,16 +170,9 @@ export default function BrowseVendors() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground mb-1">Browse Vendors</h1>
-          <p className="text-sm text-muted-foreground">
-            Find verified marine service professionals in your area
-          </p>
-        </div>
+    <div className="min-h-full">
+      <PageContainer>
+        <PageHeader title="Find a shop" description="Verified marine shops and techs near your home port." />
 
         {/* Search bar + sort + filter toggle */}
         <div className="bg-white rounded-xl border border-border p-4 mb-4">
@@ -421,7 +414,7 @@ export default function BrowseVendors() {
             ))}
           </div>
         )}
-      </main>
+      </PageContainer>
     </div>
   );
 }

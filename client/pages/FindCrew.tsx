@@ -7,7 +7,6 @@ import {
   AVAILABILITY_STYLES,
   type CrewRole,
 } from "@/data/crewData";
-import Header from "@/components/Header";
 import {
   Dialog,
   DialogContent,
@@ -114,8 +113,7 @@ export default function FindCrew() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
+    <div className="min-h-full">
 
       {/* ── Page header ── */}
       <div className="bg-white border-b border-border">
@@ -184,7 +182,7 @@ export default function FindCrew() {
               <button
                 onClick={() => setAvailableOnly((v) => !v)}
                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                  availableOnly ? "bg-foreground" : "bg-gray-200"
+                  availableOnly ? "bg-primary" : "bg-gray-200"
                 }`}
               >
                 <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${availableOnly ? "translate-x-4" : "translate-x-0.5"}`} />
@@ -208,7 +206,7 @@ export default function FindCrew() {
                 <button
                   key={member.id}
                   onClick={() => navigate(`/find-crew/${member.id}`)}
-                  className="text-left bg-white border border-border rounded-lg p-4 hover:border-foreground/20 transition-colors flex flex-col gap-3"
+                  className="text-left bg-white border border-border rounded-lg p-4 hover:border-primary/20 transition-colors flex flex-col gap-3"
                 >
                   <div className="flex items-start gap-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold ${roleStyle.avatar}`}>
@@ -288,7 +286,7 @@ export default function FindCrew() {
               </p>
               <button
                 onClick={() => setRfpOpen(false)}
-                className="mt-2 px-4 py-2 rounded-md bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
+                className="mt-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
               >
                 Done
               </button>
@@ -332,7 +330,7 @@ export default function FindCrew() {
                       onClick={() => setRfpTripType(rfpTripType === type ? "" : type)}
                       className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
                         rfpTripType === type
-                          ? "border-foreground bg-foreground text-background"
+                          ? "border-primary bg-primary text-primary-foreground"
                           : "border-border text-muted-foreground hover:text-foreground"
                       }`}
                     >
@@ -352,7 +350,7 @@ export default function FindCrew() {
                     type="date"
                     value={rfpStartDate}
                     onChange={(e) => setRfpStartDate(e.target.value)}
-                    className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-1 focus:ring-primary/30"
                   />
                 </div>
                 <div>
@@ -364,7 +362,7 @@ export default function FindCrew() {
                       value={rfpDuration}
                       onChange={(e) => setRfpDuration(e.target.value)}
                       placeholder="e.g. 3"
-                      className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                      className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
                     />
                     <span className="text-sm text-muted-foreground flex-shrink-0">days</span>
                   </div>
@@ -382,7 +380,7 @@ export default function FindCrew() {
                     value={rfpDeparture}
                     onChange={(e) => setRfpDeparture(e.target.value)}
                     placeholder="e.g. Fort Lauderdale"
-                    className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
                   />
                 </div>
                 <div>
@@ -392,7 +390,7 @@ export default function FindCrew() {
                     value={rfpDestination}
                     onChange={(e) => setRfpDestination(e.target.value)}
                     placeholder="e.g. Nassau, Bahamas"
-                    className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
                   />
                 </div>
               </div>
@@ -413,7 +411,7 @@ export default function FindCrew() {
                     value={rfpGuests}
                     onChange={(e) => setRfpGuests(e.target.value)}
                     placeholder="e.g. 6"
-                    className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
                   />
                 </div>
               </div>
@@ -432,7 +430,7 @@ export default function FindCrew() {
                       value={rfpBudgetMin}
                       onChange={(e) => setRfpBudgetMin(e.target.value)}
                       placeholder="Min"
-                      className="w-full border border-border rounded-md pl-6 pr-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                      className="w-full border border-border rounded-md pl-6 pr-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
                     />
                   </div>
                   <span className="text-sm text-muted-foreground">–</span>
@@ -444,7 +442,7 @@ export default function FindCrew() {
                       value={rfpBudgetMax}
                       onChange={(e) => setRfpBudgetMax(e.target.value)}
                       placeholder="Max"
-                      className="w-full border border-border rounded-md pl-6 pr-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30"
+                      className="w-full border border-border rounded-md pl-6 pr-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
                     />
                   </div>
                 </div>
@@ -460,7 +458,7 @@ export default function FindCrew() {
                   onChange={(e) => setRfpNotes(e.target.value)}
                   placeholder="e.g. Must have offshore experience, bilingual preferred, fishing knowledge a plus…"
                   rows={3}
-                  className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/30 resize-none"
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none"
                 />
               </div>
 
@@ -475,7 +473,7 @@ export default function FindCrew() {
                 <button
                   onClick={() => setRfpSubmitted(true)}
                   disabled={!rfpCanSubmit}
-                  className="flex-1 px-4 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   Submit RFP
                 </button>

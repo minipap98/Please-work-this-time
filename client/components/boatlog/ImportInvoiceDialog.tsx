@@ -162,7 +162,7 @@ export default function ImportInvoiceDialog({
 
         {stage.step === "pick" && (
           <div>
-            <label className="block cursor-pointer rounded-xl border-2 border-dashed border-border bg-muted/30 p-8 text-center hover:border-foreground/40 transition-colors">
+            <label className="block cursor-pointer rounded-xl border-2 border-dashed border-border bg-muted/30 p-8 text-center hover:border-primary/40 transition-colors">
               <FileText className="w-8 h-8 mx-auto text-muted-foreground" />
               <p className="mt-2 text-sm font-semibold">Choose a PDF or photo</p>
               <p className="text-xs text-muted-foreground mt-0.5">Up to 15 MB. Stored privately with your boat.</p>
@@ -379,7 +379,7 @@ export default function ImportInvoiceDialog({
               <button
                 disabled={!canSave}
                 onClick={save}
-                className={cn("px-4 py-2 text-sm font-semibold rounded-lg bg-foreground text-background disabled:opacity-50")}
+                className={cn("px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground disabled:opacity-50")}
               >
                 {saving ? "Saving…" : splits && usedSplits.length > 1 ? `Add ${usedSplits.length} entries to Boat Log` : "Add to Boat Log"}
               </button>

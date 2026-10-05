@@ -1,6 +1,6 @@
+import { PageContainer, PageHeader } from "@/components/app/Page";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
 import type { BidMessage, Bid, Project } from "@/data/projectData";
 import { useOwnerMarketplaceProjects, useVendorBidProjects } from "@/hooks/use-marketplace";
 import { useRole } from "@/context/RoleContext";
@@ -186,10 +186,9 @@ export default function Inbox() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <Header />
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <h1 className="text-2xl font-semibold text-foreground mb-6">Inbox</h1>
+    <div className="min-h-full">
+      <PageContainer>
+        <PageHeader title="Inbox" description="Messages with the shops and owners you're working with." />
 
         {threads.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -359,7 +358,7 @@ export default function Inbox() {
             </div>
           </div>
         )}
-      </main>
+      </PageContainer>
     </div>
   );
 }

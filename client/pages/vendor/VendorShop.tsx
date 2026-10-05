@@ -1,7 +1,7 @@
+import { PageContainer, PageHeader, StatTile } from "@/components/app/Page";
 import ShopLocationCard from "@/components/shop/ShopLocationCard";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
 import { useToast } from "@/hooks/use-toast";
 import { useVendorBidProjects } from "@/hooks/use-marketplace";
@@ -147,7 +147,6 @@ export default function VendorShop({
   if (!vendorId) {
     return (
       <>
-        <Header />
         <main className="max-w-5xl mx-auto px-4 py-16 text-center">
           <p className="text-muted-foreground">Finish vendor onboarding to open your shop.</p>
         </main>
@@ -197,17 +196,13 @@ export default function VendorShop({
       : null;
 
   return (
-    <div className="min-h-screen bg-slate-50/50">
-      <Header />
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-5 flex flex-col sm:flex-row sm:items-end gap-2">
-          <div>
-            <h1 className="text-xl font-bold text-foreground">{shopName ?? "Shop"}</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Work orders, the board, parts on the shelf and on the truck, and clean books.
-            </p>
-          </div>
-        </div>
+    <div className="min-h-full">
+      <PageContainer wide>
+        <PageHeader
+          title={shopName ?? "Shop"}
+          description="Work orders, the board, parts on the shelf and on the truck, and clean books."
+          className="mb-5"
+        />
 
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 mb-5">
           <StatButton label="On the board today" value={String(stats.today.length)} onClick={() => setTab("schedule")} />
@@ -232,7 +227,7 @@ export default function VendorShop({
         </div>
 
         {ordersLoading && !demo ? (
-          <div className="py-16 flex justify-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-foreground" /></div>
+          <div className="py-16 flex justify-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>
         ) : (
           <>
             {tab === "orders" && (
@@ -315,7 +310,7 @@ export default function VendorShop({
             )}
           </>
         )}
-      </main>
+      </PageContainer>
 
       {editor && (
         <WorkOrderEditor
@@ -366,15 +361,7 @@ export default function VendorShop({
 }
 
 function StatButton({ label, value, tone, onClick }: { label: string; value: string; tone?: "warn"; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`text-left border rounded-xl p-3 bg-white hover:border-foreground/30 transition-colors ${tone === "warn" ? "border-amber-200" : "border-border"}`}
-    >
-      <p className="text-[11px] text-muted-foreground leading-tight">{label}</p>
-      <p className={`text-lg font-bold tabular-nums ${tone === "warn" ? "text-amber-700" : "text-foreground"}`}>{value}</p>
-    </button>
-  );
+  return <StatTile label={label} value={value} tone={tone ?? "default"} onClick={onClick} className={tone === "warn" ? "border-amber-200" : undefined} />;
 }
 
 function ShopSettingsPanel({
@@ -414,7 +401,7 @@ function ShopSettingsPanel({
         <button
           disabled={saving}
           onClick={() => onSave({ laborRate: Number(laborRate) || 0, taxRate: Number(taxRate) || 0, bays: list(bays), techs: list(techs) })}
-          className="px-4 py-2 text-sm font-semibold rounded-lg bg-foreground text-background disabled:opacity-50"
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
         >
           Save
         </button>
@@ -488,7 +475,7 @@ function CrewPanel({ vendorId, techs }: { vendorId: string; techs: string[] }) {
               }
             )
           }
-          className="shrink-0 px-3 py-2 text-sm font-semibold rounded-lg bg-foreground text-background disabled:opacity-50"
+          className="shrink-0 px-3 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
         >
           Invite
         </button>

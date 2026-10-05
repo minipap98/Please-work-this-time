@@ -226,7 +226,7 @@ export default function Onboarding() {
   }
 
   // ── Shared form classes ──────────────────────────────────────────────────
-  const inputCls = "w-full border border-border rounded-md px-3 py-2.5 text-sm text-foreground bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20 focus:border-foreground transition";
+  const inputCls = "w-full border border-border rounded-md px-3 py-2.5 text-sm text-foreground bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition";
   const selectCls = inputCls;
   const selectDisCls = `${inputCls} disabled:opacity-50 disabled:cursor-not-allowed`;
 
@@ -251,7 +251,7 @@ export default function Onboarding() {
               </div>
               <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-foreground rounded-full transition-all duration-300"
+                  className="h-full bg-primary rounded-full transition-all duration-300"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
@@ -267,7 +267,7 @@ export default function Onboarding() {
           {/* ── WELCOME ──────────────────────────────────────── */}
           {currentStep === "welcome" && (
             <div className="text-center py-8">
-              <div className="w-16 h-16 rounded-full bg-foreground flex items-center justify-center mx-auto mb-6">
+              <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center mx-auto mb-6">
                 {isVendor ? (
                   <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
@@ -289,7 +289,7 @@ export default function Onboarding() {
               </p>
               <button
                 onClick={next}
-                className="px-8 py-3 rounded-md bg-foreground text-white text-sm font-semibold hover:bg-foreground/90 transition-colors"
+                className="px-8 py-3 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
               >
                 Get Started
               </button>
@@ -458,7 +458,7 @@ export default function Onboarding() {
                 </p>
               ) : (
                 <label className="block cursor-pointer">
-                  <div className="w-full aspect-[2/1] rounded-md border-2 border-dashed border-border bg-muted/30 overflow-hidden flex items-center justify-center hover:border-foreground/40 transition-colors">
+                  <div className="w-full aspect-[2/1] rounded-md border-2 border-dashed border-border bg-muted/30 overflow-hidden flex items-center justify-center hover:border-primary/40 transition-colors">
                     {photo ? (
                       <img src={photo} alt="Your boat" className="w-full h-full object-cover" />
                     ) : (
@@ -569,8 +569,8 @@ export default function Onboarding() {
                         onClick={() => toggleSpecialty(s)}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
                           active
-                            ? "bg-foreground text-white border-foreground"
-                            : "bg-white text-muted-foreground border-border hover:border-foreground/40 hover:text-foreground"
+                            ? "bg-primary text-white border-primary"
+                            : "bg-white text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
                         }`}
                       >
                         {s}
@@ -593,8 +593,8 @@ export default function Onboarding() {
                         onClick={() => toggleCert(c)}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
                           active
-                            ? "bg-foreground text-white border-foreground"
-                            : "bg-white text-muted-foreground border-border hover:border-foreground/40 hover:text-foreground"
+                            ? "bg-primary text-white border-primary"
+                            : "bg-white text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
                         }`}
                       >
                         {c}
@@ -609,7 +609,7 @@ export default function Onboarding() {
                         key={c}
                         type="button"
                         onClick={() => toggleCert(c)}
-                        className="px-3 py-1.5 rounded-full text-xs font-medium bg-foreground text-white border border-foreground transition-colors"
+                        className="px-3 py-1.5 rounded-full text-xs font-medium bg-primary text-white border border-primary transition-colors"
                       >
                         {c}
                       </button>
@@ -708,7 +708,7 @@ export default function Onboarding() {
               <button
                 onClick={handleComplete}
                 disabled={finishing}
-                className="px-8 py-3 rounded-md bg-foreground text-white text-sm font-semibold hover:bg-foreground/90 transition-colors disabled:opacity-60"
+                className="px-8 py-3 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
               >
                 {finishing ? "Saving…" : isVendor ? "Go to Vendor Dashboard" : "Go to Dashboard"}
               </button>
@@ -758,7 +758,7 @@ function StepNav({
         )}
         <button
           onClick={onNext}
-          className="px-5 py-2.5 rounded-md bg-foreground text-white text-sm font-semibold hover:bg-foreground/90 transition-colors"
+          className="px-5 py-2.5 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
         >
           Continue
         </button>
@@ -784,8 +784,8 @@ function ToggleCard({
       onClick={onToggle}
       className={`flex flex-col items-center gap-1 py-4 px-3 rounded-lg border text-center transition-colors ${
         active
-          ? "border-foreground bg-foreground text-white"
-          : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+          ? "border-primary bg-primary text-white"
+          : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
       }`}
     >
       <span className="text-sm font-semibold">{label}</span>

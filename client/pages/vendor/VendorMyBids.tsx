@@ -1,5 +1,5 @@
+import { PageContainer, PageHeader } from "@/components/app/Page";
 import { useState, useMemo, useEffect } from "react";
-import Header from "@/components/Header";
 import { useRole } from "@/context/RoleContext";
 import {
   getAllMessages, sendVendorMessage,
@@ -42,7 +42,7 @@ const FILTER_CONFIG: {
   {
     key: "all",
     label: "All",
-    activeClass: "bg-foreground text-background",
+    activeClass: "bg-primary text-primary-foreground",
     badgeClass: "bg-muted-foreground/20 text-foreground",
   },
   {
@@ -157,7 +157,7 @@ function CongratsBanner({
 
         <button
           onClick={onClose}
-          className="w-full py-2.5 rounded-xl bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
+          className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
         >
           View My Bids
         </button>
@@ -316,10 +316,9 @@ export default function VendorMyBids() {
 
   if (myBids.length === 0) {
     return (
-      <div className="min-h-screen bg-white">
-        <Header />
-        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <h1 className="text-2xl font-semibold text-foreground mb-6">My Bids</h1>
+      <div className="min-h-full">
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <PageHeader title="My Bids" description="Every bid you've sent and where it stands." />
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <svg className="w-12 h-12 text-muted-foreground/30 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -332,7 +331,7 @@ export default function VendorMyBids() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-16 md:pb-0">
+    <div className="min-h-full">
       {/* Congratulations overlay — shown once per newly accepted bid */}
       {congratsBid && (
         <CongratsBanner
@@ -343,12 +342,8 @@ export default function VendorMyBids() {
         />
       )}
 
-      <Header />
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="flex items-center justify-between mb-5">
-          <h1 className="text-2xl font-semibold text-foreground">My Bids</h1>
-          <span className="text-sm text-muted-foreground">{myBids.length} total</span>
-        </div>
+      <PageContainer wide>
+        <PageHeader title="My Bids" description={`${myBids.length} bid${myBids.length === 1 ? "" : "s"} sent`} />
 
         {/* ── Filter toggle ─────────────────────────────────── */}
         <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 mb-5">
@@ -850,7 +845,7 @@ export default function VendorMyBids() {
             )}
           </div>
         </div>
-      </main>
+      </PageContainer>
     </div>
   );
 }

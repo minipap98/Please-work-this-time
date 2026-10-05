@@ -186,7 +186,7 @@ export default function VendorInsurance(_props: VendorInsuranceProps) {
             type="button"
             disabled={!isFormValid || saving}
             onClick={() => void handleSave()}
-            className="w-full py-2 rounded-md bg-foreground text-background text-sm font-semibold disabled:opacity-40"
+            className="w-full py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-40"
           >
             {saving ? "Saving…" : "Save insurance"}
           </button>

@@ -71,7 +71,7 @@ export default function SchedulePanel({ orders, bays, onOpen, onNewAt }: Props) 
         </span>
         <div className="ml-auto flex border border-border rounded-lg overflow-hidden text-xs">
           {(["bay", "tech"] as const).map((g) => (
-            <button key={g} onClick={() => setGroupBy(g)} className={cn("px-3 py-1.5", groupBy === g ? "bg-foreground text-background" : "hover:bg-muted")}>
+            <button key={g} onClick={() => setGroupBy(g)} className={cn("px-3 py-1.5", groupBy === g ? "bg-primary text-primary-foreground" : "hover:bg-muted")}>
               By {g}
             </button>
           ))}

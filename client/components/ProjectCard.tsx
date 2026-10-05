@@ -46,7 +46,7 @@ export default function ProjectCard({
         tabIndex={0}
         onClick={onClick}
         onKeyDown={(e) => e.key === "Enter" && onClick?.()}
-        className="w-full h-full text-left border border-border rounded-lg p-4 bg-white hover:border-foreground/20 transition-colors cursor-pointer block"
+        className="w-full h-full text-left border border-border rounded-lg p-4 bg-white hover:border-primary/20 transition-colors cursor-pointer block"
       >
         {/* Status */}
         <div className="flex items-center gap-1.5 mb-3 pr-5">

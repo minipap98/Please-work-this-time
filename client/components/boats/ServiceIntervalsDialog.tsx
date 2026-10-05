@@ -258,7 +258,7 @@ export default function ServiceIntervalsDialog({
             <button
               onClick={() => onSave(plan)}
               disabled={saving || !!problem}
-              className="px-4 py-2 text-sm font-semibold rounded-lg bg-foreground text-background disabled:opacity-50"
+              className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
             >
               {saving ? "Saving…" : `Save schedule (${plan.tasks.length} items)`}
             </button>

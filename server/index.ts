@@ -7,6 +7,17 @@ import { handleNotifyJob } from "./routes/notify.js";
 import { handleInboundPartsEmail } from "./routes/inbound-email.js";
 import { handleExtractInvoice, handleInvoiceHealth } from "./routes/invoice-extract.js";
 import { handleServiceIntervals } from "./routes/service-intervals.js";
+import {
+  handleAdminAudit,
+  handleAdminDemand,
+  handleAdminPeople,
+  handleAdminPersonAction,
+  handleAdminProspectCreate,
+  handleAdminProspectDraft,
+  handleAdminProspectSearch,
+  handleAdminProspectUpdate,
+  handleAdminProspects,
+} from "./routes/admin.js";
 
 export function createServer() {
   const app = express();
@@ -42,6 +53,15 @@ export function createServer() {
   app.post("/api/invoices/extract", handleExtractInvoice);
   app.get("/api/invoices/health", handleInvoiceHealth);
   app.post("/api/maintenance/intervals", handleServiceIntervals);
+  app.get("/api/admin/people", handleAdminPeople);
+  app.post("/api/admin/people/:id/action", handleAdminPersonAction);
+  app.get("/api/admin/demand", handleAdminDemand);
+  app.get("/api/admin/prospects", handleAdminProspects);
+  app.post("/api/admin/prospects", handleAdminProspectCreate);
+  app.post("/api/admin/prospects/search", handleAdminProspectSearch);
+  app.post("/api/admin/prospects/:id", handleAdminProspectUpdate);
+  app.post("/api/admin/prospects/:id/draft", handleAdminProspectDraft);
+  app.get("/api/admin/audit", handleAdminAudit);
 
   return app;
 }

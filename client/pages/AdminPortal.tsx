@@ -1,702 +1,579 @@
-import { useState, useMemo, useEffect } from "react";
-import {
-  Users,
-  FolderKanban,
-  Gavel,
-  CalendarCheck,
-  DollarSign,
-  Search,
-  TrendingUp,
-  Activity,
-  BarChart3,
-  Star,
-  Shield,
-  LogOut,
-  Eye,
-} from "lucide-react";
-import { supabase, supabaseMissing } from "@/lib/supabase";
+import { useMemo, useState } from "react";
+import { Link, Navigate } from "react-router-dom";
+import { toast } from "sonner";
+import { Anchor, ClipboardList, Copy, LogOut, MapPin, Search, ShieldCheck, Sparkles, Users, Wrench } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { useAdminMarketplace } from "@/hooks/use-marketplace";
-import { Navigate } from "react-router-dom";
-import type { Project } from "@/data/projectData";
+import { BosunLogo } from "@/components/marketing/BosunLogo";
+import { PageContainer, PageHeader, Panel, StatGrid, StatTile } from "@/components/app/Page";
+import LocationPicker from "@/components/LocationPicker";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  useAdminAction, useAdminAudit, useAdminDemand, useAdminPeople, useAdminProspects, useCreateProspect, useDraftOutreach, useSearchProspects, useUpdateProspect,
+} from "@/hooks/use-admin";
+import { PROSPECT_STATUSES, PROSPECT_TRADES, demandCells, prospectScore, type AdminAction, type AdminPerson, type DemandCell, type Prospect, type ProspectStatus } from "@shared/admin";
+import type { PickedLocation } from "@shared/geo";
+import { cn } from "@/lib/utils";
 
-// ── Constants ────────────────────────────────────────────────────────────────
-
-const PLATFORM_FEE_RATE = 0.07;
-
-// ── Mock data generators ─────────────────────────────────────────────────────
-
-const FIRST_NAMES = [
-  "James", "Sarah", "Michael", "Emily", "Robert", "Jessica", "David", "Amanda",
-  "Christopher", "Megan", "Daniel", "Ashley", "Matthew", "Lauren", "Andrew",
-  "Stephanie", "William", "Nicole",
-];
-const LAST_NAMES = [
-  "Thompson", "Martinez", "Anderson", "Wilson", "Taylor", "Davis", "Miller",
-  "Garcia", "Robinson", "Clark", "Lewis", "Lee", "Walker", "Hall", "Allen",
-  "Young", "King", "Wright",
-];
-
-function generateMockUsers() {
-  const users: Array<{
-    id: number;
-    name: string;
-    email: string;
-    role: "owner" | "vendor";
-    signupDate: string;
-    status: "active" | "inactive";
-    activity: number;
-  }> = [];
-
-  for (let i = 0; i < 18; i++) {
-    const first = FIRST_NAMES[i % FIRST_NAMES.length];
-    const last = LAST_NAMES[i % LAST_NAMES.length];
-    const role = i < 11 ? "owner" : "vendor";
-    const daysAgo = Math.floor(Math.random() * 180) + 1;
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-
-    users.push({
-      id: i + 1,
-      name: `${first} ${last}`,
-      email: `${first.toLowerCase()}.${last.toLowerCase()}@email.com`,
-      role,
-      signupDate: date.toISOString().split("T")[0],
-      status: Math.random() > 0.15 ? "active" : "inactive",
-      activity: role === "owner" ? Math.floor(Math.random() * 6) + 1 : Math.floor(Math.random() * 12) + 1,
-    });
-  }
-  return users;
-}
-
-const MONTHLY_REVENUE = [
-  { month: "Oct", revenue: 4200 },
-  { month: "Nov", revenue: 6800 },
-  { month: "Dec", revenue: 3100 },
-  { month: "Jan", revenue: 7500 },
-  { month: "Feb", revenue: 9200 },
-  { month: "Mar", revenue: 8400 },
+type Tab = "overview" | "people" | "shops" | "demand" | "prospects" | "audit";
+const TABS: { key: Tab; label: string }[] = [
+  { key: "overview", label: "Overview" },
+  { key: "people", label: "People" },
+  { key: "shops", label: "Shops" },
+  { key: "demand", label: "Demand" },
+  { key: "prospects", label: "Prospects" },
+  { key: "audit", label: "Audit log" },
 ];
 
-function generateActivityFeed(projects: Project[]) {
-  const activities: Array<{
-    id: number;
-    type: "project" | "bid" | "booking" | "review";
-    description: string;
-    user: string;
-    project: string;
-    timestamp: Date;
-  }> = [];
+const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
+const ago = (iso: string | null | undefined) => {
+  if (!iso) return "never";
+  const d = Math.floor((Date.now() - Date.parse(iso)) / 86400_000);
+  return d === 0 ? "today" : d === 1 ? "yesterday" : d < 30 ? `${d}d ago` : d < 365 ? `${Math.floor(d / 30)}mo ago` : `${Math.floor(d / 365)}y ago`;
+};
+const inputCls = "w-full px-3 py-2 text-sm border border-border rounded-lg bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400";
+const btn = "px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-white hover:bg-muted disabled:opacity-50";
 
-  let id = 0;
-  for (const p of projects.slice(0, 10)) {
-    const daysAgo = Math.floor(Math.random() * 14);
-    activities.push({
-      id: id++,
-      type: "project",
-      description: "New project posted",
-      user: p.owner ?? "Boat Owner",
-      project: p.title,
-      timestamp: new Date(Date.now() - daysAgo * 86400000 - Math.random() * 86400000),
-    });
+export default function AdminPortal() {
+  const { user, profile, loading, signOut } = useAuth();
+  const [tab, setTab] = useState<Tab>("overview");
 
-    for (const bid of p.bids.slice(0, 2)) {
-      activities.push({
-        id: id++,
-        type: "bid",
-        description: "Bid submitted",
-        user: bid.vendorName,
-        project: p.title,
-        timestamp: new Date(Date.now() - (daysAgo - 1) * 86400000 - Math.random() * 86400000),
-      });
-    }
-
-    if (p.status === "completed" || p.status === "in-progress") {
-      activities.push({
-        id: id++,
-        type: "booking",
-        description: "Booking confirmed",
-        user: p.owner ?? "Boat Owner",
-        project: p.title,
-        timestamp: new Date(Date.now() - (daysAgo - 2) * 86400000 - Math.random() * 86400000),
-      });
-    }
-
-    if (p.status === "completed" && p.bids.length > 0) {
-      activities.push({
-        id: id++,
-        type: "review",
-        description: "Review left",
-        user: p.owner ?? "Boat Owner",
-        project: p.title,
-        timestamp: new Date(Date.now() - (daysAgo - 3) * 86400000 - Math.random() * 86400000),
-      });
-    }
-  }
-
-  return activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 20);
-}
-
-function formatRelativeTime(date: Date): string {
-  const diff = Date.now() - date.getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-function formatCurrency(value: number): string {
-  return value.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
-
-// ── Activity icon helper ─────────────────────────────────────────────────────
-
-function ActivityIcon({ type }: { type: string }) {
-  switch (type) {
-    case "project":
-      return <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center"><FolderKanban className="w-4 h-4 text-blue-600" /></div>;
-    case "bid":
-      return <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center"><Gavel className="w-4 h-4 text-amber-600" /></div>;
-    case "booking":
-      return <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center"><CalendarCheck className="w-4 h-4 text-green-600" /></div>;
-    case "review":
-      return <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center"><Star className="w-4 h-4 text-purple-600" /></div>;
-    default:
-      return <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"><Activity className="w-4 h-4 text-gray-600" /></div>;
-  }
-}
-
-// ── Bar chart component ──────────────────────────────────────────────────────
-
-function SimpleBarChart({ data }: { data: typeof MONTHLY_REVENUE }) {
-  const max = Math.max(...data.map((d) => d.revenue));
-  return (
-    <div className="flex items-end gap-3 h-40 px-2">
-      {data.map((d) => (
-        <div key={d.month} className="flex-1 flex flex-col items-center gap-1">
-          <span className="text-xs font-medium text-slate-600">{formatCurrency(d.revenue)}</span>
-          <div
-            className="w-full bg-gradient-to-t from-sky-600 to-sky-400 rounded-t-md transition-all duration-500"
-            style={{ height: `${(d.revenue / max) * 100}%`, minHeight: 8 }}
-          />
-          <span className="text-xs text-slate-500 font-medium">{d.month}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function AdminDashboard() {
-  const { data, isLoading } = useAdminMarketplace();
-  const projects = data?.projects ?? [];
-  const mockUsers = useMemo(() => {
-    if (data?.profiles?.length) {
-      return data.profiles.map((p, i) => ({
-        id: i + 1,
-        name: p.name,
-        email: p.email,
-        role: p.role as "owner" | "vendor",
-        signupDate: (p.created_at ?? "").slice(0, 10),
-        status: p.onboarding_complete ? "active" as const : "inactive" as const,
-        activity: 0,
-      }));
-    }
-    return generateMockUsers();
-  }, [data?.profiles]);
-  const activityFeed = useMemo(() => generateActivityFeed(projects), [projects]);
-  if (isLoading) {
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
+  if (!user) return <Navigate to="/login?next=/admin" replace />;
+  if (!profile?.is_admin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600" />
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+        <Panel className="max-w-sm text-center">
+          <ShieldCheck className="w-8 h-8 mx-auto text-muted-foreground" />
+          <h1 className="mt-3 text-lg font-bold">Bosun team only</h1>
+          <p className="mt-1 text-sm text-muted-foreground">This account isn't an admin. Another admin can grant it from People.</p>
+          <Link to="/app" className="mt-4 inline-block text-sm font-semibold text-sky-700 hover:underline">Back to Bosun</Link>
+        </Panel>
       </div>
     );
-  }
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"all" | "owner" | "vendor">("all");
-  const [activeTab, setActiveTab] = useState<"overview" | "users" | "activity" | "revenue">("overview");
-  const [accountCount, setAccountCount] = useState<number | null>(null);
-  const [accountCountLoaded, setAccountCountLoaded] = useState(false);
-
-  // Try to fetch real account count from Supabase
-  useEffect(() => {
-    if (supabaseMissing || accountCountLoaded) return;
-    setAccountCountLoaded(true);
-    supabase
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .then(({ count, error }) => {
-        if (!error && typeof count === "number") setAccountCount(count);
-      });
-  }, [accountCountLoaded]);
-
-  // ── Computed stats ───────────────────────────────────────────────────────
-
-  const totalAccounts = accountCount ?? mockUsers.length;
-  const totalProjects = projects.length;
-  const totalBids = projects.reduce((sum, p) => sum + p.bids.length, 0);
-
-  const bookedProjectIds: string[] = [];
-  try {
-    const keys = Object.keys(localStorage);
-    for (const key of keys) {
-      if (key.startsWith("booking_")) {
-        bookedProjectIds.push(key.replace("booking_", ""));
-      }
-    }
-  } catch { /* no-op */ }
-  const completedOrBooked = projects.filter(
-    (p) => p.status === "completed" || p.status === "in-progress" || bookedProjectIds.includes(p.id)
-  );
-  const totalBookings = completedOrBooked.length;
-
-  const acceptedBidPrices = projects
-    .filter((p) => p.chosenBidId)
-    .map((p) => {
-      const bid = p.bids.find((b) => b.id === p.chosenBidId);
-      return bid?.price ?? 0;
-    });
-  const totalAcceptedValue = acceptedBidPrices.reduce((a, b) => a + b, 0);
-  const platformRevenue = totalAcceptedValue * PLATFORM_FEE_RATE;
-
-  const gmv = completedOrBooked.reduce((sum, p) => {
-    const bid = p.bids.find((b) => b.id === p.chosenBidId);
-    return sum + (bid?.price ?? p.bids[0]?.price ?? 0);
-  }, 0);
-
-  const avgBidsPerProject = totalProjects > 0 ? (totalBids / totalProjects).toFixed(1) : "0";
-  const avgProjectValue =
-    totalBids > 0
-      ? formatCurrency(projects.reduce((s, p) => s + p.bids.reduce((bs, b) => bs + b.price, 0), 0) / totalBids)
-      : "$0";
-
-  const categoryCounts: Record<string, number> = {};
-  for (const p of projects) {
-    const cat = p.category ?? "Uncategorized";
-    categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
-  }
-  const topCategory = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "N/A";
-
-  const vendorRatings: Record<string, number[]> = {};
-  for (const p of projects) {
-    for (const b of p.bids) {
-      if (!vendorRatings[b.vendorName]) vendorRatings[b.vendorName] = [];
-      vendorRatings[b.vendorName].push(b.rating);
-    }
-  }
-  const topVendor = Object.entries(vendorRatings)
-    .map(([name, ratings]) => ({ name, avg: ratings.reduce((a, b) => a + b, 0) / ratings.length }))
-    .sort((a, b) => b.avg - a.avg)[0];
-
-  // ── Users filtering ──────────────────────────────────────────────────────
-
-  const filteredUsers = mockUsers.filter((u) => {
-    const matchesSearch =
-      !searchQuery ||
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = roleFilter === "all" || u.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
-
-  // ── Transactions table ───────────────────────────────────────────────────
-
-  const recentTransactions = projects
-    .filter((p) => p.chosenBidId && p.bids.find((b) => b.id === p.chosenBidId))
-    .slice(0, 8)
-    .map((p) => {
-      const bid = p.bids.find((b) => b.id === p.chosenBidId)!;
-      return {
-        project: p.title,
-        vendor: bid.vendorName,
-        amount: bid.price,
-        fee: bid.price * PLATFORM_FEE_RATE,
-        date: p.date,
-      };
-    });
-
-  // ── Tabs ─────────────────────────────────────────────────────────────────
-
-  const tabs = [
-    { id: "overview" as const, label: "Overview", icon: Eye },
-    { id: "users" as const, label: "Users", icon: Users },
-    { id: "activity" as const, label: "Activity", icon: Activity },
-    { id: "revenue" as const, label: "Revenue", icon: DollarSign },
-  ];
-
-  function handleLogout() {
-    localStorage.removeItem("bosun_admin_auth");
-    window.location.reload();
   }
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Top nav */}
-      <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+      <header className="sticky top-0 z-30 bg-[#052443] text-white">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Shield className="w-5 h-5 text-sky-400" />
-            <span className="text-lg font-bold text-white tracking-tight">Bosun Admin</span>
+            <BosunLogo tone="light" className="h-5" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-sky-300 border border-sky-400/40 rounded px-1.5 py-0.5">Admin</span>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-slate-400 hover:text-white text-sm transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Sign Out</span>
-          </button>
+          <nav className="hidden md:flex items-center gap-1">
+            {TABS.map((t) => (
+              <button key={t.key} onClick={() => setTab(t.key)} className={cn("px-3 py-1.5 text-sm rounded-lg", tab === t.key ? "bg-white/15 font-semibold" : "text-slate-300 hover:text-white")}>{t.label}</button>
+            ))}
+          </nav>
+          <div className="flex items-center gap-3 text-sm">
+            <span className="hidden sm:inline text-slate-300 truncate max-w-[12rem]">{profile.name || profile.email}</span>
+            <Link to="/app" className="text-slate-300 hover:text-white">App</Link>
+            <button onClick={() => signOut()} className="inline-flex items-center gap-1 text-slate-300 hover:text-white"><LogOut className="w-4 h-4" /></button>
+          </div>
+        </div>
+        <div className="md:hidden flex gap-1 overflow-x-auto px-4 pb-2">
+          {TABS.map((t) => (
+            <button key={t.key} onClick={() => setTab(t.key)} className={cn("px-3 py-1 text-xs rounded-full whitespace-nowrap", tab === t.key ? "bg-white text-[#052443] font-semibold" : "text-slate-300")}>{t.label}</button>
+          ))}
         </div>
       </header>
-
-      {/* Tab bar */}
-      <div className="bg-white border-b border-slate-200 sticky top-[52px] z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex gap-1 -mb-px overflow-x-auto">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const active = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                    active
-                      ? "border-sky-600 text-sky-700"
-                      : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-      </div>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* ── Summary Cards (always visible) ──────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          {[
-            { label: "Total Accounts", value: totalAccounts.toLocaleString(), icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
-            { label: "Projects Posted", value: totalProjects.toLocaleString(), icon: FolderKanban, color: "text-indigo-600", bg: "bg-indigo-50" },
-            { label: "Bids Received", value: totalBids.toLocaleString(), icon: Gavel, color: "text-amber-600", bg: "bg-amber-50" },
-            { label: "Bookings", value: totalBookings.toLocaleString(), icon: CalendarCheck, color: "text-green-600", bg: "bg-green-50" },
-            { label: "Platform Revenue", value: formatCurrency(platformRevenue), icon: DollarSign, color: "text-sky-600", bg: "bg-sky-50" },
-          ].map((card) => {
-            const Icon = card.icon;
-            return (
-              <div key={card.label} className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-9 h-9 rounded-lg ${card.bg} flex items-center justify-center`}>
-                    <Icon className={`w-4.5 h-4.5 ${card.color}`} />
-                  </div>
-                </div>
-                <p className="text-2xl font-bold text-slate-900">{card.value}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{card.label}</p>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* ── OVERVIEW TAB ────────────────────────────────────────────── */}
-        {activeTab === "overview" && (
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Quick Stats */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-sky-600" />
-                Quick Stats
-              </h3>
-              <div className="space-y-4">
-                {[
-                  { label: "Avg Bids / Project", value: avgBidsPerProject },
-                  { label: "Avg Bid Value", value: avgProjectValue },
-                  { label: "Top Category", value: topCategory },
-                  { label: "Top-Rated Vendor", value: topVendor?.name.split(" ").slice(0, 2).join(" ") ?? "N/A" },
-                ].map((stat) => (
-                  <div key={stat.label} className="flex items-center justify-between">
-                    <span className="text-sm text-slate-500">{stat.label}</span>
-                    <span className="text-sm font-semibold text-slate-900">{stat.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Mini Activity Feed */}
-            <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-sky-600" />
-                Recent Activity
-              </h3>
-              <div className="space-y-3 max-h-[280px] overflow-y-auto">
-                {activityFeed.slice(0, 8).map((item) => (
-                  <div key={item.id} className="flex items-start gap-3">
-                    <ActivityIcon type={item.type} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-900">
-                        <span className="font-medium">{item.description}</span>
-                        {" "}
-                        <span className="text-slate-500">by {item.user}</span>
-                      </p>
-                      <p className="text-xs text-slate-400 truncate">{item.project}</p>
-                    </div>
-                    <span className="text-xs text-slate-400 whitespace-nowrap">{formatRelativeTime(item.timestamp)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── USERS TAB ───────────────────────────────────────────────── */}
-        {activeTab === "users" && (
-          <div className="bg-white rounded-xl border border-slate-200">
-            {/* Toolbar */}
-            <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search by name or email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
-                />
-              </div>
-              <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
-                {(["all", "owner", "vendor"] as const).map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setRoleFilter(r)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      roleFilter === r ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                    }`}
-                  >
-                    {r === "all" ? "All" : r === "owner" ? "Owners" : "Vendors"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="text-left px-4 py-3 font-medium text-slate-500">Name</th>
-                    <th className="text-left px-4 py-3 font-medium text-slate-500">Email</th>
-                    <th className="text-left px-4 py-3 font-medium text-slate-500">Role</th>
-                    <th className="text-left px-4 py-3 font-medium text-slate-500">Signed Up</th>
-                    <th className="text-left px-4 py-3 font-medium text-slate-500">Status</th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-500">Activity</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.map((user) => (
-                    <tr key={user.id} className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center">
-                            <span className="text-xs font-bold text-slate-600">
-                              {user.name.split(" ").map((n) => n[0]).join("")}
-                            </span>
-                          </div>
-                          <span className="font-medium text-slate-900">{user.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-slate-500">{user.email}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            user.role === "owner"
-                              ? "bg-sky-50 text-sky-700"
-                              : "bg-sky-50 text-sky-700"
-                          }`}
-                        >
-                          {user.role === "owner" ? "Owner" : "Vendor"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-500">{user.signupDate}</td>
-                      <td className="px-4 py-3">
-                        <span className="flex items-center gap-1.5">
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              user.status === "active" ? "bg-green-500" : "bg-slate-300"
-                            }`}
-                          />
-                          <span className={user.status === "active" ? "text-slate-700" : "text-slate-400"}>
-                            {user.status === "active" ? "Active" : "Inactive"}
-                          </span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-slate-700 font-medium">
-                          {user.activity} {user.role === "owner" ? "projects" : "bids"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredUsers.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                        No users match your search.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="px-4 py-3 border-t border-slate-200 text-xs text-slate-400">
-              Showing {filteredUsers.length} of {mockUsers.length} users
-            </div>
-          </div>
-        )}
-
-        {/* ── ACTIVITY TAB ────────────────────────────────────────────── */}
-        {activeTab === "activity" && (
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="text-sm font-semibold text-slate-900 mb-5 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-sky-600" />
-              Activity Feed
-            </h3>
-            <div className="space-y-4">
-              {activityFeed.map((item) => (
-                <div key={item.id} className="flex items-start gap-3 pb-4 border-b border-slate-100 last:border-0 last:pb-0">
-                  <ActivityIcon type={item.type} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-900">
-                      <span className="font-semibold">{item.user}</span>
-                      <span className="text-slate-500"> - {item.description}</span>
-                    </p>
-                    <p className="text-sm text-slate-500 truncate mt-0.5">{item.project}</p>
-                    <p className="text-xs text-slate-400 mt-1">{formatRelativeTime(item.timestamp)}</p>
-                  </div>
-                  <span
-                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      item.type === "project"
-                        ? "bg-blue-50 text-blue-600"
-                        : item.type === "bid"
-                        ? "bg-amber-50 text-amber-600"
-                        : item.type === "booking"
-                        ? "bg-green-50 text-green-600"
-                        : "bg-purple-50 text-purple-600"
-                    }`}
-                  >
-                    {item.type}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── REVENUE TAB ─────────────────────────────────────────────── */}
-        {activeTab === "revenue" && (
-          <div className="space-y-6">
-            {/* GMV + Platform Revenue cards */}
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="bg-white rounded-xl border border-slate-200 p-5">
-                <p className="text-xs text-slate-500 uppercase tracking-wider font-medium">GMV (Gross Merchandise Value)</p>
-                <p className="text-3xl font-bold text-slate-900 mt-2">{formatCurrency(gmv)}</p>
-                <p className="text-xs text-slate-400 mt-1">Total value of booked/completed projects</p>
-              </div>
-              <div className="bg-white rounded-xl border border-slate-200 p-5">
-                <p className="text-xs text-slate-500 uppercase tracking-wider font-medium">Platform Take (7%)</p>
-                <p className="text-3xl font-bold text-sky-600 mt-2">{formatCurrency(gmv * PLATFORM_FEE_RATE)}</p>
-                <p className="text-xs text-slate-400 mt-1">Revenue from platform fees</p>
-              </div>
-              <div className="bg-white rounded-xl border border-slate-200 p-5">
-                <p className="text-xs text-slate-500 uppercase tracking-wider font-medium">Accepted Bid Revenue</p>
-                <p className="text-3xl font-bold text-green-600 mt-2">{formatCurrency(platformRevenue)}</p>
-                <p className="text-xs text-slate-400 mt-1">7% of accepted bid prices</p>
-              </div>
-            </div>
-
-            {/* Bar chart */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <h3 className="text-sm font-semibold text-slate-900 mb-5 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-sky-600" />
-                Monthly Revenue (Platform Take)
-              </h3>
-              <SimpleBarChart data={MONTHLY_REVENUE} />
-            </div>
-
-            {/* Transactions table */}
-            <div className="bg-white rounded-xl border border-slate-200">
-              <div className="p-4 border-b border-slate-200">
-                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-sky-600" />
-                  Recent Transactions
-                </h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="text-left px-4 py-3 font-medium text-slate-500">Project</th>
-                      <th className="text-left px-4 py-3 font-medium text-slate-500">Vendor</th>
-                      <th className="text-right px-4 py-3 font-medium text-slate-500">Amount</th>
-                      <th className="text-right px-4 py-3 font-medium text-slate-500">Platform Fee</th>
-                      <th className="text-left px-4 py-3 font-medium text-slate-500">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentTransactions.map((tx, i) => (
-                      <tr key={i} className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
-                        <td className="px-4 py-3 font-medium text-slate-900 max-w-[200px] truncate">{tx.project}</td>
-                        <td className="px-4 py-3 text-slate-500">{tx.vendor}</td>
-                        <td className="px-4 py-3 text-right text-slate-700 font-medium">{formatCurrency(tx.amount)}</td>
-                        <td className="px-4 py-3 text-right text-sky-600 font-medium">{formatCurrency(tx.fee)}</td>
-                        <td className="px-4 py-3 text-slate-500">{tx.date}</td>
-                      </tr>
-                    ))}
-                    {recentTransactions.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
-                          No transactions yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
+      <PageContainer wide>
+        {tab === "overview" && <Overview go={setTab} />}
+        {tab === "people" && <People mode="people" />}
+        {tab === "shops" && <People mode="shops" />}
+        {tab === "demand" && <Demand />}
+        {tab === "prospects" && <Prospects />}
+        {tab === "audit" && <Audit />}
+      </PageContainer>
     </div>
   );
 }
 
-// ── Export ────────────────────────────────────────────────────────────────────
+/* ── Overview ─────────────────────────────────────────────────────────────── */
 
-export default function AdminPortal() {
-  const { user, profile, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-400" />
+function Overview({ go }: { go: (t: Tab) => void }) {
+  const people = useAdminPeople();
+  const demand = useAdminDemand();
+  const prospects = useAdminProspects();
+  const ps = people.data ?? [];
+  const owners = ps.filter((p) => p.role === "owner");
+  const shops = ps.filter((p) => p.shop);
+  const projects = demand.data ?? [];
+  const monthAgo = Date.now() - 30 * 86400_000;
+  const recentJobs = projects.filter((p) => Date.parse(p.createdAt) >= monthAgo);
+  const thin = projects.filter((p) => (p.status === "bidding" || p.status === "gathering" || p.status === "active") && p.bidders <= 1);
+  const cells = useMemo(() => demandCells(projects), [projects]);
+  const due = (prospects.data?.prospects ?? []).filter((p) => p.nextFollowUp && p.nextFollowUp <= new Date().toLocaleDateString("en-CA") && !["onboarded", "declined", "not-a-fit"].includes(p.status));
+  return (
+    <>
+      <PageHeader title="Bosun operations" description="Who's on the platform, where the work is, and who to call next." />
+      {people.error && <p className="mb-4 text-sm text-red-600">{String(people.error)}</p>}
+      <StatGrid className="sm:grid-cols-3 lg:grid-cols-6">
+        <StatTile icon={<Users />} label="Boat owners" value={owners.length} sub={`${owners.filter((o) => Date.parse(o.createdAt) >= monthAgo).length} new in 30d`} onClick={() => go("people")} />
+        <StatTile icon={<Wrench />} label="Shops" value={shops.length} sub={`${shops.filter((s) => s.shop?.verifiedAt).length} verified`} onClick={() => go("shops")} />
+        <StatTile icon={<ClipboardList />} label="Jobs posted" value={projects.length} sub={`${recentJobs.length} in 30d`} onClick={() => go("demand")} />
+        <StatTile icon={<Search />} label="Open jobs, ≤1 bid" value={thin.length} tone={thin.length ? "warn" : "default"} sub="where shops are missing" onClick={() => go("demand")} />
+        <StatTile icon={<MapPin />} label="Prospects" value={prospects.data?.prospects.length ?? 0} sub={`${(prospects.data?.prospects ?? []).filter((p) => p.status === "interested").length} interested`} onClick={() => go("prospects")} />
+        <StatTile icon={<Anchor />} label="Follow-ups due" value={due.length} tone={due.length ? "warn" : "default"} onClick={() => go("prospects")} />
+      </StatGrid>
+      <div className="mt-6 grid gap-5 lg:grid-cols-2">
+        <Panel padded={false}>
+          <div className="px-5 py-3 border-b border-border flex items-center justify-between"><h2 className="text-sm font-semibold">Where new shops would win work first</h2><button onClick={() => go("demand")} className="text-xs font-semibold text-sky-700 hover:underline">All demand</button></div>
+          {cells.length === 0 ? <p className="px-5 py-4 text-sm text-muted-foreground">No jobs yet.</p> : (
+            <ul className="divide-y divide-border">
+              {cells.slice(0, 6).map((c) => (
+                <li key={`${c.area}|${c.category}`} className="px-5 py-2.5 flex items-center gap-3 text-sm">
+                  <span className="min-w-0 flex-1"><span className="font-medium">{c.area}</span> <span className="text-muted-foreground">· {c.category}</span></span>
+                  <span className="text-xs text-muted-foreground">{c.jobs} jobs · {c.thin} thin · {c.shopsBidding} shops</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+        <Panel padded={false}>
+          <div className="px-5 py-3 border-b border-border flex items-center justify-between"><h2 className="text-sm font-semibold">Newest accounts</h2><button onClick={() => go("people")} className="text-xs font-semibold text-sky-700 hover:underline">All people</button></div>
+          <ul className="divide-y divide-border">
+            {ps.slice(0, 6).map((p) => (
+              <li key={p.id} className="px-5 py-2.5 flex items-center gap-3 text-sm">
+                <span className="min-w-0 flex-1 truncate"><span className="font-medium">{p.name || p.email}</span> <span className="text-muted-foreground">· {p.shop ? p.shop.businessName : "owner"}</span></span>
+                <span className="text-xs text-muted-foreground">{ago(p.createdAt)}{!p.onboardingComplete && " · not onboarded"}</span>
+              </li>
+            ))}
+            {ps.length === 0 && !people.isLoading && <li className="px-5 py-4 text-sm text-muted-foreground">No accounts yet.</li>}
+          </ul>
+        </Panel>
       </div>
-    );
-  }
+    </>
+  );
+}
 
-  if (!user) return <Navigate to="/login" replace />;
-  if (!profile?.is_admin) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
-        <div className="max-w-sm text-center space-y-3">
-          <h1 className="text-xl font-semibold text-white">Admin only</h1>
-          <p className="text-sm text-slate-400">
-            This account is not an admin. Ask an operator to set <code>is_admin</code> on your profile.
-          </p>
+/* ── People / Shops ───────────────────────────────────────────────────────── */
+
+function People({ mode }: { mode: "people" | "shops" }) {
+  const { user } = useAuth();
+  const people = useAdminPeople();
+  const act = useAdminAction();
+  const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<"all" | "owner" | "vendor" | "suspended" | "not-onboarded" | "admin">("all");
+  const [open, setOpen] = useState<AdminPerson | null>(null);
+
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return (people.data ?? [])
+      .filter((p) => (mode === "shops" ? !!p.shop : true))
+      .filter((p) => filter === "all" ? true : filter === "owner" ? p.role === "owner" : filter === "vendor" ? p.role === "vendor" : filter === "suspended" ? p.suspended : filter === "not-onboarded" ? !p.onboardingComplete : p.isAdmin)
+      .filter((p) => !needle || [p.name, p.email, p.location, p.shop?.businessName ?? "", p.shop?.phone ?? ""].some((f) => f.toLowerCase().includes(needle)));
+  }, [people.data, q, filter, mode]);
+
+  const run = (p: AdminPerson, action: AdminAction) => {
+    const confirms: Partial<Record<AdminAction, string>> = {
+      suspend: `Suspend ${p.name || p.email}? They can't sign in until reinstated.`,
+      delete: `Delete ${p.name || p.email} permanently? Their boats, jobs and bids go with them.`,
+      "remove-admin": `Remove admin from ${p.name || p.email}?`,
+    };
+    if (confirms[action] && !confirm(confirms[action])) return;
+    act.mutate({ id: p.id, action }, {
+      onSuccess: () => {
+        toast.success(action === "reset-password" ? "Reset email sent" : "Done");
+        if (action === "delete") setOpen(null);
+      },
+      onError: (e) => toast.error(e.message),
+    });
+  };
+
+  return (
+    <>
+      <PageHeader
+        title={mode === "shops" ? "Shops" : "People"}
+        description={mode === "shops" ? "Every shop on Bosun: activity, verification and insurance." : "Every account: owners, shops and crew."}
+        actions={<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email, shop, town" className={`${inputCls} sm:w-72`} />}
+      />
+      {people.error && <p className="mb-4 text-sm text-red-600">{String(people.error)}</p>}
+      {mode === "people" && (
+        <div className="mb-4 flex gap-1 overflow-x-auto">
+          {([["all", "All"], ["owner", "Owners"], ["vendor", "Shops"], ["not-onboarded", "Not onboarded"], ["suspended", "Suspended"], ["admin", "Admins"]] as const).map(([v, l]) => (
+            <button key={v} onClick={() => setFilter(v)} className={cn("text-xs font-medium rounded-full px-3 py-1.5 whitespace-nowrap border", filter === v ? "bg-primary text-primary-foreground border-primary" : "border-border bg-white hover:bg-muted")}>{l}</button>
+          ))}
         </div>
-      </div>
-    );
-  }
+      )}
+      <Panel padded={false}>
+        <table className="w-full text-sm">
+          <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+            <tr>
+              <th className="text-left px-4 py-2.5 font-semibold">{mode === "shops" ? "Shop" : "Person"}</th>
+              <th className="text-left px-4 py-2.5 font-semibold hidden md:table-cell">{mode === "shops" ? "Owner" : "Role"}</th>
+              <th className="text-left px-4 py-2.5 font-semibold hidden lg:table-cell">{mode === "shops" ? "Activity" : "On Bosun"}</th>
+              <th className="text-left px-4 py-2.5 font-semibold hidden sm:table-cell">Last sign-in</th>
+              <th className="text-left px-4 py-2.5 font-semibold">Flags</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((p) => (
+              <tr key={p.id} onClick={() => setOpen(p)} className="hover:bg-slate-50 cursor-pointer">
+                <td className="px-4 py-2.5">
+                  <p className="font-medium text-foreground">{mode === "shops" ? p.shop?.businessName : p.name || "(no name)"}</p>
+                  <p className="text-xs text-muted-foreground">{mode === "shops" ? p.shop?.phone || p.email : p.email}</p>
+                </td>
+                <td className="px-4 py-2.5 hidden md:table-cell text-muted-foreground">{mode === "shops" ? p.name || p.email : p.shop ? `Shop · ${p.shop.businessName}` : "Owner"}</td>
+                <td className="px-4 py-2.5 hidden lg:table-cell text-muted-foreground text-xs">
+                  {p.shop ? `${p.shop.bids} bids · ${p.shop.won} won · ${p.shop.workOrders} WOs · last bid ${ago(p.shop.lastBidAt)}` : `${p.boats} boat${p.boats === 1 ? "" : "s"} · ${p.jobsPosted} job${p.jobsPosted === 1 ? "" : "s"} · joined ${when(p.createdAt)}`}
+                </td>
+                <td className="px-4 py-2.5 hidden sm:table-cell text-muted-foreground">{ago(p.lastSignIn)}</td>
+                <td className="px-4 py-2.5"><Flags p={p} /></td>
+              </tr>
+            ))}
+            {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">{people.isLoading ? "Loading…" : "Nobody matches."}</td></tr>}
+          </tbody>
+        </table>
+      </Panel>
 
-  return <AdminDashboard />;
+      <Dialog open={!!open} onOpenChange={(o) => !o && setOpen(null)}>
+        <DialogContent className="max-w-lg">
+          {open && (() => {
+            const p = (people.data ?? []).find((x) => x.id === open.id) ?? open;
+            const me = p.id === user?.id;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{p.name || p.email}</DialogTitle>
+                  <DialogDescription>{p.email} · {p.shop ? `Shop: ${p.shop.businessName}` : "Boat owner"} · joined {when(p.createdAt)}</DialogDescription>
+                </DialogHeader>
+                <Flags p={p} />
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                  <dt className="text-muted-foreground">Last sign-in</dt><dd>{ago(p.lastSignIn)}</dd>
+                  <dt className="text-muted-foreground">Location</dt><dd>{p.location || "—"}</dd>
+                  {p.shop ? (
+                    <>
+                      <dt className="text-muted-foreground">Bids / won</dt><dd>{p.shop.bids} / {p.shop.won}{p.shop.bids ? ` (${Math.round((p.shop.won / p.shop.bids) * 100)}%)` : ""}</dd>
+                      <dt className="text-muted-foreground">Work orders</dt><dd>{p.shop.workOrders}</dd>
+                      <dt className="text-muted-foreground">Phone</dt><dd>{p.shop.phone || "—"}</dd>
+                      <dt className="text-muted-foreground">Insurance</dt><dd>{p.shop.insured ? `on file${p.shop.insuranceExpiry ? `, expires ${when(p.shop.insuranceExpiry)}` : ""}` : "none"}</dd>
+                    </>
+                  ) : (
+                    <>
+                      <dt className="text-muted-foreground">Boats</dt><dd>{p.boats}</dd>
+                      <dt className="text-muted-foreground">Jobs posted</dt><dd>{p.jobsPosted}</dd>
+                    </>
+                  )}
+                </dl>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {p.shop && (p.shop.verifiedAt
+                    ? <button className={btn} onClick={() => run(p, "unverify")}>Remove verification</button>
+                    : <button className={cn(btn, "border-emerald-300 bg-emerald-50 text-emerald-800")} onClick={() => run(p, "verify")}>Verify shop</button>)}
+                  {p.suspended
+                    ? <button className={btn} onClick={() => run(p, "reinstate")}>Reinstate</button>
+                    : <button className={cn(btn, "border-amber-300 bg-amber-50 text-amber-800")} disabled={me} onClick={() => run(p, "suspend")}>Suspend</button>}
+                  {p.isAdmin
+                    ? <button className={btn} disabled={me} onClick={() => run(p, "remove-admin")}>Remove admin</button>
+                    : <button className={btn} onClick={() => run(p, "make-admin")}>Make admin</button>}
+                  <button className={btn} onClick={() => run(p, "reset-password")}>Send password reset</button>
+                  {p.shop && <Link to={`/vendor/${encodeURIComponent(p.shop.id)}`} className={btn} target="_blank">View public profile</Link>}
+                  <button className={cn(btn, "text-red-600 ml-auto")} disabled={me} onClick={() => run(p, "delete")}>Delete account</button>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function Flags({ p }: { p: AdminPerson }) {
+  const f: { t: string; c: string }[] = [];
+  if (p.isAdmin) f.push({ t: "Admin", c: "bg-[#052443] text-white border-transparent" });
+  if (p.suspended) f.push({ t: "Suspended", c: "bg-red-50 text-red-700 border-red-200" });
+  if (!p.emailConfirmed) f.push({ t: "Email unconfirmed", c: "bg-slate-100 text-slate-600 border-slate-200" });
+  if (!p.onboardingComplete) f.push({ t: "Not onboarded", c: "bg-amber-50 text-amber-700 border-amber-200" });
+  if (p.shop?.verifiedAt) f.push({ t: "Verified", c: "bg-emerald-50 text-emerald-700 border-emerald-200" });
+  if (p.shop && p.shop.insuranceExpiry && p.shop.insuranceExpiry < new Date().toLocaleDateString("en-CA")) f.push({ t: "COI expired", c: "bg-red-50 text-red-700 border-red-200" });
+  if (p.shop && p.shop.bids === 0) f.push({ t: "No bids yet", c: "bg-slate-100 text-slate-600 border-slate-200" });
+  return <div className="flex flex-wrap gap-1">{f.map((x) => <span key={x.t} className={cn("text-[10px] font-semibold rounded-full px-2 py-0.5 border whitespace-nowrap", x.c)}>{x.t}</span>)}</div>;
+}
+
+/* ── Demand ───────────────────────────────────────────────────────────────── */
+
+function Demand() {
+  const demand = useAdminDemand();
+  const projects = demand.data ?? [];
+  const cells = useMemo(() => demandCells(projects), [projects]);
+  const [pick, setPick] = useState<DemandCell | null>(null);
+  const inCell = pick ? projects.filter((p) => demandCells([p])[0]?.area === pick.area && (p.category?.trim() || "General") === pick.category) : [];
+  return (
+    <>
+      <PageHeader title="Demand" description="Jobs owners have posted, grouped by area and trade. Thin = no bid or a single shop. Recruit where it's thin and busy." />
+      {demand.error && <p className="mb-4 text-sm text-red-600">{String(demand.error)}</p>}
+      <div className="grid gap-5 lg:grid-cols-5">
+        <Panel padded={false} className="lg:col-span-3">
+          <table className="w-full text-sm">
+            <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+              <tr><th className="text-left px-4 py-2.5 font-semibold">Area · trade</th><th className="text-right px-3 py-2.5 font-semibold">Jobs</th><th className="text-right px-3 py-2.5 font-semibold">Thin</th><th className="text-right px-3 py-2.5 font-semibold">30d</th><th className="text-right px-3 py-2.5 font-semibold">Shops</th><th className="text-right px-4 py-2.5 font-semibold">Score</th></tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {cells.map((c) => (
+                <tr key={`${c.area}|${c.category}`} onClick={() => setPick(c)} className={cn("cursor-pointer hover:bg-slate-50", pick === c && "bg-sky-50")}>
+                  <td className="px-4 py-2.5"><span className="font-medium">{c.area}</span><span className="text-muted-foreground"> · {c.category}</span></td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{c.jobs}</td>
+                  <td className={cn("px-3 py-2.5 text-right tabular-nums", c.thin && "text-amber-700 font-semibold")}>{c.thin}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{c.recentJobs}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{c.shopsBidding}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums font-semibold">{c.score}</td>
+                </tr>
+              ))}
+              {cells.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">{demand.isLoading ? "Loading…" : "No jobs posted yet."}</td></tr>}
+            </tbody>
+          </table>
+        </Panel>
+        <Panel padded={false} className="lg:col-span-2">
+          <div className="px-5 py-3 border-b border-border"><h2 className="text-sm font-semibold">{pick ? `${pick.area} · ${pick.category}` : "Pick a row"}</h2></div>
+          {pick ? (
+            <ul className="divide-y divide-border">
+              {inCell.map((p) => (
+                <li key={p.id} className="px-5 py-2.5 text-sm">
+                  <p className="font-medium truncate">{p.title}</p>
+                  <p className="text-xs text-muted-foreground">{when(p.createdAt)} · {p.status} · {p.bids} bid{p.bids === 1 ? "" : "s"} from {p.bidders} shop{p.bidders === 1 ? "" : "s"}</p>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="px-5 py-4 text-sm text-muted-foreground">The jobs behind a row show here. Use them as the pitch when you call a shop in that area.</p>}
+        </Panel>
+      </div>
+    </>
+  );
+}
+
+/* ── Prospects ────────────────────────────────────────────────────────────── */
+
+function Prospects() {
+  const { profile } = useAuth();
+  const data = useAdminProspects();
+  const demand = useAdminDemand();
+  const update = useUpdateProspect();
+  const create = useCreateProspect();
+  const search = useSearchProspects();
+  const draft = useDraftOutreach();
+  const cells = useMemo(() => demandCells(demand.data ?? []), [demand.data]);
+  const [status, setStatus] = useState<"all" | ProspectStatus | "due">("all");
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [place, setPlace] = useState<PickedLocation | null>(null);
+  const [radius, setRadius] = useState(25);
+  const [trades, setTrades] = useState<string[]>(PROSPECT_TRADES.slice(0, 4).map((t) => t.key));
+  const [draftText, setDraftText] = useState<{ subject: string; email: string; text: string } | null>(null);
+  const [newP, setNewP] = useState({ name: "", phone: "", website: "", address: "", area: "", notes: "" });
+
+  const today = new Date().toLocaleDateString("en-CA");
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return (data.data?.prospects ?? [])
+      .map((p) => ({ ...p, ...prospectScore(p, cells) }))
+      .filter((p) => status === "all" ? true : status === "due" ? !!p.nextFollowUp && p.nextFollowUp <= today && !["onboarded", "declined", "not-a-fit"].includes(p.status) : p.status === status)
+      .filter((p) => !needle || [p.name, p.address, p.area, p.phone, p.trades.join(" ")].some((f) => f.toLowerCase().includes(needle)))
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || b.reviewCount - a.reviewCount);
+  }, [data.data, cells, status, q, today]);
+  const current = open ? rows.find((p) => p.id === open) ?? (data.data?.prospects ?? []).find((p) => p.id === open) ?? null : null;
+
+  const demandLines = (p: Prospect) =>
+    cells
+      .filter((c) => c.lat != null && c.lng != null && p.lat != null && p.lng != null && Math.hypot((c.lat - p.lat) * 69, (c.lng - p.lng) * 60) <= 25)
+      .slice(0, 4)
+      .map((c) => `${c.jobs} ${c.category.toLowerCase()} job${c.jobs === 1 ? "" : "s"} near ${c.area}${c.thin ? `, ${c.thin} with no shop bidding` : ""}`);
+
+  const exportCsv = () => {
+    const head = ["Name", "Status", "Score", "Phone", "Website", "Address", "Area", "Trades", "Rating", "Reviews", "Next follow-up", "Notes"];
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const csv = [head, ...rows.map((p) => [p.name, p.status, p.score, p.phone, p.website, p.address, p.area, p.trades.join("; "), p.rating ?? "", p.reviewCount, p.nextFollowUp ?? "", p.notes])].map((r) => r.map(esc).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `bosun-prospects-${today}.csv`;
+    a.click();
+  };
+
+  return (
+    <>
+      <PageHeader
+        title="Shop prospects"
+        description="Marine shops near open demand, ranked by how worth a call they are. Statuses and notes are shared with the team."
+        actions={
+          <>
+            <button onClick={() => setSearching(true)} className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground"><Search className="w-4 h-4" /> Find shops</button>
+            <button onClick={() => setAdding(true)} className={btn + " py-2 text-sm"}>Add by hand</button>
+            <button onClick={exportCsv} className={btn + " py-2 text-sm"} disabled={rows.length === 0}>Export CSV</button>
+          </>
+        }
+      />
+      {data.error && <p className="mb-4 text-sm text-red-600">{String(data.error)}</p>}
+      {data.data && !data.data.placesConfigured && (
+        <p className="mb-4 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Shop search needs a server-side Google key: add <code>GOOGLE_PLACES_SERVER_KEY</code> in Vercel (a key with Places API (New) enabled and no website restriction). Adding by hand works now.
+        </p>
+      )}
+      <div className="mb-4 flex flex-col sm:flex-row gap-2 sm:items-center">
+        <div className="flex gap-1 overflow-x-auto">
+          {([["all", "All"], ["due", "Follow-up due"], ...PROSPECT_STATUSES.map((s) => [s.value, s.label])] as [typeof status, string][]).map(([v, l]) => (
+            <button key={v} onClick={() => setStatus(v)} className={cn("text-xs font-medium rounded-full px-3 py-1.5 whitespace-nowrap border", status === v ? "bg-primary text-primary-foreground border-primary" : "border-border bg-white hover:bg-muted")}>{l}</button>
+          ))}
+        </div>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, area, trade" className={`${inputCls} sm:ml-auto sm:w-64`} />
+      </div>
+      <Panel padded={false}>
+        <table className="w-full text-sm">
+          <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+            <tr><th className="text-left px-4 py-2.5 font-semibold">Shop</th><th className="text-left px-3 py-2.5 font-semibold hidden md:table-cell">Area · trades</th><th className="text-left px-3 py-2.5 font-semibold hidden sm:table-cell">Google</th><th className="text-left px-3 py-2.5 font-semibold">Status</th><th className="text-right px-4 py-2.5 font-semibold">Score</th></tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((p) => (
+              <tr key={p.id} onClick={() => setOpen(p.id)} className="hover:bg-slate-50 cursor-pointer">
+                <td className="px-4 py-2.5"><p className="font-medium">{p.name}</p><p className="text-xs text-muted-foreground">{p.phone || p.website || p.address}</p></td>
+                <td className="px-3 py-2.5 hidden md:table-cell text-xs text-muted-foreground">{p.area}{p.trades.length ? ` · ${p.trades.join(", ")}` : ""}{p.nearbyThinJobs ? <span className="block text-amber-700 font-medium">{p.nearbyThinJobs} thin jobs within 25 mi</span> : null}</td>
+                <td className="px-3 py-2.5 hidden sm:table-cell text-xs text-muted-foreground">{p.rating != null ? `★ ${p.rating} (${p.reviewCount})` : "—"}</td>
+                <td className="px-3 py-2.5"><StatusPill s={p.status} />{p.nextFollowUp && p.nextFollowUp <= today && <span className="block text-[10px] text-amber-700 font-semibold mt-0.5">Follow up</span>}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums font-semibold">{p.score}</td>
+              </tr>
+            ))}
+            {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">{data.isLoading ? "Loading…" : "No prospects yet. Find shops around an area, or add one by hand."}</td></tr>}
+          </tbody>
+        </table>
+      </Panel>
+
+      {/* Find shops */}
+      <Dialog open={searching} onOpenChange={setSearching}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Find shops near an area</DialogTitle><DialogDescription>Searches Google for marine businesses and files the new ones here. Shops already on Bosun are marked onboarded.</DialogDescription></DialogHeader>
+          <LocationPicker value={place} onChange={setPlace} placeholder="Town or marina to search around" confirmLabel="Search around here" />
+          <div className="flex items-center gap-3 text-sm">
+            <label className="text-muted-foreground">Within</label>
+            <select className={`${inputCls} w-28`} value={radius} onChange={(e) => setRadius(Number(e.target.value))}>{[10, 15, 25, 30].map((m) => <option key={m} value={m}>{m} miles</option>)}</select>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {PROSPECT_TRADES.map((t) => (
+              <button key={t.key} onClick={() => setTrades((xs) => xs.includes(t.key) ? xs.filter((x) => x !== t.key) : [...xs, t.key])} className={cn("text-xs rounded-full px-2.5 py-1 border", trades.includes(t.key) ? "bg-primary text-primary-foreground border-primary" : "border-border bg-white")}>{t.key}</button>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2">
+            <button className={btn + " py-2 text-sm"} onClick={() => setSearching(false)}>Cancel</button>
+            <button
+              disabled={!place || trades.length === 0 || search.isPending}
+              onClick={() => place && search.mutate({ area: place.label, lat: place.lat, lng: place.lng, radiusMiles: radius, trades }, {
+                onSuccess: (r) => { toast.success(`${r.found} shops found, ${r.added} new`); setSearching(false); },
+                onError: (e) => toast.error(e.message),
+              })}
+              className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
+            >
+              {search.isPending ? "Searching…" : "Search"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add by hand */}
+      <Dialog open={adding} onOpenChange={setAdding}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Add a prospect</DialogTitle></DialogHeader>
+          {(["name", "phone", "website", "address", "area", "notes"] as const).map((k) => (
+            <div key={k}><label className="block text-xs font-semibold text-muted-foreground mb-1 capitalize">{k}</label><input className={inputCls} value={newP[k]} onChange={(e) => setNewP({ ...newP, [k]: e.target.value })} /></div>
+          ))}
+          <div className="flex justify-end gap-2">
+            <button className={btn + " py-2 text-sm"} onClick={() => setAdding(false)}>Cancel</button>
+            <button disabled={!newP.name.trim() || create.isPending} onClick={() => create.mutate(newP, { onSuccess: () => { setAdding(false); setNewP({ name: "", phone: "", website: "", address: "", area: "", notes: "" }); }, onError: (e) => toast.error(e.message) })} className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground disabled:opacity-50">Add</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Prospect detail */}
+      <Dialog open={!!current} onOpenChange={(o) => { if (!o) { setOpen(null); setDraftText(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
+          {current && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{current.name}</DialogTitle>
+                <DialogDescription>{[current.address, current.rating != null && `★ ${current.rating} (${current.reviewCount} reviews)`].filter(Boolean).join(" · ")}</DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-wrap gap-2 text-sm">
+                {current.phone && <a href={`tel:${current.phone}`} className={btn}>Call {current.phone}</a>}
+                {current.website && <a href={current.website} target="_blank" rel="noreferrer" className={btn}>Website</a>}
+                {current.lat != null && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(current.name + " " + current.address)}`} target="_blank" rel="noreferrer" className={btn}>Map</a>}
+              </div>
+              {demandLines(current).length > 0 && (
+                <div className="rounded-lg bg-sky-50 border border-sky-200 p-3 text-xs text-sky-900">
+                  <p className="font-semibold mb-1">Why call them</p>
+                  <ul className="list-disc pl-4 space-y-0.5">{demandLines(current).map((l) => <li key={l}>{l}</li>)}</ul>
+                </div>
+              )}
+              <div className="grid sm:grid-cols-3 gap-3">
+                <div><label className="block text-xs font-semibold text-muted-foreground mb-1">Status</label>
+                  <select className={inputCls} value={current.status} onChange={(e) => update.mutate({ id: current.id, status: e.target.value as ProspectStatus }, { onError: (er) => toast.error(er.message) })}>
+                    {PROSPECT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select></div>
+                <div><label className="block text-xs font-semibold text-muted-foreground mb-1">Next follow-up</label>
+                  <input type="date" className={inputCls} value={current.nextFollowUp ?? ""} onChange={(e) => update.mutate({ id: current.id, nextFollowUp: e.target.value || null })} /></div>
+                <div><label className="block text-xs font-semibold text-muted-foreground mb-1">Owner</label>
+                  <input className={inputCls} defaultValue={current.assignedTo} placeholder={profile?.name ?? "Who's on it"} onBlur={(e) => e.target.value !== current.assignedTo && update.mutate({ id: current.id, assignedTo: e.target.value })} /></div>
+              </div>
+              <div><label className="block text-xs font-semibold text-muted-foreground mb-1">Notes</label>
+                <textarea className={inputCls} rows={3} defaultValue={current.notes} placeholder="Who you spoke to, what they said, what's next" onBlur={(e) => e.target.value !== current.notes && update.mutate({ id: current.id, notes: e.target.value })} /></div>
+              <div className="rounded-xl border border-border p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold inline-flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-sky-600" /> Outreach draft</p>
+                  <button className={btn} disabled={draft.isPending} onClick={() => draft.mutate({ id: current.id, demand: demandLines(current), sender: profile?.name }, { onSuccess: setDraftText, onError: (e) => toast.error(e.message) })}>{draft.isPending ? "Writing…" : draftText ? "Rewrite" : "Write email + text"}</button>
+                </div>
+                {draftText && (
+                  <div className="mt-3 space-y-3 text-sm">
+                    <CopyBlock label={`Email · ${draftText.subject}`} text={`Subject: ${draftText.subject}\n\n${draftText.email}`} />
+                    <CopyBlock label="Text message" text={draftText.text} />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function CopyBlock({ label, text }: { label: string; text: string }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1"><p className="text-xs font-semibold text-muted-foreground">{label}</p>
+        <button className="inline-flex items-center gap-1 text-xs text-sky-700 hover:underline" onClick={() => { navigator.clipboard.writeText(text); toast.success("Copied"); }}><Copy className="w-3 h-3" /> Copy</button></div>
+      <pre className="whitespace-pre-wrap font-sans text-sm bg-slate-50 border border-border rounded-lg p-3">{text}</pre>
+    </div>
+  );
+}
+
+function StatusPill({ s }: { s: ProspectStatus }) {
+  const c: Record<ProspectStatus, string> = {
+    new: "bg-slate-100 text-slate-700 border-slate-200",
+    contacted: "bg-sky-50 text-sky-700 border-sky-200",
+    interested: "bg-amber-50 text-amber-700 border-amber-200",
+    onboarded: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    declined: "bg-red-50 text-red-700 border-red-200",
+    "not-a-fit": "bg-slate-100 text-slate-500 border-slate-200",
+  };
+  return <span className={cn("text-[11px] font-semibold rounded-full px-2 py-0.5 border whitespace-nowrap", c[s])}>{PROSPECT_STATUSES.find((x) => x.value === s)?.label}</span>;
+}
+
+/* ── Audit ────────────────────────────────────────────────────────────────── */
+
+function Audit() {
+  const audit = useAdminAudit();
+  return (
+    <>
+      <PageHeader title="Audit log" description="Everything the team has done here." />
+      <Panel padded={false}>
+        <ul className="divide-y divide-border">
+          {(audit.data ?? []).map((e) => (
+            <li key={e.id} className="px-5 py-2.5 text-sm flex items-center gap-3">
+              <span className="text-xs text-muted-foreground w-28 shrink-0">{new Date(e.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+              <span className="min-w-0 flex-1 truncate"><span className="font-medium">{e.admin}</span> · {e.action} · {e.targetLabel}{Object.keys(e.detail ?? {}).length ? <span className="text-muted-foreground"> · {JSON.stringify(e.detail)}</span> : null}</span>
+            </li>
+          ))}
+          {(audit.data ?? []).length === 0 && <li className="px-5 py-6 text-sm text-muted-foreground text-center">{audit.isLoading ? "Loading…" : "Nothing yet."}</li>}
+        </ul>
+      </Panel>
+    </>
+  );
 }

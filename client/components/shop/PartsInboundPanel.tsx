@@ -12,6 +12,8 @@ import {
   type PartsShipment,
   type ShipmentStatus,
   type WorkOrder,
+  type ShopBoat,
+  type ShopCustomer,
 } from "@shared/shop";
 import type { ShipmentDraft } from "@/hooks/use-shop";
 import { EmptyState, ShipmentBadge, inputCls, labelCls, shortDate } from "./shopUi";
@@ -21,6 +23,8 @@ interface Props {
   shipments: PartsShipment[];
   inventory: InventoryItem[];
   workOrders: WorkOrder[];
+  boats?: ShopBoat[];
+  customers?: ShopCustomer[];
   inboundAddress: string | null;
   onSave: (draft: ShipmentDraft) => void;
   onReceive: (id: string) => void;
@@ -41,7 +45,7 @@ export function blankShipment(): ShipmentDraft {
 }
 
 export default function PartsInboundPanel({
-  shipments, inventory, workOrders, inboundAddress, onSave, onReceive, onDelete, draftSeed, onDraftSeedUsed,
+  shipments, inventory, workOrders, boats = [], customers = [], inboundAddress, onSave, onReceive, onDelete, draftSeed, onDraftSeedUsed,
   autoPaste, onAutoPasteUsed,
 }: Props) {
   const [pasteOpen, setPasteOpen] = useState(false);
@@ -279,6 +283,8 @@ export default function PartsInboundPanel({
                 value={pasteFor}
                 onChange={(v) => { setPasteFor(v); setPasteForTouched(true); }}
                 workOrders={workOrders}
+                boats={boats}
+                customers={customers}
               />
               {refMatch && pasteFor.workOrderId === refMatch.id && (
                 <p className="text-[11px] text-emerald-700 mt-1">Matched {refMatch.number} from the PO/WO number on the email.</p>
@@ -307,6 +313,8 @@ export default function PartsInboundPanel({
                   value={{ workOrderId: editing.workOrderId, boatLabel: editing.boatLabel, customerName: editing.customerName }}
                   onChange={(v) => setEditing({ ...editing, ...v })}
                   workOrders={workOrders}
+                  boats={boats}
+                  customers={customers}
                 />
               </div>
               <div className="col-span-2">

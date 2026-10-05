@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   WORK_ORDER_STATUSES,
+  boatLabel,
   workOrderTotals,
   type InventoryItem,
+  type ShopBoat,
+  type ShopCustomer,
   type PartsShipment,
   type LineKind,
   type WorkOrder,
@@ -22,6 +25,10 @@ interface Props {
   shipments: PartsShipment[];
   onOrderPart?: (draft: WorkOrderDraft) => void;
   settings: ShopSettings;
+  customers: ShopCustomer[];
+  boats: ShopBoat[];
+  /** Opens the new-customer form; resolves with the boat to select, or null if cancelled. */
+  onAddCustomer: (prefill: { name: string; email: string; boatLabel: string }) => void;
   saving: boolean;
   onSave: (draft: WorkOrderDraft) => void;
   onDelete?: () => void;
@@ -41,6 +48,7 @@ export function blankWorkOrder(number: string, settings: ShopSettings): WorkOrde
     customerName: "",
     customerEmail: "",
     boatLabel: "",
+    boatId: null,
     projectId: null,
     assignedTo: settings.techs[0] ?? "",
     bay: settings.bays[0] ?? "",
@@ -57,8 +65,10 @@ export function draftFromOrder(o: WorkOrder): WorkOrderDraft {
   return rest;
 }
 
+const NEW_CUSTOMER = "__new__";
+
 export default function WorkOrderEditor({
-  open, onOpenChange, initial, inventory, shipments, onOrderPart, settings, saving, onSave, onDelete,
+  open, onOpenChange, initial, inventory, shipments, onOrderPart, settings, customers, boats, onAddCustomer, saving, onSave, onDelete,
 }: Props) {
   const partsForBoat = initial.id ? shipments.filter((s) => s.workOrderId === initial.id) : [];
   const [d, setD] = useState<WorkOrderDraft>(initial);
@@ -87,7 +97,29 @@ export default function WorkOrderEditor({
     return m;
   }, [initial.lines]);
 
-  const canSave = d.title.trim().length > 0 && d.lines.every((l) => l.description.trim());
+  const customerById = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
+  const boatOptions = useMemo(
+    () =>
+      [...boats]
+        .map((b) => ({ b, c: customerById.get(b.customerId) }))
+        .sort((x, y) => (x.c?.name ?? "").localeCompare(y.c?.name ?? "") || boatLabel(x.b).localeCompare(boatLabel(y.b))),
+    [boats, customerById]
+  );
+  const pickBoat = (id: string) => {
+    if (id === NEW_CUSTOMER) {
+      onAddCustomer({ name: d.customerName, email: d.customerEmail, boatLabel: d.boatLabel });
+      return;
+    }
+    const b = boats.find((x) => x.id === id);
+    if (!b) return;
+    const c = customerById.get(b.customerId);
+    setD((p) => ({ ...p, boatId: b.id, boatLabel: boatLabel(b), customerName: c?.name ?? p.customerName, customerEmail: c?.email ?? p.customerEmail }));
+  };
+  const boatOnFile = d.boatId ? boats.find((b) => b.id === d.boatId) : undefined;
+  const techOptions = settings.techs.includes(d.assignedTo) || !d.assignedTo ? settings.techs : [d.assignedTo, ...settings.techs];
+  const bayOptions = settings.bays.includes(d.bay) || !d.bay ? settings.bays : [d.bay, ...settings.bays];
+
+  const canSave = d.title.trim().length > 0 && d.lines.every((l) => l.description.trim()) && (!!d.boatId || !!d.boatLabel.trim());
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -101,17 +133,28 @@ export default function WorkOrderEditor({
             <label className={labelCls}>Job</label>
             <input className={inputCls} value={d.title} onChange={(e) => set("title", e.target.value)} placeholder="100-hour service, twin Yamaha F300" />
           </div>
-          <div>
-            <label className={labelCls}>Customer</label>
-            <input className={inputCls} value={d.customerName} onChange={(e) => set("customerName", e.target.value)} placeholder="Name as it appears in QuickBooks" />
-          </div>
-          <div>
-            <label className={labelCls}>Customer email</label>
-            <input className={inputCls} type="email" value={d.customerEmail} onChange={(e) => set("customerEmail", e.target.value)} />
-          </div>
-          <div>
-            <label className={labelCls}>Boat</label>
-            <input className={inputCls} value={d.boatLabel} onChange={(e) => set("boatLabel", e.target.value)} placeholder="2019 Pursuit S 288 · Slip C-14" />
+          <div className="sm:col-span-2">
+            <label className={labelCls}>Customer & boat</label>
+            <select className={inputCls} value={d.boatId ?? ""} onChange={(e) => pickBoat(e.target.value)}>
+              {!d.boatId && (
+                <option value="">{d.boatLabel || d.customerName ? `${[d.customerName, d.boatLabel].filter(Boolean).join(" · ")} (not on file yet)` : "Choose a boat on file…"}</option>
+              )}
+              {boatOptions.map(({ b, c }) => (
+                <option key={b.id} value={b.id}>{c?.name ?? "Customer"} · {boatLabel(b)}</option>
+              ))}
+              <option value={NEW_CUSTOMER}>＋ Add new customer…</option>
+            </select>
+            {boatOnFile ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {[customerById.get(boatOnFile.customerId)?.email, customerById.get(boatOnFile.customerId)?.phone, boatOnFile.engine, boatOnFile.hullId && `HIN ${boatOnFile.hullId}`, boatOnFile.slip].filter(Boolean).join(" · ") || "No contact details on file."}
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-amber-700">
+                {d.boatLabel || d.customerName ? "This boat isn't on file. " : "Every work order is for a boat on file. "}
+                <button type="button" onClick={() => pickBoat(NEW_CUSTOMER)} className="font-semibold text-sky-700 hover:underline">Add the customer and boat</button>
+                {d.boatLabel || d.customerName ? " to keep their history together." : " if they're new to the shop."}
+              </p>
+            )}
           </div>
           <div>
             <label className={labelCls}>Engine hours at intake</label>
@@ -127,13 +170,18 @@ export default function WorkOrderEditor({
           </div>
           <div>
             <label className={labelCls}>Tech</label>
-            <input className={inputCls} list="shop-techs" value={d.assignedTo} onChange={(e) => set("assignedTo", e.target.value)} />
-            <datalist id="shop-techs">{settings.techs.map((t) => <option key={t} value={t} />)}</datalist>
+            <select className={inputCls} value={d.assignedTo} onChange={(e) => set("assignedTo", e.target.value)}>
+              <option value="">Unassigned</option>
+              {techOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            {settings.techs.length === 0 && <p className="mt-1 text-[11px] text-muted-foreground">Add techs under Shop Settings.</p>}
           </div>
           <div>
             <label className={labelCls}>Bay / location</label>
-            <input className={inputCls} list="shop-bays" value={d.bay} onChange={(e) => set("bay", e.target.value)} />
-            <datalist id="shop-bays">{settings.bays.map((b) => <option key={b} value={b} />)}</datalist>
+            <select className={inputCls} value={d.bay} onChange={(e) => set("bay", e.target.value)}>
+              <option value="">Unassigned</option>
+              {bayOptions.map((b) => <option key={b} value={b}>{b}</option>)}
+            </select>
           </div>
           <div>
             <label className={labelCls}>Status</label>

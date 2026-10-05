@@ -21,6 +21,9 @@ import {
   type PartsShipment,
   type WorkOrder,
   searchShop,
+  boatLabel,
+  parseBoatLabel,
+  deriveRegistry,
 } from "./shop";
 
 const now = new Date(2026, 9, 2); // Oct 2, 2026
@@ -319,5 +322,31 @@ describe("searchShop", () => {
 
   it("ignores one-character queries", () => {
     expect(searchShop("d", orders)).toEqual([]);
+  });
+});
+
+describe("boats on file", () => {
+  it("builds and parses the label both ways", () => {
+    const b = { name: "Reel Therapy", year: 2021, make: "Grady-White", model: "Canyon 336" };
+    expect(boatLabel(b)).toBe("2021 Grady-White Canyon 336 · Reel Therapy");
+    expect(parseBoatLabel("2021 Grady-White Canyon 336 · Reel Therapy")).toMatchObject(b);
+    expect(parseBoatLabel("2015 Sea Ray Sundancer 350")).toMatchObject({ year: 2015, make: "Sea Ray", model: "Sundancer 350", name: "" });
+    expect(parseBoatLabel("2016 Chris-Craft Launch 28 · Hull CHCB2816")).toMatchObject({ make: "Chris-Craft", hullId: "CHCB2816", name: "" });
+    expect(boatLabel({ name: "Blue Thunder", year: null, make: "", model: "" })).toBe("Blue Thunder");
+  });
+
+  it("derives one customer per name and one boat per label from the board", () => {
+    const { customers, boats } = deriveRegistry(
+      [
+        { customerName: "Dana Whitfield", customerEmail: "", boatLabel: "2021 Grady-White Canyon 336 · Reel Therapy", createdAt: "2026-10-01" },
+        { customerName: "Dana Whitfield", customerEmail: "dana@x.com", boatLabel: "2021 Grady-White Canyon 336 · Reel Therapy", createdAt: "2026-10-02" },
+        { customerName: "Tom Alvarez", customerEmail: "", boatLabel: "2018 Boston Whaler 280 Outrage", createdAt: "2026-10-01" },
+      ],
+      [{ customerName: "Grace Liu", boatLabel: "2016 Chris-Craft Launch 28", createdAt: "2026-10-03" }]
+    );
+    expect(customers.map((c) => c.name)).toEqual(["Dana Whitfield", "Tom Alvarez", "Grace Liu"]);
+    expect(customers[0].email).toBe("dana@x.com");
+    expect(boats).toHaveLength(3);
+    expect(boats[0].customerId).toBe(customers[0].id);
   });
 });

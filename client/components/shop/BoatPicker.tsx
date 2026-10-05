@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { WorkOrder } from "@shared/shop";
+import { boatLabel, type ShopBoat, type ShopCustomer, type WorkOrder } from "@shared/shop";
 import { inputCls, labelCls } from "./shopUi";
 
 export interface BoatTarget {
@@ -15,17 +15,24 @@ export default function BoatPicker({
   value,
   onChange,
   workOrders,
+  boats = [],
+  customers = [],
   label = "Ordered for",
 }: {
   value: BoatTarget;
   onChange: (v: BoatTarget) => void;
   workOrders: WorkOrder[];
+  boats?: ShopBoat[];
+  customers?: ShopCustomer[];
   label?: string;
 }) {
+  const customerName = (b: ShopBoat) => customers.find((c) => c.id === b.customerId)?.name ?? "";
+  const onFile = boats.map((b) => ({ id: `boat:${b.id}`, boatLabel: boatLabel(b), customerName: customerName(b) }));
+  const onFileMatch = !value.workOrderId && value.boatLabel ? onFile.find((b) => b.boatLabel === value.boatLabel && b.customerName === value.customerName) : undefined;
   const open = workOrders.filter((w) => w.status !== "invoiced" || w.id === value.workOrderId);
   // "Another boat" stays selected while its fields are still empty.
   const [otherPicked, setOtherPicked] = useState(false);
-  const mode = value.workOrderId ?? (otherPicked || value.boatLabel || value.customerName ? OTHER : "");
+  const mode = value.workOrderId ?? (onFileMatch && !otherPicked ? onFileMatch.id : otherPicked || value.boatLabel || value.customerName ? OTHER : "");
 
   return (
     <div className="space-y-2">
@@ -39,7 +46,10 @@ export default function BoatPicker({
             setOtherPicked(v === OTHER);
             if (v === "") onChange({ workOrderId: null, boatLabel: "", customerName: "" });
             else if (v === OTHER) onChange({ workOrderId: null, boatLabel: value.boatLabel, customerName: value.customerName });
-            else {
+            else if (v.startsWith("boat:")) {
+              const b = onFile.find((x) => x.id === v);
+              onChange({ workOrderId: null, boatLabel: b?.boatLabel ?? "", customerName: b?.customerName ?? "" });
+            } else {
               const wo = workOrders.find((w) => w.id === v);
               onChange({ workOrderId: v, boatLabel: wo?.boatLabel ?? "", customerName: wo?.customerName ?? "" });
             }
@@ -51,7 +61,14 @@ export default function BoatPicker({
               {w.number} · {w.boatLabel || "No boat"} · {w.customerName || "No customer"}
             </option>
           ))}
-          <option value={OTHER}>Another boat (no work order yet)…</option>
+          {onFile.length > 0 && (
+            <optgroup label="Boats on file (no work order yet)">
+              {onFile.map((b) => (
+                <option key={b.id} value={b.id}>{b.boatLabel}{b.customerName ? ` · ${b.customerName}` : ""}</option>
+              ))}
+            </optgroup>
+          )}
+          <option value={OTHER}>Another boat (type it in)…</option>
         </select>
       </div>
       {mode === OTHER && (

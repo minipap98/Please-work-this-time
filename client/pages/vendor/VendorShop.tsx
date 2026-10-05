@@ -30,6 +30,11 @@ import {
   type CrewRole,
   useUpdateShopSettings,
   useWorkOrders,
+  useCustomers,
+  useBoats,
+  useSaveCustomer,
+  useDeleteBoat,
+  useDeleteCustomer,
   type ShipmentDraft,
   type WorkOrderDraft,
 } from "@/hooks/use-shop";
@@ -39,17 +44,21 @@ import { isLowStock, occupiesDay, toLocalDateKey, workOrderTotals, type Inventor
 import WorkOrderEditor, { blankWorkOrder, draftFromOrder } from "@/components/shop/WorkOrderEditor";
 import WorkOrdersPanel from "@/components/shop/WorkOrdersPanel";
 import ShopSearchBar from "@/components/shop/ShopSearch";
+import CustomersPanel from "@/components/shop/CustomersPanel";
+import CustomerDialog from "@/components/shop/CustomerDialog";
+import { boatLabel, parseBoatLabel, type ShopBoat, type ShopCustomer } from "@shared/shop";
 import SchedulePanel from "@/components/shop/SchedulePanel";
 import InventoryPanel from "@/components/shop/InventoryPanel";
 import PartsInboundPanel, { blankShipment } from "@/components/shop/PartsInboundPanel";
 import QuickBooksPanel from "@/components/shop/QuickBooksPanel";
 import { inputCls, labelCls, money } from "@/components/shop/shopUi";
 
-type Tab = "orders" | "schedule" | "inventory" | "parts" | "quickbooks" | "settings";
+type Tab = "orders" | "schedule" | "customers" | "inventory" | "parts" | "quickbooks" | "settings";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "orders", label: "Work Orders" },
   { key: "schedule", label: "Schedule" },
+  { key: "customers", label: "Customers" },
   { key: "inventory", label: "Inventory" },
   { key: "parts", label: "Parts Inbound" },
   { key: "quickbooks", label: "QuickBooks" },
@@ -84,6 +93,15 @@ export default function VendorShop({
   const { data: inventory = [] } = useInventory(vendorId);
   const { data: shipments = [] } = useShipments(vendorId);
   const { data: bidJobs = [] } = useVendorBidProjects(vendorId);
+  const { data: customers = [] } = useCustomers(vendorId);
+  const { data: boats = [] } = useBoats(vendorId);
+  const saveCustomer = useSaveCustomer(vendorId);
+  const deleteBoat = useDeleteBoat(vendorId);
+  const deleteCustomer = useDeleteCustomer(vendorId);
+  // Customer dialog: null closed; { customer } edits; { prefill } adds (and selects the new boat on the open work order).
+  const [customerDialog, setCustomerDialog] = useState<
+    null | { customer: ShopCustomer } | { prefill: { customer?: { name?: string; email?: string }; boat?: Partial<ShopBoat> }; forEditor: boolean }
+  >(null);
 
   const saveOrder = useSaveWorkOrder(vendorId);
   const setStatus = useSetWorkOrderStatus(vendorId);
@@ -160,7 +178,10 @@ export default function VendorShop({
 
   const openFromJob = (job: Project) => {
     const bid = job.bids.find((b) => b.id === job.chosenBidId);
+    const label = job.boat ? `${job.boat.year} ${job.boat.make} ${job.boat.model}${job.boat.name ? ` · ${job.boat.name}` : ""}` : "";
+    const onFile = boats.find((b) => boatLabel(b) === label);
     openNew({
+      boatId: onFile?.id ?? null,
       title: job.title,
       description: job.description,
       customerName: job.ownerContact?.name ?? job.owner ?? "",
@@ -244,6 +265,16 @@ export default function VendorShop({
                 initialQuery={params.get("q") ?? ""}
               />
             )}
+            {tab === "customers" && (
+              <CustomersPanel
+                customers={customers}
+                boats={boats}
+                orders={orders}
+                onAdd={() => setCustomerDialog({ prefill: {}, forEditor: false })}
+                onEdit={(c) => setCustomerDialog({ customer: c })}
+                onWorkOrder={(c, b) => openNew({ boatId: b.id, boatLabel: boatLabel(b), customerName: c.name, customerEmail: c.email })}
+              />
+            )}
             {tab === "schedule" && (
               <SchedulePanel
                 orders={orders}
@@ -268,6 +299,8 @@ export default function VendorShop({
                 shipments={shipments}
                 inventory={inventory}
                 workOrders={orders}
+                boats={boats}
+                customers={customers}
                 inboundAddress={inboundAddress}
                 draftSeed={shipmentSeed}
                 onDraftSeedUsed={clearSeed}
@@ -315,6 +348,45 @@ export default function VendorShop({
         )}
       </PageContainer>
 
+      <CustomerDialog
+        open={!!customerDialog}
+        onOpenChange={(o) => !o && setCustomerDialog(null)}
+        customer={customerDialog && "customer" in customerDialog ? customerDialog.customer : null}
+        boats={customerDialog && "customer" in customerDialog ? boats.filter((b) => b.customerId === customerDialog.customer.id) : []}
+        prefill={customerDialog && "prefill" in customerDialog ? customerDialog.prefill : undefined}
+        saving={saveCustomer.isPending}
+        onSave={(payload) =>
+          saveCustomer.mutate(payload, {
+            onError: fail,
+            onSuccess: ({ boatIds }) => {
+              const forEditor = !!customerDialog && "prefill" in customerDialog && customerDialog.forEditor;
+              const editing = !!customerDialog && "customer" in customerDialog;
+              setCustomerDialog(null);
+              toast({ title: editing ? "Customer updated" : "Customer added" });
+              if (forEditor && editor && boatIds[0]) {
+                const b = payload.boats[0];
+                setEditor({
+                  ...editor,
+                  boatId: boatIds[0],
+                  boatLabel: boatLabel({ name: b.name, year: b.year, make: b.make, model: b.model }),
+                  customerName: payload.customer.name,
+                  customerEmail: payload.customer.email,
+                });
+              }
+            },
+          })
+        }
+        onDeleteBoat={(id) => deleteBoat.mutate(id, { onError: fail })}
+        onDeleteCustomer={
+          customerDialog && "customer" in customerDialog
+            ? () => {
+                if (!confirm(`Delete ${customerDialog.customer.name} and their boats from your list? Work orders are kept.`)) return;
+                deleteCustomer.mutate(customerDialog.customer.id, { onError: fail, onSuccess: () => setCustomerDialog(null) });
+              }
+            : undefined
+        }
+      />
+
       {editor && (
         <WorkOrderEditor
           open
@@ -337,6 +409,14 @@ export default function VendorShop({
               : undefined
           }
           settings={settings}
+          customers={customers}
+          boats={boats}
+          onAddCustomer={(pre) =>
+            setCustomerDialog({
+              prefill: { customer: { name: pre.name, email: pre.email }, boat: pre.boatLabel ? parseBoatLabel(pre.boatLabel) : {} },
+              forEditor: true,
+            })
+          }
           saving={saveOrder.isPending}
           onSave={(d) =>
             saveOrder.mutate(d, {

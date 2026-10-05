@@ -5,8 +5,11 @@ import { isDemoMode } from "@/lib/demoMode";
 import type { Tables } from "@/lib/database.types";
 import {
   advanceStatus,
+  deriveRegistry,
   inventoryDelta,
   type Carrier,
+  type ShopBoat,
+  type ShopCustomer,
   type InventoryItem,
   type LineKind,
   type PartsShipment,
@@ -32,6 +35,8 @@ interface DemoShop {
   inventory: InventoryItem[];
   workOrders: WorkOrder[];
   shipments: PartsShipment[];
+  customers: ShopCustomer[];
+  boats: ShopBoat[];
 }
 
 function loadDemo(): DemoShop {
@@ -47,8 +52,21 @@ function loadDemo(): DemoShop {
     inventory: demoInventory(),
     workOrders: demoWorkOrders(),
     shipments: demoShipments(),
+    customers: [],
+    boats: [],
   };
   shop.shipments = shop.shipments.map((sh) => pairWithBoat({ ...sh, boatLabel: sh.boatLabel ?? "", customerName: sh.customerName ?? "" }, shop!.workOrders));
+  // Demo state saved before customers existed: build the list from the board.
+  if (!shop.customers?.length) {
+    const reg = deriveRegistry(shop.workOrders, shop.shipments);
+    shop.customers = reg.customers;
+    shop.boats = reg.boats;
+    const byLabel = new Map(reg.boats.map((b) => [`${b.customerId}/${boatLabelOf(b)}`, b.id]));
+    shop.workOrders = shop.workOrders.map((o) => {
+      const c = reg.customers.find((x) => x.name === o.customerName.trim());
+      return { ...o, boatId: o.boatId ?? (c ? byLabel.get(`${c.id}/${o.boatLabel.trim()}`) ?? null : null) };
+    });
+  }
   return shop;
 }
 
@@ -60,6 +78,11 @@ function pairWithBoat<T extends Pick<PartsShipment, "workOrderId" | "boatLabel" 
   const wo = sh.workOrderId ? orders.find((o) => o.id === sh.workOrderId) : undefined;
   if (sh.workOrderId && !wo) return { ...sh, workOrderId: null };
   return wo ? { ...sh, boatLabel: wo.boatLabel, customerName: wo.customerName } : sh;
+}
+
+function boatLabelOf(b: ShopBoat): string {
+  const spec = [b.year, b.make, b.model].filter(Boolean).join(" ").trim();
+  return spec && b.name ? `${spec} · ${b.name}` : spec || b.name;
 }
 
 function saveDemo(next: DemoShop) {
@@ -139,6 +162,7 @@ function mapWorkOrder(r: WorkOrderRow): WorkOrder {
     customerName: r.customer_name,
     customerEmail: r.customer_email,
     boatLabel: r.boat_label,
+    boatId: r.boat_id ?? null,
     projectId: r.project_id,
     assignedTo: r.assigned_to,
     bay: r.bay,
@@ -199,6 +223,12 @@ export function useShopRealtime(vendorId: string | null) {
       .on("postgres_changes", { event: "*", schema: "public", table: "shop_parts_shipments", filter }, () =>
         qc.invalidateQueries({ queryKey: ["shop-shipments", vendorId] })
       )
+      .on("postgres_changes", { event: "*", schema: "public", table: "shop_customers", filter }, () =>
+        qc.invalidateQueries({ queryKey: ["shop-customers", vendorId] })
+      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "shop_boats", filter }, () =>
+        qc.invalidateQueries({ queryKey: ["shop-boats", vendorId] })
+      )
       .on("postgres_changes", { event: "*", schema: "public", table: "shop_work_orders", filter }, () =>
         qc.invalidateQueries({ queryKey: ["shop-work-orders", vendorId] })
       )
@@ -214,6 +244,8 @@ function invalidateShop(qc: ReturnType<typeof useQueryClient>, vendorId: string)
   qc.invalidateQueries({ queryKey: ["shop-work-orders", vendorId] });
   qc.invalidateQueries({ queryKey: ["shop-shipments", vendorId] });
   qc.invalidateQueries({ queryKey: ["shop-settings", vendorId] });
+  qc.invalidateQueries({ queryKey: ["shop-customers", vendorId] });
+  qc.invalidateQueries({ queryKey: ["shop-boats", vendorId] });
 }
 
 // ── Settings ─────────────────────────────────────────────────────────────────
@@ -449,6 +481,7 @@ export function useSaveWorkOrder(vendorId: string | null) {
         customer_name: draft.customerName,
         customer_email: draft.customerEmail,
         boat_label: draft.boatLabel,
+        boat_id: draft.boatId ?? null,
         assigned_to: draft.assignedTo,
         bay: draft.bay,
         scheduled_start: draft.scheduledStart,
@@ -964,5 +997,158 @@ export function useTechUpdateJob() {
       qc.invalidateQueries({ queryKey: ["tech-jobs"] });
       qc.invalidateQueries({ queryKey: ["shop-work-orders"] });
     },
+  });
+}
+
+
+// ── Customers and boats on file ──────────────────────────────────────────────
+
+function mapCustomer(r: Tables<"shop_customers">): ShopCustomer {
+  return { id: r.id, name: r.name, email: r.email, phone: r.phone, notes: r.notes, createdAt: r.created_at };
+}
+
+function mapBoat(r: Tables<"shop_boats">): ShopBoat {
+  return {
+    id: r.id,
+    customerId: r.customer_id,
+    name: r.name,
+    year: r.year,
+    make: r.make,
+    model: r.model,
+    engine: r.engine,
+    hullId: r.hull_id,
+    slip: r.slip,
+    createdAt: r.created_at,
+  };
+}
+
+export function useCustomers(vendorId: string | null) {
+  return useQuery({
+    queryKey: ["shop-customers", vendorId],
+    queryFn: async (): Promise<ShopCustomer[]> => {
+      if (isDemoMode()) return loadDemo().customers;
+      const { data, error } = await db().from("shop_customers").select("*").eq("vendor_id", vendorId!).order("name");
+      if (error) throw error;
+      return (data ?? []).map(mapCustomer);
+    },
+    enabled: !!vendorId,
+  });
+}
+
+export function useBoats(vendorId: string | null) {
+  return useQuery({
+    queryKey: ["shop-boats", vendorId],
+    queryFn: async (): Promise<ShopBoat[]> => {
+      if (isDemoMode()) return loadDemo().boats;
+      const { data, error } = await db().from("shop_boats").select("*").eq("vendor_id", vendorId!).order("created_at");
+      if (error) throw error;
+      return (data ?? []).map(mapBoat);
+    },
+    enabled: !!vendorId,
+  });
+}
+
+export type CustomerDraft = Omit<ShopCustomer, "id" | "createdAt"> & { id?: string };
+export type BoatDraft = Omit<ShopBoat, "id" | "customerId" | "createdAt"> & { id?: string; customerId?: string };
+
+/** Saves a customer and, optionally, boats for them. Returns the saved ids. */
+export function useSaveCustomer(vendorId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ customer, boats = [] }: { customer: CustomerDraft; boats?: BoatDraft[] }): Promise<{ customerId: string; boatIds: string[] }> => {
+      const now = new Date().toISOString();
+      if (isDemoMode()) {
+        const customerId = customer.id ?? newId("cust");
+        const boatIds: string[] = [];
+        mutateDemo((s) => {
+          const existing = s.customers.find((c) => c.id === customer.id);
+          if (existing) s.customers = s.customers.map((c) => (c.id === customerId ? { ...c, ...customer, id: customerId } : c));
+          else s.customers.push({ ...customer, id: customerId, createdAt: now });
+          for (const b of boats) {
+            const id = b.id ?? newId("boat");
+            boatIds.push(id);
+            const prev = s.boats.find((x) => x.id === b.id);
+            if (prev) s.boats = s.boats.map((x) => (x.id === id ? { ...x, ...b, id, customerId } : x));
+            else s.boats.push({ ...b, id, customerId, createdAt: now });
+          }
+        });
+        return { customerId, boatIds };
+      }
+      const client = db();
+      const row = { vendor_id: vendorId!, name: customer.name.trim(), email: customer.email.trim(), phone: customer.phone.trim(), notes: customer.notes, updated_at: now };
+      let customerId = customer.id;
+      if (customerId) {
+        const { error } = await client.from("shop_customers").update(row).eq("id", customerId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await client.from("shop_customers").insert(row).select("id").single();
+        if (error) throw error;
+        customerId = data.id;
+      }
+      const boatIds: string[] = [];
+      for (const b of boats) {
+        const brow = {
+          vendor_id: vendorId!,
+          customer_id: customerId,
+          name: b.name.trim(),
+          year: b.year,
+          make: b.make.trim(),
+          model: b.model.trim(),
+          engine: b.engine.trim(),
+          hull_id: b.hullId.trim(),
+          slip: b.slip.trim(),
+          updated_at: now,
+        };
+        if (b.id) {
+          const { error } = await client.from("shop_boats").update(brow).eq("id", b.id);
+          if (error) throw error;
+          boatIds.push(b.id);
+        } else {
+          const { data, error } = await client.from("shop_boats").insert(brow).select("id").single();
+          if (error) throw error;
+          boatIds.push(data.id);
+        }
+      }
+      return { customerId, boatIds };
+    },
+    onSuccess: () => invalidateShop(qc, vendorId!),
+  });
+}
+
+export function useDeleteBoat(vendorId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (isDemoMode()) {
+        mutateDemo((s) => {
+          s.boats = s.boats.filter((b) => b.id !== id);
+          s.workOrders = s.workOrders.map((o) => (o.boatId === id ? { ...o, boatId: null } : o));
+        });
+        return;
+      }
+      const { error } = await db().from("shop_boats").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateShop(qc, vendorId!),
+  });
+}
+
+export function useDeleteCustomer(vendorId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (isDemoMode()) {
+        mutateDemo((s) => {
+          const gone = new Set(s.boats.filter((b) => b.customerId === id).map((b) => b.id));
+          s.boats = s.boats.filter((b) => b.customerId !== id);
+          s.customers = s.customers.filter((c) => c.id !== id);
+          s.workOrders = s.workOrders.map((o) => (o.boatId && gone.has(o.boatId) ? { ...o, boatId: null } : o));
+        });
+        return;
+      }
+      const { error } = await db().from("shop_customers").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateShop(qc, vendorId!),
   });
 }

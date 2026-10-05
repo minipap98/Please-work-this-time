@@ -800,6 +800,78 @@ export interface Database {
         };
         Relationships: [];
       };
+      shop_customers: {
+        Row: {
+          id: string;
+          vendor_id: string;
+          name: string;
+          email: string;
+          phone: string;
+          notes: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          vendor_id: string;
+          name: string;
+          email?: string;
+          phone?: string;
+          notes?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          email?: string;
+          phone?: string;
+          notes?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      shop_boats: {
+        Row: {
+          id: string;
+          vendor_id: string;
+          customer_id: string;
+          name: string;
+          year: number | null;
+          make: string;
+          model: string;
+          engine: string;
+          hull_id: string;
+          slip: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          vendor_id: string;
+          customer_id: string;
+          name?: string;
+          year?: number | null;
+          make?: string;
+          model?: string;
+          engine?: string;
+          hull_id?: string;
+          slip?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          customer_id?: string;
+          name?: string;
+          year?: number | null;
+          make?: string;
+          model?: string;
+          engine?: string;
+          hull_id?: string;
+          slip?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       shop_work_orders: {
         Row: {
           id: string;
@@ -812,6 +884,7 @@ export interface Database {
           customer_name: string;
           customer_email: string;
           boat_label: string;
+          boat_id: string | null;
           assigned_to: string;
           bay: string;
           scheduled_start: string | null;
@@ -834,6 +907,7 @@ export interface Database {
           customer_name?: string;
           customer_email?: string;
           boat_label?: string;
+          boat_id?: string | null;
           assigned_to?: string;
           bay?: string;
           scheduled_start?: string | null;
@@ -855,6 +929,7 @@ export interface Database {
           customer_name?: string;
           customer_email?: string;
           boat_label?: string;
+          boat_id?: string | null;
           assigned_to?: string;
           bay?: string;
           scheduled_start?: string | null;

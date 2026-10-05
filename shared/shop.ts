@@ -36,6 +36,8 @@ export interface WorkOrder {
   customerName: string;
   customerEmail: string;
   boatLabel: string;
+  /** The boat on file this order is for (shop_boats). Older orders carry only the label. */
+  boatId?: string | null;
   projectId?: string | null;
   assignedTo: string;
   bay: string;
@@ -912,4 +914,112 @@ export function searchShop(query: string, orders: WorkOrder[], shipments: PartsS
   }
 
   return hits.sort((a, b) => b.score - a.score || a.label.localeCompare(b.label)).slice(0, limit);
+}
+
+
+/* ── Customers and boats on file ────────────────────────────────────────── */
+
+export interface ShopCustomer {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  notes: string;
+  createdAt: string;
+}
+
+export interface ShopBoat {
+  id: string;
+  customerId: string;
+  /** Nickname painted on the transom, if any. */
+  name: string;
+  year: number | null;
+  make: string;
+  model: string;
+  /** Free text: "Twin Yamaha F300", "Volvo D6-370". */
+  engine: string;
+  hullId: string;
+  /** Where she lives: slip, dry stack, trailer. */
+  slip: string;
+  createdAt: string;
+}
+
+/** "2021 Grady-White Canyon 336 · Reel Therapy": the label work orders and QuickBooks carry. */
+export function boatLabel(b: Pick<ShopBoat, "name" | "year" | "make" | "model">): string {
+  const spec = [b.year, b.make, b.model].filter(Boolean).join(" ").trim();
+  if (spec && b.name) return `${spec} · ${b.name}`;
+  return spec || b.name;
+}
+
+const TWO_WORD_MAKES = [
+  "Sea Ray", "Boston Whaler", "Grady-White", "Chris-Craft", "Sea Hunt", "Sea Fox", "Sea Pro", "Key West", "Cape Horn",
+  "Sea Hunter", "Everglades Boats", "Carolina Skiff", "Bennington", "Sun Tracker", "Four Winns", "Monterey", "Regal",
+  "Jupiter Marine", "Palm Beach", "Hinckley", "Mako", "Nautique", "Malibu", "Pathfinder", "Hewes", "Maverick",
+  "Yellowfin", "Invincible", "Contender", "Intrepid", "Hatteras", "Viking", "Bertram", "Azimut", "Sunseeker", "Princess",
+  "Beneteau", "Jeanneau", "Lagoon", "Leopard", "Fountaine Pajot", "Riviera", "Tiara", "Pursuit", "Scout", "Robalo",
+  "Cobia", "Sportsman", "Parker", "Edgewater", "Freeman", "SeaVee", "Blackfin", "Formula", "Cruisers Yachts",
+  "Carver", "Meridian", "Silverton", "Mainship", "Grand Banks", "Back Cove", "Sabre", "MJM", "Hunt", "Zodiac", "Cobalt",
+];
+
+/** Best-effort split of a free-text boat label into the fields a boat on file has. */
+export function parseBoatLabel(label: string): Pick<ShopBoat, "name" | "year" | "make" | "model" | "hullId"> {
+  const [specRaw, ...rest] = label.split("·").map((s) => s.trim());
+  let name = rest.join(" · ");
+  let hullId = "";
+  const hull = name.match(/^(?:hull|hin)\s*#?\s*([A-Z0-9-]{6,})$/i);
+  if (hull) {
+    hullId = hull[1];
+    name = "";
+  }
+  let spec = specRaw ?? "";
+  let year: number | null = null;
+  const y = spec.match(/^((?:19|20)\d{2})\s+(.*)$/);
+  if (y) {
+    year = Number(y[1]);
+    spec = y[2];
+  }
+  let make = "";
+  let model = spec;
+  const two = TWO_WORD_MAKES.find((m) => spec.toLowerCase().startsWith(m.toLowerCase() + " ") || spec.toLowerCase() === m.toLowerCase());
+  if (two) {
+    make = two;
+    model = spec.slice(two.length).trim();
+  } else {
+    const [first, ...others] = spec.split(/\s+/);
+    make = first ?? "";
+    model = others.join(" ");
+  }
+  return { name, year, make, model, hullId };
+}
+
+/**
+ * Customers and boats implied by what's already on the board, for shops that started before
+ * the registry existed (and for the demo). One customer per distinct name, one boat per label.
+ */
+export function deriveRegistry(
+  orders: Pick<WorkOrder, "customerName" | "customerEmail" | "boatLabel" | "createdAt">[],
+  shipments: Pick<PartsShipment, "customerName" | "boatLabel" | "createdAt">[] = []
+): { customers: ShopCustomer[]; boats: ShopBoat[] } {
+  const customers = new Map<string, ShopCustomer>();
+  const boats = new Map<string, ShopBoat>();
+  const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  const rows = [
+    ...orders.map((o) => ({ customerName: o.customerName, email: o.customerEmail, boatLabel: o.boatLabel, createdAt: o.createdAt })),
+    ...shipments.map((s) => ({ customerName: s.customerName, email: "", boatLabel: s.boatLabel, createdAt: s.createdAt })),
+  ];
+  for (const r of rows) {
+    const cname = r.customerName.trim();
+    if (!cname) continue;
+    const ckey = slug(cname);
+    const c = customers.get(ckey) ?? { id: `cust-${ckey}`, name: cname, email: "", phone: "", notes: "", createdAt: r.createdAt };
+    if (!c.email && r.email) c.email = r.email;
+    customers.set(ckey, c);
+    const blabel = r.boatLabel.trim();
+    if (!blabel) continue;
+    const bkey = `${ckey}/${slug(blabel)}`;
+    if (!boats.has(bkey)) {
+      boats.set(bkey, { id: `boat-${slug(blabel)}`, customerId: c.id, ...parseBoatLabel(blabel), engine: "", slip: "", createdAt: r.createdAt });
+    }
+  }
+  return { customers: [...customers.values()], boats: [...boats.values()] };
 }

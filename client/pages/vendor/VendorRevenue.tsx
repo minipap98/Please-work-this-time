@@ -546,36 +546,6 @@ export default function VendorRevenue() {
               </div>
             </div>
 
-            {/* Revenue by boat class */}
-            <div className="border border-border rounded-lg p-4 sm:p-5">
-              <h3 className="text-sm font-semibold text-foreground mb-1">Revenue by Boat Class</h3>
-              <p className="text-xs text-muted-foreground mb-4">Which boat types generate the most revenue for your business.</p>
-              {analytics.revenueByBoatClass.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic py-4 text-center">No completed jobs yet.</p>
-              ) : (
-                <div className="space-y-2.5">
-                  {analytics.revenueByBoatClass.map((bc) => {
-                    const maxRevenue = Math.max(...analytics.revenueByBoatClass.map((b) => b.revenue), 1);
-                    return (
-                      <div key={bc.boatClass} className="flex items-center gap-3">
-                        <span className="text-sm text-foreground w-40 flex-shrink-0 truncate font-medium">{bc.boatClass}</span>
-                        <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-teal-500"
-                            style={{ width: `${(bc.revenue / maxRevenue) * 100}%` }}
-                          />
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-sm font-bold text-foreground">${bc.revenue.toLocaleString()}</span>
-                          <span className="text-xs text-muted-foreground">{bc.jobCount} job{bc.jobCount !== 1 ? "s" : ""}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
             {/* Key insights callout */}
             <div className="border border-sky-200 bg-sky-50/50 rounded-lg p-4 flex gap-3">
               <svg className="w-5 h-5 text-sky-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { DEMO_VENDOR_ID, useDemoMode } from "@/lib/demoMode";
 import { VENDOR_PROFILES } from "@/data/vendorData";
 import NotificationCenter from "@/components/NotificationCenter";
+import ShopSearchBar from "@/components/shop/ShopSearch";
 import { BosunLogo } from "@/components/marketing/BosunLogo";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -155,10 +156,20 @@ export default function AppShell({ children }: { children: ReactNode }) {
               <BosunLogo className="h-5" />
               {isVendor && <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600">Shop</span>}
             </Link>
-            <div className="hidden md:block text-sm text-muted-foreground">
-              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-            </div>
+            {isVendor ? (
+              <div className="hidden md:flex flex-1 items-center gap-4 min-w-0">
+                <ShopSearchBar vendorId={vendorId} />
+                <span className="text-sm text-muted-foreground truncate">
+                  {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                </span>
+              </div>
+            ) : (
+              <div className="hidden md:block text-sm text-muted-foreground">
+                {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+              </div>
+            )}
             <div className="flex items-center gap-1 sm:gap-2">
+              {isVendor && <span className="md:hidden"><ShopSearchBar vendorId={vendorId} /></span>}
               <NotificationCenter />
               <DropdownMenu>
                 <DropdownMenuTrigger className="flex items-center gap-2 rounded-full border border-border bg-white pl-1 pr-2 py-1 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">

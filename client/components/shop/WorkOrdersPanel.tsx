@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { WORK_ORDER_STATUSES, partsProgress, workOrderTotals, type PartsShipment, type WorkOrder, type WorkOrderStatus } from "@shared/shop";
 import type { Project } from "@/data/projectData";
 import { EmptyState, WorkOrderBadge, money, shortDate, timeRange } from "./shopUi";
@@ -13,13 +13,21 @@ interface Props {
   onNew: () => void;
   onFromJob: (job: Project) => void;
   onStatus: (id: string, status: WorkOrderStatus) => void;
+  /** From the quick search: filter the list to this customer or boat, across every status. */
+  initialQuery?: string;
 }
 
 const OPEN: WorkOrderStatus[] = ["scheduled", "in-progress", "waiting-parts"];
 
-export default function WorkOrdersPanel({ orders, shipments, wonJobs, onOpen, onNew, onFromJob, onStatus }: Props) {
-  const [filter, setFilter] = useState<Filter>("open");
-  const [q, setQ] = useState("");
+export default function WorkOrdersPanel({ orders, shipments, wonJobs, onOpen, onNew, onFromJob, onStatus, initialQuery = "" }: Props) {
+  const [filter, setFilter] = useState<Filter>(initialQuery ? "all" : "open");
+  const [q, setQ] = useState(initialQuery);
+
+  useEffect(() => {
+    if (!initialQuery) return;
+    setQ(initialQuery);
+    setFilter("all");
+  }, [initialQuery]);
 
   const linkedProjectIds = useMemo(() => new Set(orders.map((o) => o.projectId).filter(Boolean)), [orders]);
   const unlinkedJobs = wonJobs.filter((j) => !linkedProjectIds.has(j.id));

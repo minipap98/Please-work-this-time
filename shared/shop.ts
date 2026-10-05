@@ -799,3 +799,117 @@ export function pullList(order: Pick<WorkOrder, "lines">, inventory: InventoryIt
     })
     .sort((a, b) => a.bin.localeCompare(b.bin));
 }
+
+/* ── Quick search: boats, customers and work orders ─────────────────────── */
+
+export interface ShopSearchHit {
+  kind: "customer" | "boat" | "order";
+  /** What to show. */
+  label: string;
+  /** Secondary line. */
+  detail: string;
+  /** The text to filter the work-order list by (customers and boats). */
+  query: string;
+  /** The order to open (orders only). */
+  order?: WorkOrder;
+  score: number;
+}
+
+function norm(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function matchScore(hay: string, needle: string): number {
+  const h = norm(hay);
+  if (!h || !needle) return 0;
+  if (h === needle) return 100;
+  if (h.startsWith(needle)) return 80;
+  if (h.split(" ").some((w) => w.startsWith(needle))) return 60;
+  if (h.includes(needle)) return 40;
+  // every word of the query appears somewhere (e.g. "grady 336")
+  const words = needle.split(" ");
+  if (words.length > 1 && words.every((w) => h.includes(w))) return 50;
+  return 0;
+}
+
+/**
+ * Finds customers, boats and work orders matching the query across the shop's work orders
+ * and parts shipments (shipments can name boats that have no work order yet).
+ */
+export function searchShop(query: string, orders: WorkOrder[], shipments: PartsShipment[] = [], limit = 6): ShopSearchHit[] {
+  const needle = norm(query);
+  if (needle.length < 2) return [];
+
+  const customers = new Map<string, { score: number; boats: Set<string>; orders: number; latest: string }>();
+  const boats = new Map<string, { score: number; customer: string; orders: number; latest: string }>();
+  const hits: ShopSearchHit[] = [];
+
+  for (const o of orders) {
+    const c = o.customerName.trim();
+    if (c) {
+      const s = matchScore(c, needle);
+      const cur = customers.get(c) ?? { score: 0, boats: new Set<string>(), orders: 0, latest: "" };
+      cur.score = Math.max(cur.score, s);
+      if (o.boatLabel) cur.boats.add(o.boatLabel);
+      cur.orders += 1;
+      cur.latest = cur.latest > o.createdAt ? cur.latest : o.createdAt;
+      customers.set(c, cur);
+    }
+    const b = o.boatLabel.trim();
+    if (b) {
+      const s = matchScore(b, needle);
+      const cur = boats.get(b) ?? { score: 0, customer: c, orders: 0, latest: "" };
+      cur.score = Math.max(cur.score, s);
+      cur.orders += 1;
+      cur.latest = cur.latest > o.createdAt ? cur.latest : o.createdAt;
+      boats.set(b, cur);
+    }
+    const os = Math.max(matchScore(o.number, needle), matchScore(o.title, needle) - 10);
+    if (os > 0) {
+      hits.push({
+        kind: "order",
+        label: `${o.number} · ${o.title}`,
+        detail: [o.boatLabel || o.customerName, o.assignedTo].filter(Boolean).join(" · "),
+        query: o.number,
+        order: o,
+        score: os,
+      });
+    }
+  }
+  for (const s of shipments) {
+    const b = s.boatLabel.trim();
+    if (b && !boats.has(b)) {
+      const sc = matchScore(b, needle);
+      if (sc > 0) boats.set(b, { score: sc, customer: s.customerName, orders: 0, latest: "" });
+    }
+    const c = s.customerName.trim();
+    if (c && !customers.has(c)) {
+      const sc = matchScore(c, needle);
+      if (sc > 0) customers.set(c, { score: sc, boats: new Set(b ? [b] : []), orders: 0, latest: "" });
+    }
+  }
+
+  for (const [name, c] of customers) {
+    if (c.score === 0) continue;
+    const boatsText = [...c.boats].slice(0, 2).join(", ");
+    hits.push({
+      kind: "customer",
+      label: name,
+      detail: [boatsText, c.orders ? `${c.orders} work order${c.orders === 1 ? "" : "s"}` : "parts only"].filter(Boolean).join(" · "),
+      query: name,
+      score: c.score + 5,
+    });
+  }
+  for (const [label, b] of boats) {
+    if (b.score === 0) continue;
+    hits.push({
+      kind: "boat",
+      label,
+      detail: [b.customer, b.orders ? `${b.orders} work order${b.orders === 1 ? "" : "s"}` : "parts only"].filter(Boolean).join(" · "),
+      query: label,
+      score: b.score + 3,
+    });
+  }
+
+  return hits.sort((a, b) => b.score - a.score || a.label.localeCompare(b.label)).slice(0, limit);
+}

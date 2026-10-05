@@ -20,6 +20,7 @@ import {
   workOrderTotals,
   type PartsShipment,
   type WorkOrder,
+  searchShop,
 } from "./shop";
 
 const now = new Date(2026, 9, 2); // Oct 2, 2026
@@ -262,5 +263,61 @@ describe("vendor Today", () => {
       { description: "Oil filter (Verado)", quantity: 2, bin: "A1", inStock: 9 },
       { description: "Lenco actuator", quantity: 1, bin: "Special order", inStock: null },
     ]);
+  });
+});
+
+describe("searchShop", () => {
+  const wo = (over: Partial<WorkOrder>): WorkOrder => ({
+    id: over.id ?? "1",
+    number: "WO-1001",
+    title: "Oil change",
+    description: "",
+    status: "scheduled",
+    customerName: "Dana Whitfield",
+    customerEmail: "",
+    boatLabel: "2021 Grady-White Canyon 336 · Reel Therapy",
+    assignedTo: "Marco",
+    bay: "Bay 1",
+    scheduledStart: null,
+    scheduledEnd: null,
+    engineHours: null,
+    taxRate: 7,
+    completedAt: null,
+    exportedAt: null,
+    createdAt: "2026-10-01T00:00:00Z",
+    lines: [],
+    ...over,
+  });
+  const orders = [
+    wo({ id: "1" }),
+    wo({ id: "2", number: "WO-1002", title: "Bottom paint", customerName: "Tom Alvarez", boatLabel: "2018 Boston Whaler 280 Outrage" }),
+    wo({ id: "3", number: "WO-1003", title: "Impeller", customerName: "Dana Whitfield" }),
+  ];
+
+  it("finds a customer by first name and counts their boats and orders", () => {
+    const hits = searchShop("dana", orders);
+    expect(hits[0]).toMatchObject({ kind: "customer", label: "Dana Whitfield" });
+    expect(hits[0].detail).toContain("2 work orders");
+  });
+
+  it("finds a boat by nickname or by make and model words in any order", () => {
+    expect(searchShop("reel therapy", orders)[0]).toMatchObject({ kind: "boat" });
+    expect(searchShop("336 grady", orders).some((h) => h.kind === "boat")).toBe(true);
+  });
+
+  it("finds a work order by number and opens it", () => {
+    const hit = searchShop("1002", orders).find((h) => h.kind === "order");
+    expect(hit?.order?.id).toBe("2");
+  });
+
+  it("includes boats known only from a parts shipment", () => {
+    const shipments = [
+      { id: "s1", boatLabel: "2016 Chris-Craft Launch 28", customerName: "Grace Liu", workOrderId: null } as unknown as PartsShipment,
+    ];
+    expect(searchShop("chris", orders, shipments)[0]).toMatchObject({ kind: "boat", detail: "Grace Liu · parts only" });
+  });
+
+  it("ignores one-character queries", () => {
+    expect(searchShop("d", orders)).toEqual([]);
   });
 });

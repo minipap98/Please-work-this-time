@@ -38,6 +38,7 @@ import type { Project } from "@/data/projectData";
 import { isLowStock, occupiesDay, toLocalDateKey, workOrderTotals, type InventoryItem, type WorkOrder } from "@shared/shop";
 import WorkOrderEditor, { blankWorkOrder, draftFromOrder } from "@/components/shop/WorkOrderEditor";
 import WorkOrdersPanel from "@/components/shop/WorkOrdersPanel";
+import ShopSearchBar from "@/components/shop/ShopSearch";
 import SchedulePanel from "@/components/shop/SchedulePanel";
 import InventoryPanel from "@/components/shop/InventoryPanel";
 import PartsInboundPanel, { blankShipment } from "@/components/shop/PartsInboundPanel";
@@ -202,6 +203,7 @@ export default function VendorShop({
           title={shopName ?? "Shop"}
           description="Work orders, the board, parts on the shelf and on the truck, and clean books."
           className="mb-5"
+          actions={managerMode ? <ShopSearchBar vendorId={vendorId} base="/crew-shop" className="md:w-80" /> : undefined}
         />
 
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 mb-5">
@@ -239,6 +241,7 @@ export default function VendorShop({
                 onNew={() => openNew()}
                 onFromJob={openFromJob}
                 onStatus={(id, status) => setStatus.mutate({ id, status }, { onError: fail })}
+                initialQuery={params.get("q") ?? ""}
               />
             )}
             {tab === "schedule" && (

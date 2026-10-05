@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { Search } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { isDemoMode } from "@/lib/demoMode";
 import {
@@ -33,6 +34,14 @@ export default function TechToday() {
   const update = useTechUpdateJob();
   const [open, setOpen] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [q, setQ] = useState("");
+  const found = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (needle.length < 2) return null;
+    return jobs
+      .filter((j) => [j.title, j.customerName, j.boatLabel, j.number].some((f) => f.toLowerCase().includes(needle)))
+      .sort((a, b) => (b.scheduledStart ?? b.createdAt).localeCompare(a.scheduledStart ?? a.createdAt));
+  }, [jobs, q]);
 
   const todayKey = toLocalDateKey(new Date().toISOString());
   const { today, upcoming, done } = useMemo(() => {
@@ -111,6 +120,40 @@ export default function TechToday() {
           </div>
         ) : (
           <>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Find a boat or customer in your jobs"
+                aria-label="Search my jobs"
+                className="w-full rounded-xl border border-border bg-white pl-9 pr-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400"
+              />
+            </div>
+            {found ? (
+              <Section title={`Matches · ${found.length}`}>
+                {found.length === 0 ? (
+                  <Empty text={`No jobs of yours match "${q}".`} />
+                ) : (
+                  found.slice(0, 12).map((j) => (
+                    <JobCard
+                      key={j.id}
+                      job={j}
+                      inventory={inventory}
+                      expanded={open === j.id}
+                      onToggle={() => setOpen(open === j.id ? null : j.id)}
+                      note={notes[j.id] ?? ""}
+                      onNote={(v) => setNotes((n) => ({ ...n, [j.id]: v }))}
+                      busy={update.isPending}
+                      onStart={() => act(j, "in-progress")}
+                      onDone={() => act(j, "completed")}
+                      onSaveNote={() => act(j)}
+                    />
+                  ))
+                )}
+              </Section>
+            ) : (
+            <>
             {m.role === "manager" && (
               <Link
                 to="/crew-shop"
@@ -165,6 +208,8 @@ export default function TechToday() {
                   </div>
                 ))}
               </Section>
+            )}
+            </>
             )}
           </>
         )}

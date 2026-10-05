@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { WORK_ORDER_STATUSES, partsProgress, workOrderTotals, type PartsShipment, type WorkOrder, type WorkOrderStatus } from "@shared/shop";
+import { WORK_ORDER_STATUSES, billingStep, partsProgress, workOrderTotals, type PartsShipment, type WorkOrder, type WorkOrderStatus } from "@shared/shop";
 import type { Project } from "@/data/projectData";
 import { EmptyState, WorkOrderBadge, money, shortDate, timeRange } from "./shopUi";
 
-type Filter = "open" | "all" | WorkOrderStatus;
+type Filter = "open" | "unpaid" | "all" | WorkOrderStatus;
 
 interface Props {
   orders: WorkOrder[];
@@ -35,7 +35,9 @@ export default function WorkOrdersPanel({ orders, shipments, wonJobs, onOpen, on
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return orders
-      .filter((o) => (filter === "all" ? true : filter === "open" ? OPEN.includes(o.status) : o.status === filter))
+      .filter((o) =>
+        filter === "all" ? true : filter === "open" ? OPEN.includes(o.status) : filter === "unpaid" ? ["invoice", "collect"].includes(billingStep(o)) : o.status === filter
+      )
       .filter((o) =>
         !needle ||
         [o.number, o.title, o.customerName, o.boatLabel, o.assignedTo].some((f) => f.toLowerCase().includes(needle))
@@ -64,7 +66,7 @@ export default function WorkOrdersPanel({ orders, shipments, wonJobs, onOpen, on
 
       <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
         <div className="flex gap-1 overflow-x-auto">
-          {([{ value: "open", label: "Open" }, ...WORK_ORDER_STATUSES, { value: "all", label: "All" }] as { value: Filter; label: string }[]).map((f) => (
+          {([{ value: "open", label: "Open" }, ...WORK_ORDER_STATUSES, { value: "unpaid", label: "Unpaid" }, { value: "all", label: "All" }] as { value: Filter; label: string }[]).map((f) => (
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
@@ -110,6 +112,8 @@ export default function WorkOrdersPanel({ orders, shipments, wonJobs, onOpen, on
                       <span className="text-xs font-mono text-muted-foreground">{o.number}</span>
                       <WorkOrderBadge status={o.status} />
                       {o.projectId && <span className="text-[10px] font-semibold text-emerald-700">BOSUN JOB</span>}
+                      {billingStep(o) === "paid" && <span className="text-[10px] font-semibold text-emerald-700">PAID</span>}
+                      {billingStep(o) === "collect" && <span className="text-[10px] font-semibold text-amber-700">UNPAID</span>}
                       {o.exportedAt && <span className="text-[10px] font-semibold text-violet-700">IN QUICKBOOKS</span>}
                       {parts.total > 0 && (
                         <span

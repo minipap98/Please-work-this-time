@@ -893,6 +893,9 @@ export interface Database {
           tax_rate: number;
           completed_at: string | null;
           exported_at: string | null;
+          invoiced_at: string | null;
+          paid_at: string | null;
+          payment_method: string;
           created_at: string;
           updated_at: string;
         };
@@ -916,6 +919,9 @@ export interface Database {
           tax_rate?: number;
           completed_at?: string | null;
           exported_at?: string | null;
+          invoiced_at?: string | null;
+          paid_at?: string | null;
+          payment_method?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -938,6 +944,9 @@ export interface Database {
           tax_rate?: number;
           completed_at?: string | null;
           exported_at?: string | null;
+          invoiced_at?: string | null;
+          paid_at?: string | null;
+          payment_method?: string;
           created_at?: string;
           updated_at?: string;
         };

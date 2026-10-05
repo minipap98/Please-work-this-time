@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
+  billingStep,
   occupiesDay,
   partsProgress,
   shipmentBoatKey,
@@ -100,7 +101,7 @@ export default function TodayPanel({ vendorId, coiExpiry }: { vendorId: string; 
       const total = workOrderTotals(o.lines, o.taxRate).total;
       const done = Date.parse(o.completedAt ?? o.createdAt);
       if (done >= weekAgo) week += total;
-      if (o.status === "completed" && !o.exportedAt) ready += total;
+      if (billingStep(o) === "invoice") ready += total;
       if (o.exportedAt && Date.parse(o.exportedAt) >= monthStart) sentMonth += total;
     }
     return { week, ready, sentMonth };
@@ -132,7 +133,7 @@ export default function TodayPanel({ vendorId, coiExpiry }: { vendorId: string; 
         <StatTile icon={<CalendarDays />} label="Board today" value={todayJobs} sub={`${board[1].list.length} tomorrow`} onClick={() => go("schedule")} />
         <StatTile icon={<Clock />} label="Waiting on parts" value={waitingParts} tone={waitingParts ? "warn" : "default"} onClick={() => go("orders")} />
         <StatTile icon={<Package />} label="Arriving" value={arrivingCount} sub="parts due today" onClick={() => go("parts")} />
-        <StatTile icon={<DollarSign />} label="To invoice" value={money(money7.ready)} tone={money7.ready > 0 ? "warn" : "default"} onClick={() => go("quickbooks")} />
+        <StatTile icon={<DollarSign />} label="To invoice" value={money(money7.ready)} tone={money7.ready > 0 ? "warn" : "default"} onClick={() => go("orders")} />
         <StatTile icon={<PackageCheck />} label="Done this week" value={money(money7.week)} sub={`${money(money7.sentMonth)} in QuickBooks`} onClick={() => go("orders")} />
       </StatGrid>
 

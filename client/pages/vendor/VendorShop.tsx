@@ -35,6 +35,7 @@ import {
   useSaveCustomer,
   useDeleteBoat,
   useDeleteCustomer,
+  useBillWorkOrder,
   type ShipmentDraft,
   type WorkOrderDraft,
 } from "@/hooks/use-shop";
@@ -46,7 +47,8 @@ import WorkOrdersPanel from "@/components/shop/WorkOrdersPanel";
 import ShopSearchBar from "@/components/shop/ShopSearch";
 import CustomersPanel from "@/components/shop/CustomersPanel";
 import CustomerDialog from "@/components/shop/CustomerDialog";
-import { boatLabel, parseBoatLabel, type ShopBoat, type ShopCustomer } from "@shared/shop";
+import InvoiceSheet from "@/components/shop/InvoiceSheet";
+import { billingStep as billingStepOf, boatLabel, parseBoatLabel, type ShopBoat, type ShopCustomer } from "@shared/shop";
 import SchedulePanel from "@/components/shop/SchedulePanel";
 import InventoryPanel from "@/components/shop/InventoryPanel";
 import PartsInboundPanel, { blankShipment } from "@/components/shop/PartsInboundPanel";
@@ -78,7 +80,7 @@ export default function VendorShop({
   managerMode = false,
   shopName,
 }: { vendorIdOverride?: string; managerMode?: boolean; shopName?: string } = {}) {
-  const { vendorId: roleVendorId } = useRole();
+  const { vendorId: roleVendorId, vendorName } = useRole();
   const vendorId = vendorIdOverride ?? roleVendorId;
   const tabs = managerMode ? TABS.filter((t) => !MANAGER_HIDDEN.includes(t.key)) : TABS;
   const { toast } = useToast();
@@ -98,6 +100,10 @@ export default function VendorShop({
   const saveCustomer = useSaveCustomer(vendorId);
   const deleteBoat = useDeleteBoat(vendorId);
   const deleteCustomer = useDeleteCustomer(vendorId);
+  const bill = useBillWorkOrder(vendorId);
+  const [invoiceFor, setInvoiceFor] = useState<string | null>(null);
+  const invoiceOrder = invoiceFor ? orders.find((o) => o.id === invoiceFor) ?? null : null;
+  const billingName = shopName ?? vendorName ?? "Your shop";
   // Customer dialog: null closed; { customer } edits; { prefill } adds (and selects the new boat on the open work order).
   const [customerDialog, setCustomerDialog] = useState<
     null | { customer: ShopCustomer } | { prefill: { customer?: { name?: string; email?: string }; boat?: Partial<ShopBoat> }; forEditor: boolean }
@@ -141,7 +147,7 @@ export default function VendorShop({
     const low = inventory.filter(isLowStock);
     const arriving = shipments.filter((s) => !s.receivedAt && (s.status === "out-for-delivery" || s.eta === todayKey));
     const unbilled = orders
-      .filter((o) => o.status === "completed" && !o.exportedAt)
+      .filter((o) => billingStepOf(o) === "invoice")
       .reduce((s, o) => s + workOrderTotals(o.lines, o.taxRate).total, 0);
     return { today, waiting, low, arriving, unbilled };
   }, [orders, inventory, shipments, todayKey]);
@@ -232,7 +238,7 @@ export default function VendorShop({
           <StatButton label="Waiting on parts" value={String(stats.waiting.length)} tone={stats.waiting.length ? "warn" : undefined} onClick={() => setTab("orders")} />
           <StatButton label="Parts arriving today" value={String(stats.arriving.length)} onClick={() => setTab("parts")} />
           <StatButton label="Low stock" value={String(stats.low.length)} tone={stats.low.length ? "warn" : undefined} onClick={() => setTab("inventory")} />
-          <StatButton label="Ready to invoice" value={money(stats.unbilled)} onClick={() => setTab("quickbooks")} />
+          <StatButton label="Ready to invoice" value={money(stats.unbilled)} onClick={() => setTab("orders")} />
         </div>
 
         <div className="flex gap-1 border-b border-border mb-5 overflow-x-auto">
@@ -348,6 +354,10 @@ export default function VendorShop({
         )}
       </PageContainer>
 
+      {invoiceOrder && (
+        <InvoiceSheet open onOpenChange={(o) => !o && setInvoiceFor(null)} order={invoiceOrder} shopName={billingName} />
+      )}
+
       <CustomerDialog
         open={!!customerDialog}
         onOpenChange={(o) => !o && setCustomerDialog(null)}
@@ -418,6 +428,15 @@ export default function VendorShop({
             })
           }
           saving={saveOrder.isPending}
+          order={editor.id ? orders.find((o) => o.id === editor.id) ?? null : null}
+          onInvoice={() => {
+            const o = orders.find((x) => x.id === editor.id);
+            if (!o) return;
+            if (billingStepOf(o) === "invoice") bill.mutate({ id: o.id, action: "invoice" }, { onError: fail });
+            setInvoiceFor(o.id);
+          }}
+          onMarkPaid={(method) => editor.id && bill.mutate({ id: editor.id, action: "paid", method }, { onError: fail, onSuccess: () => toast({ title: "Payment recorded" }) })}
+          onMarkUnpaid={() => editor.id && bill.mutate({ id: editor.id, action: "unpaid" }, { onError: fail })}
           onSave={(d) =>
             saveOrder.mutate(d, {
               onError: fail,

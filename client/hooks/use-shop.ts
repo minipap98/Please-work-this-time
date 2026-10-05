@@ -172,6 +172,9 @@ function mapWorkOrder(r: WorkOrderRow): WorkOrder {
     taxRate: Number(r.tax_rate) || 0,
     completedAt: r.completed_at,
     exportedAt: r.exported_at,
+    invoicedAt: r.invoiced_at ?? null,
+    paidAt: r.paid_at ?? null,
+    paymentMethod: r.payment_method ?? "",
     createdAt: r.created_at,
     lines: [...(r.lines ?? [])]
       .sort((a, b) => a.sort_order - b.sort_order)
@@ -591,6 +594,38 @@ export function useDeleteWorkOrder(vendorId: string | null) {
 }
 
 /** Stamp exported work orders and move completed ones to invoiced. */
+export type BillingAction = { id: string; action: "invoice" } | { id: string; action: "paid"; method: string } | { id: string; action: "unpaid" };
+
+/** Invoice sent, payment received, or payment undone. */
+export function useBillWorkOrder(vendorId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (a: BillingAction) => {
+      const now = new Date().toISOString();
+      const patch: Partial<WorkOrder> =
+        a.action === "invoice"
+          ? { status: "invoiced", invoicedAt: now }
+          : a.action === "paid"
+            ? { paidAt: now, paymentMethod: a.method }
+            : { paidAt: null, paymentMethod: "" };
+      if (isDemoMode()) {
+        mutateDemo((s) => {
+          s.workOrders = s.workOrders.map((o) => (o.id === a.id ? { ...o, ...patch } : o));
+        });
+        return;
+      }
+      const row: Partial<Tables<"shop_work_orders">> = { updated_at: now };
+      if (patch.status) row.status = patch.status;
+      if ("invoicedAt" in patch) row.invoiced_at = patch.invoicedAt ?? null;
+      if ("paidAt" in patch) row.paid_at = patch.paidAt ?? null;
+      if ("paymentMethod" in patch) row.payment_method = patch.paymentMethod ?? "";
+      const { error } = await db().from("shop_work_orders").update(row).eq("id", a.id);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateShop(qc, vendorId!),
+  });
+}
+
 export function useMarkExported(vendorId: string | null) {
   const qc = useQueryClient();
   return useMutation({

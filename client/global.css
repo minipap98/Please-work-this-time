@@ -146,3 +146,11 @@
 @media (prefers-reduced-motion: reduce) {
   .bosun-letter, .bosun-wave, .bosun-fade-up { animation: none !important; opacity: 1 !important; transform: none !important; filter: none !important; }
 }
+
+/* Printing an invoice: only the sheet, on white. */
+@media print {
+  body * { visibility: hidden !important; }
+  #invoice-sheet, #invoice-sheet * { visibility: visible !important; }
+  #invoice-sheet { position: fixed !important; inset: 0 !important; padding: 24px !important; background: white !important; overflow: visible !important; max-height: none !important; }
+  [data-radix-popper-content-wrapper], [role="dialog"] { box-shadow: none !important; }
+}

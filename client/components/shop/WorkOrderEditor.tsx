@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
+  PAYMENT_METHODS,
   WORK_ORDER_STATUSES,
+  billingStep,
   boatLabel,
   workOrderTotals,
   type InventoryItem,
@@ -32,6 +34,11 @@ interface Props {
   saving: boolean;
   onSave: (draft: WorkOrderDraft) => void;
   onDelete?: () => void;
+  /** The saved order behind this draft (for billing state); absent for a new one. */
+  order?: WorkOrder | null;
+  onInvoice?: () => void;
+  onMarkPaid?: (method: string) => void;
+  onMarkUnpaid?: () => void;
 }
 
 export function blankWorkOrder(number: string, settings: ShopSettings): WorkOrderDraft {
@@ -69,7 +76,10 @@ const NEW_CUSTOMER = "__new__";
 
 export default function WorkOrderEditor({
   open, onOpenChange, initial, inventory, shipments, onOrderPart, settings, customers, boats, onAddCustomer, saving, onSave, onDelete,
+  order, onInvoice, onMarkPaid, onMarkUnpaid,
 }: Props) {
+  const [payMethod, setPayMethod] = useState<string>(PAYMENT_METHODS[0]);
+  const step = order ? billingStep(order) : "not-done";
   const partsForBoat = initial.id ? shipments.filter((s) => s.workOrderId === initial.id) : [];
   const [d, setD] = useState<WorkOrderDraft>(initial);
   useEffect(() => setD(initial), [initial]);
@@ -121,6 +131,7 @@ export default function WorkOrderEditor({
   const techOptions = settings.techs.includes(d.assignedTo) || !d.assignedTo ? settings.techs : [d.assignedTo, ...settings.techs];
   const bayOptions = settings.bays.includes(d.bay) || !d.bay ? settings.bays : [d.bay, ...settings.bays];
 
+  const dirty = JSON.stringify(d) !== JSON.stringify(initial);
   const canSave = d.title.trim().length > 0 && d.lines.every((l) => l.description.trim()) && (!!d.boatId || !!d.boatLabel.trim());
 
   return (
@@ -313,12 +324,63 @@ export default function WorkOrderEditor({
           </p>
         )}
 
+        {order && (step !== "not-done" || d.status === "completed") && (
+          <div className="rounded-xl border border-border bg-slate-50 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold">Billing · {money(totals.total)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {step === "paid"
+                    ? `Paid ${shortDate(order.paidAt)}${order.paymentMethod ? ` by ${order.paymentMethod.toLowerCase()}` : ""}.`
+                    : step === "collect"
+                      ? `Invoiced ${shortDate(order.invoicedAt ?? order.completedAt)}. Waiting on payment.`
+                      : "Work is done. Send the invoice, then record the payment here."}
+                  {order.exportedAt && " In QuickBooks."}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {onInvoice && (
+                  <button type="button" onClick={onInvoice} disabled={dirty} title={dirty ? "Save your changes first" : undefined} className="px-3 py-1.5 text-sm font-medium rounded-lg border border-border bg-white hover:bg-muted disabled:opacity-50">
+                    {step === "invoice" ? "Send invoice" : "View invoice"}
+                  </button>
+                )}
+                {step === "paid" ? (
+                  onMarkUnpaid && (
+                    <button type="button" onClick={onMarkUnpaid} className="text-xs text-muted-foreground hover:text-foreground hover:underline">Undo payment</button>
+                  )
+                ) : (
+                  onMarkPaid && (
+                    <>
+                      <select className="px-2 py-1.5 text-sm border border-border rounded-lg bg-white" value={payMethod} onChange={(e) => setPayMethod(e.target.value)} aria-label="Payment method">
+                        {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                      <button type="button" onClick={() => onMarkPaid(payMethod)} disabled={dirty} title={dirty ? "Save your changes first" : undefined} className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+                        Mark paid
+                      </button>
+                    </>
+                  )
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between pt-2">
           {onDelete ? (
             <button type="button" onClick={onDelete} className="text-sm text-red-600 hover:underline">Delete</button>
           ) : <span />}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 justify-end">
             <button type="button" onClick={() => onOpenChange(false)} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted">Cancel</button>
+            {d.status !== "completed" && d.status !== "invoiced" && (
+              <button
+                type="button"
+                disabled={!canSave || saving}
+                onClick={() => onSave({ ...d, status: "completed" })}
+                className="px-4 py-2 text-sm font-semibold rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+              >
+                Mark complete
+              </button>
+            )}
             <button
               type="button"
               disabled={!canSave || saving}

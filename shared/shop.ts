@@ -47,8 +47,22 @@ export interface WorkOrder {
   taxRate: number; // percent, applied to parts only
   completedAt: string | null;
   exportedAt: string | null;
+  /** Billing: invoice sent to the customer, and payment received. */
+  invoicedAt?: string | null;
+  paidAt?: string | null;
+  paymentMethod?: string;
   createdAt: string;
   lines: WorkOrderLine[];
+}
+
+export const PAYMENT_METHODS = ["Card", "Check", "Cash", "ACH / wire", "Other"] as const;
+
+/** What the shop still needs to do to get paid for this order. */
+export function billingStep(o: Pick<WorkOrder, "status" | "paidAt" | "invoicedAt">): "not-done" | "invoice" | "collect" | "paid" {
+  if (o.paidAt) return "paid";
+  if (o.status === "invoiced" || o.invoicedAt) return "collect";
+  if (o.status === "completed") return "invoice";
+  return "not-done";
 }
 
 export interface InventoryItem {
@@ -675,14 +689,24 @@ export function shopAlerts(input: {
     });
   }
 
-  const unbilled = input.orders.filter((o) => o.status === "completed" && !o.exportedAt);
+  const unbilled = input.orders.filter((o) => billingStep(o) === "invoice");
   if (unbilled.length) {
     const sum = unbilled.reduce((t, o) => t + workOrderTotals(o.lines, o.taxRate).total, 0);
     alerts.push({
       id: "unbilled",
       tone: "warn",
-      text: `${unbilled.length} completed job${unbilled.length === 1 ? "" : "s"} ($${Math.round(sum).toLocaleString("en-US")}) not in QuickBooks yet`,
-      action: { label: "Export", tab: "quickbooks" },
+      text: `${unbilled.length} completed job${unbilled.length === 1 ? "" : "s"} ($${Math.round(sum).toLocaleString("en-US")}) not invoiced yet`,
+      action: { label: "Invoice", tab: "orders" },
+    });
+  }
+  const owed = input.orders.filter((o) => billingStep(o) === "collect");
+  if (owed.length) {
+    const sum = owed.reduce((t, o) => t + workOrderTotals(o.lines, o.taxRate).total, 0);
+    alerts.push({
+      id: "unpaid",
+      tone: "info",
+      text: `${owed.length} invoice${owed.length === 1 ? "" : "s"} ($${Math.round(sum).toLocaleString("en-US")}) waiting on payment`,
+      action: { label: "Collect", tab: "orders" },
     });
   }
 

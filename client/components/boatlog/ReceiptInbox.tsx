@@ -59,11 +59,16 @@ export default function ReceiptInbox({ className }: { className?: string }) {
                     {[r.extracted?.shop, r.extracted?.date ? when(r.extracted.date) : null, r.extracted?.total != null ? `$${r.extracted.total.toLocaleString()}` : null, `received ${when(r.receivedAt)}`]
                       .filter(Boolean)
                       .join(" · ")}
+                    {r.reading && <span className="text-sky-700"> · reading it now…</span>}
                     {r.readError && !r.extracted && <span className="text-amber-700"> · couldn't be read, fill in by hand</span>}
                   </p>
                 </div>
-                <button onClick={() => start(r)} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary text-primary-foreground whitespace-nowrap">
-                  Review
+                <button
+                  onClick={() => start(r)}
+                  disabled={r.reading}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary text-primary-foreground whitespace-nowrap disabled:opacity-50"
+                >
+                  {r.reading ? "Reading…" : "Review"}
                 </button>
                 <button
                   onClick={() => resolve.mutate({ id: r.id, status: "dismissed" }, { onError: (e) => toast.error(e.message) })}

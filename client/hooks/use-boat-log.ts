@@ -485,6 +485,8 @@ export interface InboxReceipt {
   attachmentName: string | null;
   extracted: ExtractedInvoice | null;
   readError: string | null;
+  /** Filed but Claude hasn't finished reading it yet (takes 10–30 s after the email arrives). */
+  reading: boolean;
 }
 
 export function useReceiptInbox() {
@@ -509,10 +511,12 @@ export function useReceiptInbox() {
         attachmentName: r.attachment_name,
         extracted: r.extracted ? normalizeInvoice(r.extracted) : null,
         readError: r.read_error,
+        reading: !r.extracted && !r.read_error,
       }));
     },
     enabled: !!user && !demo,
-    refetchInterval: 60_000,
+    // Poll quickly while something is still being read, otherwise once a minute.
+    refetchInterval: (q) => (q.state.data?.some((r) => r.reading) ? 5_000 : 60_000),
   });
 }
 

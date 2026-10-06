@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { ENGINE_DATA, type EngineType } from "@/data/engineData";
 import { type ProjectBoat } from "@/data/projectData";
-import { bannerRatio, heroFrameStyle, readHeroFit, readHeroFrame, useMyBoats } from "@/hooks/use-my-boat";
+import { bannerRatio, heroFrameStyle, photoFrameFor, useMyBoats } from "@/hooks/use-my-boat";
 import BoatSwitcher from "@/components/boats/BoatSwitcher";
 import { cn } from "@/lib/utils";
 import { DEMO_BOAT } from "@/data/demoBoat";
@@ -363,8 +363,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
   const showWarrantyClaimOption =
     selectedEquipment && (selectedWarrantyStatus === "active" || selectedWarrantyStatus === "expiring");
 
-  const heroFit = readHeroFit(demo ? "demo" : boatInfo?.id ?? "");
-  const heroFrame = readHeroFrame(demo ? "demo" : boatInfo?.id ?? "");
+  const { fit: heroFit, ...heroFrame } = photoFrameFor(primary, demo);
   const engineModel = boatInfo?.engineModel?.replace(/\s*\([\d–\-]+.*?\)$/, "") || null;
   const engineDisplay = [
     boatInfo?.engineType === "Outboard" ? boatInfo?.engineCount || null : null,

@@ -56,27 +56,14 @@ export function useMyBoats() {
 }
 
 export type HeroFit = "cover" | "contain";
-const fitKey = (boatId: string) => `bosun_hero_fit:${boatId}`;
-/** How the dashboard banner shows this boat's photo: fill the banner (default) or show every pixel. */
-export function readHeroFit(boatId: string): HeroFit {
-  try {
-    return localStorage.getItem(fitKey(boatId)) === "contain" ? "contain" : "cover";
-  } catch {
-    return "cover";
-  }
-}
-export function writeHeroFit(boatId: string, fit: HeroFit) {
-  try {
-    localStorage.setItem(fitKey(boatId), fit);
-  } catch {}
-}
-
 /**
- * How the photo sits in the banner when it fills it: zoom (1 = just fits) and the
- * focal point (0–100% from the left / top) that stays in view. Per boat, in this browser.
+ * How the photo sits in the banner: fill it ("cover") or show every pixel ("contain"), and when
+ * filling, the zoom (1 = just covers) and the focal point (0–100% from the left / top).
  */
 export type HeroFrame = { zoom: number; x: number; y: number };
+export type PhotoFrame = HeroFrame & { fit: HeroFit };
 export const DEFAULT_FRAME: HeroFrame = { zoom: 1, x: 50, y: 50 };
+export const DEFAULT_PHOTO_FRAME: PhotoFrame = { fit: "cover", ...DEFAULT_FRAME };
 /** Below 1 the photo sits smaller than the banner (white around it); above 1 it's enlarged. */
 export const MIN_ZOOM = 0.5;
 export const MAX_ZOOM = 3;
@@ -88,25 +75,48 @@ export function fitZoom(imageRatio: number, boxRatio: number): number {
   if (!imageRatio || !boxRatio) return 1;
   return clamp(Math.min(boxRatio / imageRatio, imageRatio / boxRatio) * 0.92, MIN_ZOOM, 1);
 }
-const frameKey = (boatId: string) => `bosun_hero_frame:${boatId}`;
-export function readHeroFrame(boatId: string): HeroFrame {
+
+const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
+/** A stored frame (jsonb on the boat, or a JSON string) made safe; anything missing gets the default. */
+export function parsePhotoFrame(raw: unknown): PhotoFrame {
+  let f: Partial<PhotoFrame> | null = null;
   try {
-    const raw = localStorage.getItem(frameKey(boatId));
-    if (!raw) return DEFAULT_FRAME;
-    const f = JSON.parse(raw) as Partial<HeroFrame>;
-    return {
-      zoom: clamp(Number(f.zoom) || 1, MIN_ZOOM, MAX_ZOOM),
-      x: clamp(Number(f.x) || 50, 0, 100),
-      y: clamp(Number(f.y) || 50, 0, 100),
-    };
+    f = typeof raw === "string" ? (JSON.parse(raw) as Partial<PhotoFrame>) : (raw as Partial<PhotoFrame> | null);
   } catch {
-    return DEFAULT_FRAME;
+    f = null;
+  }
+  if (!f || typeof f !== "object") return DEFAULT_PHOTO_FRAME;
+  return {
+    fit: f.fit === "contain" ? "contain" : "cover",
+    zoom: clamp(num(f.zoom, 1), MIN_ZOOM, MAX_ZOOM),
+    x: clamp(num(f.x, 50), 0, 100),
+    y: clamp(num(f.y, 50), 0, 100),
+  };
+}
+
+// The demo (and accounts whose boats table predates photo_frame) keep the framing in this browser.
+const localKey = (boatId: string) => `bosun_photo_frame:${boatId}`;
+export function readLocalPhotoFrame(boatId: string): PhotoFrame {
+  try {
+    return parsePhotoFrame(localStorage.getItem(localKey(boatId)));
+  } catch {
+    return DEFAULT_PHOTO_FRAME;
   }
 }
-export function writeHeroFrame(boatId: string, frame: HeroFrame) {
+export function writeLocalPhotoFrame(boatId: string, frame: PhotoFrame) {
   try {
-    localStorage.setItem(frameKey(boatId), JSON.stringify(frame));
+    localStorage.setItem(localKey(boatId), JSON.stringify(frame));
   } catch {}
+}
+/**
+ * The framing to show for a boat: the demo's lives in this browser; a live boat's is stored on
+ * its row (photo_frame) so it's the same on every device, falling back to this browser's copy.
+ */
+export function photoFrameFor(boat: { id: string; photo_frame?: unknown } | null | undefined, demo: boolean): PhotoFrame {
+  if (demo) return readLocalPhotoFrame("demo");
+  if (!boat) return DEFAULT_PHOTO_FRAME;
+  if (boat.photo_frame != null) return parsePhotoFrame(boat.photo_frame);
+  return readLocalPhotoFrame(boat.id);
 }
 /**
  * Width ÷ height of the dashboard banner for a photo of this size. The banner takes the

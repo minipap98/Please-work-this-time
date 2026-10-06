@@ -6,7 +6,7 @@ import "react-image-crop/dist/ReactCrop.css";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useDemoMode } from "@/lib/demoMode";
-import { readHeroFit, readHeroFrame, useMyBoats, uploadBoatPhoto, writeHeroFit, writeHeroFrame, type HeroFit, type HeroFrame } from "@/hooks/use-my-boat";
+import { photoFrameFor, useMyBoats, uploadBoatPhoto, writeLocalPhotoFrame, type HeroFit, type HeroFrame, type PhotoFrame } from "@/hooks/use-my-boat";
 import { HeroFrameEditor } from "@/components/boats/HeroFrameEditor";
 import { RECEIPTS_ADDRESS } from "@/components/boatlog/ReceiptInbox";
 import { useUpdateBoat } from "@/hooks/use-supabase";
@@ -49,17 +49,38 @@ export default function Settings() {
   const { primary } = useMyBoats();
   const updateBoat = useUpdateBoat();
   const [saving, setSaving] = useState(false);
+  // How the photo sits in the dashboard banner. The demo keeps it in this browser; a live
+  // boat stores it on its row so every device shows the same framing.
   const fitBoatId = demo ? "demo" : primary?.id ?? "";
-  const [heroFit, setHeroFit] = useState<HeroFit>(() => readHeroFit(fitBoatId));
-  const [heroFrame, setHeroFrame] = useState<HeroFrame>(() => readHeroFrame(fitBoatId));
+  const [photoFrame, setPhotoFrame] = useState<PhotoFrame>(() => photoFrameFor(primary, demo));
+  const heroFit = photoFrame.fit;
+  const heroFrame: HeroFrame = photoFrame;
+  const loadedFrameFor = useRef<string | null>(null);
   useEffect(() => {
-    setHeroFit(readHeroFit(fitBoatId));
-    setHeroFrame(readHeroFrame(fitBoatId));
-  }, [fitBoatId]);
-  const changeFrame = (f: HeroFrame) => {
-    setHeroFrame(f);
-    writeHeroFrame(fitBoatId, f);
+    // Take the saved framing when the boat (or its row) first arrives; edits here win afterwards.
+    if (loadedFrameFor.current === fitBoatId) return;
+    if (!demo && !primary) return;
+    loadedFrameFor.current = fitBoatId;
+    setPhotoFrame(photoFrameFor(primary, demo));
+  }, [fitBoatId, primary, demo]);
+  const saveTimer = useRef<number | null>(null);
+  const changePhotoFrame = (next: PhotoFrame) => {
+    setPhotoFrame(next);
+    if (demo) {
+      writeLocalPhotoFrame("demo", next);
+      return;
+    }
+    if (!primary) return;
+    writeLocalPhotoFrame(primary.id, next);
+    // Dragging fires many times a second; write to the boat shortly after the last change.
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    const id = primary.id;
+    saveTimer.current = window.setTimeout(() => {
+      updateBoat.mutate({ id, photo_frame: next });
+    }, 400);
   };
+  const changeFrame = (f: HeroFrame) => changePhotoFrame({ ...photoFrame, ...f });
+  const changeFit = (fit: HeroFit) => changePhotoFrame({ ...photoFrame, fit });
 
   // Demo keeps the photo in this browser; live accounts store it on their primary boat.
   const [preview, setPreview] = useState<string>(
@@ -244,10 +265,7 @@ export default function Settings() {
                     <button
                       key={v}
                       type="button"
-                      onClick={() => {
-                        writeHeroFit(fitBoatId, v);
-                        setHeroFit(v);
-                      }}
+                      onClick={() => changeFit(v)}
                       className={`text-xs font-medium rounded-full px-3 py-1.5 border ${heroFit === v ? "bg-primary text-primary-foreground border-primary" : "border-border bg-white hover:bg-muted"}`}
                     >
                       {l}

@@ -83,6 +83,7 @@ export interface Database {
           registration_number: string | null;
           hull_id: string | null;
           photo_url: string | null;
+          photo_frame?: Json | null;
           created_at: string;
           updated_at: string;
           home_port_lat?: number | null;
@@ -106,6 +107,7 @@ export interface Database {
           registration_number?: string | null;
           hull_id?: string | null;
           photo_url?: string | null;
+          photo_frame?: Json | null;
           home_port_lat?: number | null;
           home_port_lng?: number | null;
           home_port_place_id?: string | null;
@@ -125,6 +127,7 @@ export interface Database {
           registration_number?: string | null;
           hull_id?: string | null;
           photo_url?: string | null;
+          photo_frame?: Json | null;
           home_port_lat?: number | null;
           home_port_lng?: number | null;
           home_port_place_id?: string | null;

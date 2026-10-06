@@ -1,6 +1,9 @@
 import { PageContainer, PageHeader } from "@/components/app/Page";
-import { useState, useMemo, lazy, Suspense } from "react";
+import { useState, useMemo, Suspense, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { lazyWithReload } from "@/lib/lazyRetry";
+import { SectionBoundary } from "@/components/ErrorBoundary";
+import { Anchor, LocateFixed, Loader2 } from "lucide-react";
 import { getAllVendorProfiles } from "@/data/vendorProfileUtils";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 import type { VendorProfile } from "@/data/vendorData";
@@ -11,7 +14,40 @@ import { useDemoMode } from "@/lib/demoMode";
 import { useMyBoats } from "@/hooks/use-my-boat";
 import { distanceMiles, formatMiles } from "@shared/geo";
 
-const VendorMap = lazy(() => import("@/components/VendorMap"));
+const VendorMap = lazyWithReload(() => import("@/components/VendorMap"));
+
+type LatLng = { lat: number; lng: number };
+
+/** The phone's or laptop's position, asked for only when the owner picks "Near me". */
+function useMyLocation() {
+  const [me, setMe] = useState<LatLng | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const locate = useCallback(() => {
+    if (!("geolocation" in navigator)) {
+      setError("This browser can't share your location.");
+      return;
+    }
+    setLocating(true);
+    setError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setMe({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocating(false);
+      },
+      (err) => {
+        setLocating(false);
+        setError(
+          err.code === err.PERMISSION_DENIED
+            ? "Location is blocked for this site. Allow it in your browser settings, or search near your boat instead."
+            : "Couldn't get your location right now."
+        );
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 5 * 60 * 1000 }
+    );
+  }, []);
+  return { me, locating, error, locate };
+}
 
 const STAR_PATH =
   "M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z";
@@ -56,13 +92,21 @@ export default function BrowseVendors() {
   const { profile } = useAuth();
   const { primary } = useMyBoats();
   // Where the owner's boat is kept (demo: Key Biscayne), for "Nearest" and "X mi away".
-  const origin = demo
+  const boatOrigin: LatLng | null = demo
     ? { lat: 25.7314, lng: -80.1696 }
     : primary?.home_port_lat != null && primary?.home_port_lng != null
       ? { lat: primary.home_port_lat, lng: primary.home_port_lng }
       : profile?.location_lat != null && profile?.location_lng != null
         ? { lat: profile.location_lat, lng: profile.location_lng }
         : null;
+  // Search around the boat, or around wherever the owner is right now.
+  const { me, locating, error: locationError, locate } = useMyLocation();
+  const [originMode, setOriginMode] = useState<"boat" | "me">("boat");
+  const origin: LatLng | null = originMode === "me" ? me : boatOrigin;
+  const chooseMe = () => {
+    setOriginMode("me");
+    if (!me) locate();
+  };
   const [sortChoice, setSortBy] = useState<SortOption | null>(null);
   const sortBy: SortOption = sortChoice ?? (origin ? "distance" : "rating");
   const [showFilters, setShowFilters] = useState(false);
@@ -187,7 +231,7 @@ export default function BrowseVendors() {
   return (
     <div className="min-h-full">
       <PageContainer>
-        <PageHeader title="Find a shop" description="Verified marine shops and techs near your home port." />
+        <PageHeader title="Find a shop" description="Verified marine shops and techs near your boat, or near you." />
 
         {/* Search bar + sort + filter toggle */}
         <div className="bg-white rounded-xl border border-border p-4 mb-4">
@@ -354,6 +398,48 @@ export default function BrowseVendors() {
           </div>
         )}
 
+        {/* Where to search from */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="text-xs text-muted-foreground">Search near</span>
+          <div className="flex items-center bg-muted rounded-lg p-0.5">
+            <button
+              type="button"
+              onClick={() => setOriginMode("boat")}
+              disabled={!boatOrigin}
+              title={boatOrigin ? undefined : "Add your boat's home port in My Boats"}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors disabled:opacity-50 ${
+                originMode === "boat" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Anchor className="w-3.5 h-3.5" />
+              {primary?.name && !demo ? primary.name : "My boat"}
+            </button>
+            <button
+              type="button"
+              onClick={chooseMe}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
+                originMode === "me" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {locating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LocateFixed className="w-3.5 h-3.5" />}
+              Me
+            </button>
+          </div>
+          {originMode === "me" && locationError && (
+            <span className="text-xs text-amber-700">
+              {locationError}{" "}
+              <button type="button" onClick={locate} className="font-semibold underline">Try again</button>
+            </span>
+          )}
+          {originMode === "boat" && !boatOrigin && !demo && (
+            <span className="text-xs text-muted-foreground">
+              No home port on file yet.{" "}
+              <button type="button" onClick={() => navigate("/my-boats")} className="font-semibold text-primary hover:underline">Add one</button>
+              {" "}or search near you.
+            </span>
+          )}
+        </div>
+
         {/* Results count + view toggle */}
         <div className="flex items-center justify-between gap-3 mb-4">
           <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-1 gap-y-1 min-w-0">
@@ -404,26 +490,35 @@ export default function BrowseVendors() {
         {/* Map view */}
         {viewMode === "map" && (
           <div className="mb-4">
-            <Suspense fallback={
-              <div className="flex items-center justify-center bg-muted/30 rounded-xl border border-border h-[450px]">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                  Loading map…
+            <SectionBoundary
+              fallback={
+                <div className="flex items-center justify-center bg-muted/30 rounded-xl border border-border h-[450px]">
+                  <p className="text-sm text-muted-foreground">The map couldn't load. The list below still works.</p>
                 </div>
-              </div>
-            }>
-              <VendorMap
-                vendors={vendors}
-                center={origin ?? undefined}
-                radiusMiles={radiusMiles === Infinity ? undefined : radiusMiles}
-                onBoundsChange={setMapBounds}
-                onVendorClick={(name) => {
-                  const match = allVendors.find((v) => v.name === name);
-                  navigate(`/vendor/${encodeURIComponent(match?.id ?? name)}`);
-                }}
-                height="450px"
-              />
-            </Suspense>
+              }
+            >
+              <Suspense fallback={
+                <div className="flex items-center justify-center bg-muted/30 rounded-xl border border-border h-[450px]">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    Loading map…
+                  </div>
+                </div>
+              }>
+                <VendorMap
+                  vendors={vendors}
+                  center={origin ?? undefined}
+                  centerLabel={originMode === "me" ? "You" : "Your boat"}
+                  radiusMiles={radiusMiles === Infinity ? undefined : radiusMiles}
+                  onBoundsChange={setMapBounds}
+                  onVendorClick={(name) => {
+                    const match = allVendors.find((v) => v.name === name);
+                    navigate(`/vendor/${encodeURIComponent(match?.id ?? name)}`);
+                  }}
+                  height="450px"
+                />
+              </Suspense>
+            </SectionBoundary>
           </div>
         )}
 

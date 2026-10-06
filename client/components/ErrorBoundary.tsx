@@ -8,6 +8,23 @@ interface State {
   error: Error | null;
 }
 
+/** Keeps one section's failure (the map, a chart) from taking the rest of the page down. */
+export class SectionBoundary extends Component<Props & { fallback: ReactNode }, State> {
+  state: State = { error: null };
+
+  static getDerivedStateFromError(error: Error): State {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("Bosun section failed", error, info.componentStack);
+  }
+
+  render() {
+    return this.state.error ? this.props.fallback : this.props.children;
+  }
+}
+
 export default class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null };
 

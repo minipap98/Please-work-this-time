@@ -43,6 +43,7 @@ import Privacy from "./pages/Privacy";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { RoleProvider, useRole } from "./context/RoleContext";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { reloadOnStaleChunks } from "./lib/lazyRetry";
 import AppShell from "./components/app/AppShell";
 import { DemoModeProvider, isDemoMode, useDemoMode } from "./lib/demoMode";
 import { useEffect } from "react";
@@ -226,4 +227,5 @@ const App = () => (
   </ErrorBoundary>
 );
 
+reloadOnStaleChunks();
 createRoot(document.getElementById("root")!).render(<App />);

@@ -14,6 +14,8 @@ interface VendorMapProps {
   height?: string;
   /** The owner's home port; the map opens here instead of fitting whatever shops exist. */
   center?: { lat: number; lng: number };
+  /** What the centre pin is ("Your boat", "You"). */
+  centerLabel?: string;
   /** Opening zoom shows roughly this radius around the centre. */
   radiusMiles?: number;
   /** Fires after each pan/zoom with the visible area, so the list can widen when zoomed out. */
@@ -29,9 +31,10 @@ function zoomForRadius(miles: number): number {
   return 7;
 }
 
-export default function VendorMap({ vendors, onVendorClick, height = "400px", center, radiusMiles, onBoundsChange }: VendorMapProps) {
+export default function VendorMap({ vendors, onVendorClick, height = "400px", center, centerLabel = "Your boat", radiusMiles, onBoundsChange }: VendorMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const centerMarkerRef = useRef<google.maps.Marker | null>(null);
   const markersRef = useRef<(google.maps.marker.AdvancedMarkerElement | google.maps.Marker)[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,14 +79,6 @@ export default function VendorMap({ vendors, onVendorClick, height = "400px", ce
       gestureHandling: "cooperative",
     });
     infoWindowRef.current = new google.maps.InfoWindow();
-    if (center) {
-      new google.maps.Marker({
-        position: center,
-        map: mapInstanceRef.current,
-        title: "Your boat",
-        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: "#0ea5e9", fillOpacity: 1, strokeColor: "#ffffff", strokeWeight: 2 },
-      });
-    }
     if (onBoundsChange) {
       mapInstanceRef.current.addListener("idle", () => {
         const b = mapInstanceRef.current?.getBounds();
@@ -93,6 +88,31 @@ export default function VendorMap({ vendors, onVendorClick, height = "400px", ce
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
+
+  // Keep the centre pin on the boat (or the person) and move the map when it changes.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !loaded) return;
+    if (!center) {
+      centerMarkerRef.current?.setMap(null);
+      centerMarkerRef.current = null;
+      return;
+    }
+    if (centerMarkerRef.current) {
+      centerMarkerRef.current.setPosition(center);
+      centerMarkerRef.current.setTitle(centerLabel);
+    } else {
+      centerMarkerRef.current = new google.maps.Marker({
+        position: center,
+        map,
+        title: centerLabel,
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: "#0ea5e9", fillOpacity: 1, strokeColor: "#ffffff", strokeWeight: 2 },
+      });
+    }
+    map.panTo(center);
+    map.setZoom(zoomForRadius(radiusMiles ?? 20));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, center?.lat, center?.lng, centerLabel]);
 
   // Update markers when vendors change
   useEffect(() => {

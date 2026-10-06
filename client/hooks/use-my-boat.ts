@@ -77,6 +77,14 @@ export function writeHeroFit(boatId: string, fit: HeroFit) {
  */
 export type HeroFrame = { zoom: number; x: number; y: number };
 export const DEFAULT_FRAME: HeroFrame = { zoom: 1, x: 50, y: 50 };
+/** Below 1 the photo sits smaller than the banner (white around it); above 1 it's enlarged. */
+export const MIN_ZOOM = 0.5;
+export const MAX_ZOOM = 3;
+/** The zoom at which a photo of this shape shows in full inside a banner of `boxRatio`. */
+export function fitZoom(imageRatio: number, boxRatio: number): number {
+  if (!imageRatio || !boxRatio) return 1;
+  return clamp(Math.min(boxRatio / imageRatio, imageRatio / boxRatio), MIN_ZOOM, 1);
+}
 const frameKey = (boatId: string) => `bosun_hero_frame:${boatId}`;
 export function readHeroFrame(boatId: string): HeroFrame {
   try {
@@ -84,7 +92,7 @@ export function readHeroFrame(boatId: string): HeroFrame {
     if (!raw) return DEFAULT_FRAME;
     const f = JSON.parse(raw) as Partial<HeroFrame>;
     return {
-      zoom: clamp(Number(f.zoom) || 1, 1, 3),
+      zoom: clamp(Number(f.zoom) || 1, MIN_ZOOM, MAX_ZOOM),
       x: clamp(Number(f.x) || 50, 0, 100),
       y: clamp(Number(f.y) || 50, 0, 100),
     };
@@ -106,13 +114,24 @@ export function bannerRatio(naturalWidth: number, naturalHeight: number): number
   if (!naturalWidth || !naturalHeight) return 1.6;
   return clamp(naturalWidth / naturalHeight, 1.6, 2.2);
 }
-/** Inline style that applies a frame to an `object-cover` image. */
-export function heroFrameStyle(frame: HeroFrame): CSSProperties {
-  return {
-    objectPosition: `${frame.x}% ${frame.y}%`,
-    transform: frame.zoom !== 1 ? `scale(${frame.zoom})` : undefined,
-    transformOrigin: `${frame.x}% ${frame.y}%`,
-  };
+/**
+ * Size of the photo as a percentage of the banner for this frame: at zoom 1 it just covers
+ * the banner, like object-fit: cover, but done by hand so zooming out can show parts
+ * cover would have trimmed.
+ */
+export function frameGeometry(frame: HeroFrame, imageRatio: number, boxRatio: number) {
+  const wider = imageRatio >= boxRatio;
+  const w = (wider ? imageRatio / boxRatio : 1) * 100 * frame.zoom;
+  const h = (wider ? 1 : boxRatio / imageRatio) * 100 * frame.zoom;
+  return { w, h, left: ((100 - w) * frame.x) / 100, top: ((100 - h) * frame.y) / 100 };
+}
+/** Inline style that places the photo in the banner. Falls back to object-fit until the photo's size is known. */
+export function heroFrameStyle(frame: HeroFrame, imageRatio?: number, boxRatio?: number): CSSProperties {
+  if (!imageRatio || !boxRatio) {
+    return { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: `${frame.x}% ${frame.y}%` };
+  }
+  const g = frameGeometry(frame, imageRatio, boxRatio);
+  return { position: "absolute", width: `${g.w}%`, height: `${g.h}%`, left: `${g.left}%`, top: `${g.top}%`, maxWidth: "none" };
 }
 function clamp(n: number, lo: number, hi: number) {
   return Math.min(hi, Math.max(lo, n));

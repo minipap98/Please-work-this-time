@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
-import { DEFAULT_FRAME, bannerRatio, heroFrameStyle, type HeroFrame } from "@/hooks/use-my-boat";
+import { ZoomIn, ZoomOut, RotateCcw, Maximize2 } from "lucide-react";
+import { DEFAULT_FRAME, MAX_ZOOM, MIN_ZOOM, bannerRatio, fitZoom, frameGeometry, heroFrameStyle, type HeroFrame } from "@/hooks/use-my-boat";
 
 /**
  * Lets the owner drag the photo around and zoom it inside a banner-shaped box.
@@ -13,9 +13,10 @@ export function HeroFrameEditor({ src, frame, onChange }: { src: string; frame: 
   const [dragging, setDragging] = useState(false);
   // Same shape as the dashboard banner for this photo, so the preview is exact.
   const [ratio, setRatio] = useState(1.6);
+  const [imageRatio, setImageRatio] = useState(0);
 
   const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
-  const setZoom = (zoom: number) => onChange({ ...frame, zoom: clamp(Math.round(zoom * 20) / 20, 1, 3) });
+  const setZoom = (zoom: number) => onChange({ ...frame, zoom: clamp(Math.round(zoom * 20) / 20, MIN_ZOOM, MAX_ZOOM) });
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -26,11 +27,13 @@ export function HeroFrameEditor({ src, frame, onChange }: { src: string; frame: 
     const d = drag.current;
     const box = boxRef.current;
     if (!d || !box) return;
-    // Dragging the photo right should reveal more of its left side, so the focal point moves left.
-    // At zoom 1 the photo barely overflows, so a larger multiplier keeps the drag feeling direct.
-    const k = 100 / Math.max(0.35, frame.zoom - 0.65);
-    const nx = clamp(d.fx - ((e.clientX - d.x) / box.clientWidth) * k, 0, 100);
-    const ny = clamp(d.fy - ((e.clientY - d.y) / box.clientHeight) * k, 0, 100);
+    // Move the photo by exactly as far as the pointer moved. The focal point maps to the
+    // photo's slack (its size minus the banner's), so convert pointer pixels into that.
+    const g = frameGeometry(frame, imageRatio || ratio, ratio);
+    const slackX = 100 - g.w;
+    const slackY = 100 - g.h;
+    const nx = Math.abs(slackX) < 0.5 ? frame.x : clamp(d.fx + (((e.clientX - d.x) / box.clientWidth) * 10000) / slackX, 0, 100);
+    const ny = Math.abs(slackY) < 0.5 ? frame.y : clamp(d.fy + (((e.clientY - d.y) / box.clientHeight) * 10000) / slackY, 0, 100);
     onChange({ ...frame, x: Math.round(nx), y: Math.round(ny) });
   };
   const endDrag = () => {
@@ -42,7 +45,7 @@ export function HeroFrameEditor({ src, frame, onChange }: { src: string; frame: 
     <div className="space-y-3">
       <div
         ref={boxRef}
-        className={`relative w-full overflow-hidden rounded-md bg-slate-100 select-none touch-none ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
+        className={`relative w-full overflow-hidden rounded-md bg-white border border-border select-none touch-none ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
         style={{ aspectRatio: String(ratio) }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -53,13 +56,17 @@ export function HeroFrameEditor({ src, frame, onChange }: { src: string; frame: 
           src={src}
           alt=""
           draggable={false}
-          onLoad={(e) => setRatio(bannerRatio(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight))}
-          className="absolute inset-0 block w-full h-full object-cover"
-          style={heroFrameStyle(frame)}
+          onLoad={(e) => {
+            const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+            setRatio(bannerRatio(w, h));
+            setImageRatio(w && h ? w / h : 0);
+          }}
+          className="block"
+          style={heroFrameStyle(frame, imageRatio, ratio)}
         />
         <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-black/10" />
         <span className="pointer-events-none absolute bottom-2 left-2 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-medium text-white">
-          Drag to move · slider to zoom
+          Drag to move · zoom out to see it all
         </span>
       </div>
       <div className="flex items-center gap-3">
@@ -68,8 +75,8 @@ export function HeroFrameEditor({ src, frame, onChange }: { src: string; frame: 
         </button>
         <input
           type="range"
-          min={1}
-          max={3}
+          min={MIN_ZOOM}
+          max={MAX_ZOOM}
           step={0.05}
           value={frame.zoom}
           onChange={(e) => setZoom(Number(e.target.value))}
@@ -78,6 +85,14 @@ export function HeroFrameEditor({ src, frame, onChange }: { src: string; frame: 
         />
         <button type="button" onClick={() => setZoom(frame.zoom + 0.1)} className="rounded-md border border-border p-1.5 hover:bg-muted" aria-label="Zoom in">
           <ZoomIn className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange({ zoom: fitZoom(imageRatio, ratio), x: 50, y: 50 })}
+          title="Show the whole photo inside the banner"
+          className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+        >
+          <Maximize2 className="w-3.5 h-3.5" /> Fit
         </button>
         <button
           type="button"

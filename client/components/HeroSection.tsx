@@ -173,6 +173,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
   const [posting, setPosting] = useState(false);
   // Width ÷ height of the loaded photo; the banner adopts it (floored at 1.6:1) so the photo isn't cropped.
   const [heroRatio, setHeroRatio] = useState<number | null>(null);
+  const [heroImageRatio, setHeroImageRatio] = useState(0);
   const [heroImage, setHeroImage] = useState<string | null>(
     () => (demo ? localStorage.getItem("hero_image") ?? DEFAULT_HERO : null)
   );
@@ -381,7 +382,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
           heroImage
             ? heroFit === "contain"
               ? "relative bg-white p-4 md:self-center md:border-r md:border-border/60"
-              : "relative w-full overflow-hidden bg-slate-100 md:self-center md:border-r md:border-border/60"
+              : "relative w-full overflow-hidden bg-white md:self-center md:border-r md:border-border/60"
             : "relative h-[200px] sm:h-[260px] overflow-hidden"
         }
         style={heroImage && heroFit !== "contain" ? { aspectRatio: String(heroRatio ?? 1.6) } : undefined}
@@ -391,15 +392,16 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
             src={heroImage}
             alt="Your boat"
             onLoad={(e) => {
-              const img = e.currentTarget;
-              setHeroRatio(bannerRatio(img.naturalWidth, img.naturalHeight));
+              const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+              setHeroRatio(bannerRatio(w, h));
+              setHeroImageRatio(w && h ? w / h : 0);
             }}
             className={
               heroFit === "contain"
                 ? "block w-auto h-auto max-w-full max-h-[220px] md:max-h-[320px] mx-auto"
-                : "absolute inset-0 block w-full h-full object-cover"
+                : "block"
             }
-            style={heroFit === "contain" ? undefined : heroFrameStyle(heroFrame)}
+            style={heroFit === "contain" ? undefined : heroFrameStyle(heroFrame, heroImageRatio, heroRatio ?? 1.6)}
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-sky-50 to-white text-center px-6">

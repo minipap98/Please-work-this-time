@@ -67,6 +67,9 @@ export default function BrowseVendors() {
   const sortBy: SortOption = sortChoice ?? (origin ? "distance" : "rating");
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  // How far from the owner's home port to look. The map widens this as you zoom out.
+  const [radiusMiles, setRadiusMiles] = useState<number>(20);
+  const [mapBounds, setMapBounds] = useState<{ north: number; south: number; east: number; west: number } | null>(null);
 
   const { data: liveVendors } = useVendorProfiles();
   const allVendors = useMemo(() => {
@@ -89,7 +92,9 @@ export default function BrowseVendors() {
         phone: v.phone ?? undefined,
         lat: v.lat ?? undefined,
         lng: v.lng ?? undefined,
-      }));
+      }))
+        // A shop with no verified location can't be placed or distance-checked, so it isn't listed.
+        .filter((v) => v.lat != null && v.lng != null);
     }
     // Sample shops exist only in the demo; a live account sees real shops or none.
     if (!demo) return [];
@@ -134,6 +139,14 @@ export default function BrowseVendors() {
       if (insuredOnly && !v.insured) return false;
       // Licensed
       if (licensedOnly && !v.licensed) return false;
+      // Near the boat: within the radius, or inside whatever the map is showing right now.
+      if (origin && v.lat != null && v.lng != null) {
+        const inRadius = radiusMiles === Infinity || distanceMiles(origin, { lat: v.lat, lng: v.lng }) <= radiusMiles;
+        const inView = viewMode === "map" && mapBounds
+          ? v.lat <= mapBounds.north && v.lat >= mapBounds.south && v.lng <= mapBounds.east && v.lng >= mapBounds.west
+          : false;
+        if (!inRadius && !inView) return false;
+      }
       return true;
     });
 
@@ -152,7 +165,7 @@ export default function BrowseVendors() {
 
     return filtered;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allVendors, search, filterSpecialty, filterCert, minRating, insuredOnly, licensedOnly, sortBy, origin?.lat, origin?.lng]);
+  }, [allVendors, search, filterSpecialty, filterCert, minRating, insuredOnly, licensedOnly, sortBy, origin?.lat, origin?.lng, radiusMiles, viewMode, mapBounds]);
 
   const activeFilterCount = [
     filterSpecialty !== "All",
@@ -344,7 +357,21 @@ export default function BrowseVendors() {
         {/* Results count + view toggle */}
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs text-muted-foreground">
-            {vendors.length} vendor{vendors.length !== 1 ? "s" : ""} found
+            {vendors.length} shop{vendors.length !== 1 ? "s" : ""}
+            {origin && (
+              <>
+                {" "}within{" "}
+                <select
+                  value={radiusMiles}
+                  onChange={(e) => setRadiusMiles(Number(e.target.value))}
+                  className="inline-block rounded-md border border-border bg-white px-1.5 py-0.5 text-xs font-medium text-foreground"
+                  aria-label="Search radius"
+                >
+                  {[20, 50, 100].map((m) => <option key={m} value={m}>{m} mi</option>)}
+                  <option value={Infinity}>any distance</option>
+                </select>
+              </>
+            )}
             {search && <span> for &ldquo;{search}&rdquo;</span>}
           </p>
           <div className="flex items-center bg-muted rounded-lg p-0.5">
@@ -387,6 +414,9 @@ export default function BrowseVendors() {
             }>
               <VendorMap
                 vendors={vendors}
+                center={origin ?? undefined}
+                radiusMiles={radiusMiles === Infinity ? undefined : radiusMiles}
+                onBoundsChange={setMapBounds}
                 onVendorClick={(name) => {
                   const match = allVendors.find((v) => v.name === name);
                   navigate(`/vendor/${encodeURIComponent(match?.id ?? name)}`);

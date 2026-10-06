@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 const INBOUND_DOMAIN = import.meta.env.VITE_INBOUND_EMAIL_DOMAIN as string | undefined;
 export const RECEIPTS_ADDRESS = INBOUND_DOMAIN ? `receipts@${INBOUND_DOMAIN}` : null;
 
-const when = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+const when = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 /**
  * Receipts the owner emailed in, waiting for a look. Each one opens the same review the manual
@@ -39,7 +39,7 @@ export default function ReceiptInbox({ className }: { className?: string }) {
   };
 
   return (
-    <section className={cn("rounded-xl border border-sky-200 bg-sky-50/60 p-4", className)}>
+    <section className={cn("min-w-0 overflow-hidden rounded-xl border border-sky-200 bg-sky-50/60 p-4", className)}>
       <div className="flex items-start gap-3">
         <span className="w-9 h-9 rounded-full bg-white border border-sky-200 flex items-center justify-center shrink-0 text-sky-700"><Inbox className="w-4 h-4" /></span>
         <div className="min-w-0 flex-1">
@@ -49,14 +49,14 @@ export default function ReceiptInbox({ className }: { className?: string }) {
           <p className="text-xs text-muted-foreground">Nothing is added to your Boat Log until you check it.</p>
           <ul className="mt-3 divide-y divide-sky-100 rounded-lg border border-sky-100 bg-white">
             {items.map((r) => (
-              <li key={r.id} className="flex items-center gap-3 px-3 py-2">
-                <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0 flex-1">
+              <li key={r.id} className="flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-2 px-3 py-2">
+                <Mail className="hidden sm:block w-4 h-4 text-muted-foreground shrink-0" />
+                <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
                   <p className="text-sm font-medium truncate">
                     {r.extracted?.title || r.subject || r.attachmentName || "Receipt"}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {[r.extracted?.shop, r.extracted?.date, r.extracted?.total != null ? `$${r.extracted.total.toLocaleString()}` : null, `received ${when(r.receivedAt)}`]
+                    {[r.extracted?.shop, r.extracted?.date ? when(r.extracted.date) : null, r.extracted?.total != null ? `$${r.extracted.total.toLocaleString()}` : null, `received ${when(r.receivedAt)}`]
                       .filter(Boolean)
                       .join(" · ")}
                     {r.readError && !r.extracted && <span className="text-amber-700"> · couldn't be read, fill in by hand</span>}

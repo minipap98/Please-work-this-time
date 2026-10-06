@@ -154,3 +154,13 @@
   #invoice-sheet { position: fixed !important; inset: 0 !important; padding: 24px !important; background: white !important; overflow: visible !important; max-height: none !important; }
   [data-radix-popper-content-wrapper], [role="dialog"] { box-shadow: none !important; }
 }
+
+/* iOS Safari zooms the page when a focused field is under 16px and never zooms back. Keep fields at 16px on phones. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+html, body { overflow-x: hidden; }

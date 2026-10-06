@@ -12,9 +12,24 @@ interface VendorMapProps {
   vendors: VendorProfile[];
   onVendorClick?: (vendorName: string) => void;
   height?: string;
+  /** The owner's home port; the map opens here instead of fitting whatever shops exist. */
+  center?: { lat: number; lng: number };
+  /** Opening zoom shows roughly this radius around the centre. */
+  radiusMiles?: number;
+  /** Fires after each pan/zoom with the visible area, so the list can widen when zoomed out. */
+  onBoundsChange?: (b: { north: number; south: number; east: number; west: number }) => void;
 }
 
-export default function VendorMap({ vendors, onVendorClick, height = "400px" }: VendorMapProps) {
+/** Zoom level that fits about `miles` around a point at mid latitudes (level 11 ≈ 20 mi on a phone). */
+function zoomForRadius(miles: number): number {
+  if (miles <= 12) return 12;
+  if (miles <= 25) return 10;
+  if (miles <= 60) return 9;
+  if (miles <= 120) return 8;
+  return 7;
+}
+
+export default function VendorMap({ vendors, onVendorClick, height = "400px", center, radiusMiles, onBoundsChange }: VendorMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<(google.maps.marker.AdvancedMarkerElement | google.maps.Marker)[]>([]);
@@ -52,8 +67,8 @@ export default function VendorMap({ vendors, onVendorClick, height = "400px" }: 
   useEffect(() => {
     if (!loaded || !mapRef.current || mapInstanceRef.current) return;
     mapInstanceRef.current = new google.maps.Map(mapRef.current, {
-      center: DEFAULT_CENTER,
-      zoom: DEFAULT_ZOOM,
+      center: center ?? DEFAULT_CENTER,
+      zoom: center ? zoomForRadius(radiusMiles ?? 20) : DEFAULT_ZOOM,
       ...(MAP_ID ? { mapId: MAP_ID } : {}),
       disableDefaultUI: true,
       zoomControl: true,
@@ -61,6 +76,22 @@ export default function VendorMap({ vendors, onVendorClick, height = "400px" }: 
       gestureHandling: "cooperative",
     });
     infoWindowRef.current = new google.maps.InfoWindow();
+    if (center) {
+      new google.maps.Marker({
+        position: center,
+        map: mapInstanceRef.current,
+        title: "Your boat",
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: "#0ea5e9", fillOpacity: 1, strokeColor: "#ffffff", strokeWeight: 2 },
+      });
+    }
+    if (onBoundsChange) {
+      mapInstanceRef.current.addListener("idle", () => {
+        const b = mapInstanceRef.current?.getBounds();
+        if (!b) return;
+        onBoundsChange({ north: b.getNorthEast().lat(), east: b.getNorthEast().lng(), south: b.getSouthWest().lat(), west: b.getSouthWest().lng() });
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
 
   // Update markers when vendors change
@@ -109,7 +140,8 @@ export default function VendorMap({ vendors, onVendorClick, height = "400px" }: 
       markersRef.current.push(marker);
     });
 
-    // Fit bounds if multiple markers
+    // Fit bounds around the shops only when there's no home port to centre on
+    if (center) return;
     if (vendorsWithCoords.length > 1) {
       const bounds = new google.maps.LatLngBounds();
       vendorsWithCoords.forEach((v) => bounds.extend({ lat: v.lat!, lng: v.lng! }));

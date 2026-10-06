@@ -368,14 +368,23 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
 
   return (
     <section className="rounded-xl border border-border bg-white shadow-card overflow-hidden">
-      {/* The photo keeps its own shape (nothing cropped), capped in height and centered. */}
-      <div className={heroImage ? "relative bg-white pt-4 px-4" : "relative h-[200px] sm:h-[260px] overflow-hidden"}>
+      {/* The photo keeps its own shape (nothing cropped) over a blurred copy of itself, so it fills the banner. */}
+      <div className={heroImage ? "relative h-[200px] sm:h-[280px] overflow-hidden bg-slate-900" : "relative h-[200px] sm:h-[260px] overflow-hidden"}>
         {heroImage ? (
-          <img
-            src={heroImage}
-            alt="Your boat"
-            className="block w-auto h-auto max-w-full max-h-[180px] sm:max-h-[260px] mx-auto"
-          />
+          <>
+            <img
+              src={heroImage}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-70"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-slate-900/10" />
+            <img
+              src={heroImage}
+              alt="Your boat"
+              className="relative z-10 block w-auto h-full max-w-full mx-auto object-contain drop-shadow-[0_10px_24px_rgba(0,0,0,0.35)]"
+            />
+          </>
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-sky-50 to-white text-center px-6">
             <svg className="w-10 h-10 text-sky-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">

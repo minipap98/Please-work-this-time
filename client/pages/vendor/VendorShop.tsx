@@ -199,7 +199,7 @@ export default function VendorShop({
         customers.find((c) => ownerEmail && norm(c.email) === norm(ownerEmail)) ??
         customers.find((c) => norm(c.name) === norm(ownerName));
       const count = job.boat.engineCount ?? 0;
-      const countWord = ["", "Single", "Twin", "Triple", "Quad"][count] ?? (count ? `${count}×` : "");
+      const countWord = ["", "Single", "Twin", "Triple", "Quad", "Quint", "Sextuple"][count] ?? (count ? `${count}×` : "");
       const engine = [countWord, job.boat.engineMake, job.boat.engineModel?.replace(/\s*\([^)]*\)$/, "")].filter(Boolean).join(" ");
       try {
         const saved = await saveCustomer.mutateAsync({

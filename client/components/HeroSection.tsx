@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { ENGINE_DATA, type EngineType } from "@/data/engineData";
 import { type ProjectBoat } from "@/data/projectData";
-import { readHeroFit, useMyBoats } from "@/hooks/use-my-boat";
+import { heroFrameStyle, readHeroFit, readHeroFrame, useMyBoats } from "@/hooks/use-my-boat";
 import BoatSwitcher from "@/components/boats/BoatSwitcher";
 import { cn } from "@/lib/utils";
 import { DEMO_BOAT } from "@/data/demoBoat";
@@ -232,7 +232,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
       engineType: (boat.engine_type as EngineType) || "Outboard",
       engineMake: boat.engine_make ?? "",
       engineModel: boat.engine_model ?? "",
-      engineCount: boat.engine_count && boat.engine_count > 1 ? "Twin" : "Single",
+      engineCount: ["Single", "Twin", "Triple", "Quad", "Quint", "Sextuple"][(boat.engine_count ?? 1) - 1] ?? `${boat.engine_count}×`,
       isPrimary: true,
     });
   }, [demo, primary, profile?.location]);
@@ -363,6 +363,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
     selectedEquipment && (selectedWarrantyStatus === "active" || selectedWarrantyStatus === "expiring");
 
   const heroFit = readHeroFit(demo ? "demo" : boatInfo?.id ?? "");
+  const heroFrame = readHeroFrame(demo ? "demo" : boatInfo?.id ?? "");
   const engineModel = boatInfo?.engineModel?.replace(/\s*\([\d–\-]+.*?\)$/, "") || null;
   const engineDisplay = [
     boatInfo?.engineType === "Outboard" ? boatInfo?.engineCount || null : null,
@@ -395,8 +396,9 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
             className={
               heroFit === "contain"
                 ? "block w-auto h-auto max-w-full max-h-[220px] md:max-h-[320px] mx-auto"
-                : "block w-full h-full object-cover object-center md:absolute md:inset-0"
+                : "block w-full h-full object-cover md:absolute md:inset-0"
             }
+            style={heroFit === "contain" ? undefined : heroFrameStyle(heroFrame)}
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-sky-50 to-white text-center px-6">

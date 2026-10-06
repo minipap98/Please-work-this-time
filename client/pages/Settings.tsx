@@ -6,7 +6,8 @@ import "react-image-crop/dist/ReactCrop.css";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useDemoMode } from "@/lib/demoMode";
-import { readHeroFit, useMyBoats, uploadBoatPhoto, writeHeroFit, type HeroFit } from "@/hooks/use-my-boat";
+import { readHeroFit, readHeroFrame, useMyBoats, uploadBoatPhoto, writeHeroFit, writeHeroFrame, type HeroFit, type HeroFrame } from "@/hooks/use-my-boat";
+import { HeroFrameEditor } from "@/components/boats/HeroFrameEditor";
 import { RECEIPTS_ADDRESS } from "@/components/boatlog/ReceiptInbox";
 import { useUpdateBoat } from "@/hooks/use-supabase";
 import LocationPicker from "@/components/LocationPicker";
@@ -50,7 +51,15 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const fitBoatId = demo ? "demo" : primary?.id ?? "";
   const [heroFit, setHeroFit] = useState<HeroFit>(() => readHeroFit(fitBoatId));
-  useEffect(() => setHeroFit(readHeroFit(fitBoatId)), [fitBoatId]);
+  const [heroFrame, setHeroFrame] = useState<HeroFrame>(() => readHeroFrame(fitBoatId));
+  useEffect(() => {
+    setHeroFit(readHeroFit(fitBoatId));
+    setHeroFrame(readHeroFrame(fitBoatId));
+  }, [fitBoatId]);
+  const changeFrame = (f: HeroFrame) => {
+    setHeroFrame(f);
+    writeHeroFrame(fitBoatId, f);
+  };
 
   // Demo keeps the photo in this browser; live accounts store it on their primary boat.
   const [preview, setPreview] = useState<string>(
@@ -111,6 +120,8 @@ export default function Settings() {
     const dataUrl = getCroppedDataUrl(imgRef.current, completedCrop);
     setPreview(dataUrl);
     setCropSrc(null);
+    // A new photo starts centred at normal size.
+    changeFrame({ zoom: 1, x: 50, y: 50 });
   }
 
   async function handleSave() {
@@ -243,14 +254,16 @@ export default function Settings() {
                     </button>
                   ))}
                   <span className="basis-full text-xs text-muted-foreground">
-                    {heroFit === "cover" ? "Edge to edge; a little top and bottom may be trimmed." : "Every pixel shows, with white space beside it."}
+                    {heroFit === "cover" ? "Edge to edge. Drag the photo and zoom to choose what shows." : "Every pixel shows, with white space beside it."}
                   </span>
                 </div>
               )}
 
-              {/* Preview */}
-              <div className="w-full rounded-md overflow-hidden bg-gray-100 mb-4">
-                {preview ? (
+              {/* Preview: framing editor when filling the banner, plain preview otherwise */}
+              <div className={`w-full rounded-md mb-4 ${preview && heroFit === "cover" ? "" : "overflow-hidden bg-gray-100"}`}>
+                {preview && heroFit === "cover" ? (
+                  <HeroFrameEditor src={preview} frame={heroFrame} onChange={changeFrame} />
+                ) : preview ? (
                   <img
                     src={preview}
                     alt="Hero preview"

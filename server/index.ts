@@ -12,6 +12,7 @@ import {
   handleAdminDemand,
   handleAdminPeople,
   handleAdminPersonAction,
+  handleAdminPersonDetail,
   handleAdminProspectCreate,
   handleAdminProspectDraft,
   handleAdminProspectSearch,
@@ -54,6 +55,7 @@ export function createServer() {
   app.get("/api/invoices/health", handleInvoiceHealth);
   app.post("/api/maintenance/intervals", handleServiceIntervals);
   app.get("/api/admin/people", handleAdminPeople);
+  app.get("/api/admin/people/:id/detail", handleAdminPersonDetail);
   app.post("/api/admin/people/:id/action", handleAdminPersonAction);
   app.get("/api/admin/demand", handleAdminDemand);
   app.get("/api/admin/prospects", handleAdminProspects);

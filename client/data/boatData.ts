@@ -1,4 +1,6 @@
-export const BOAT_MAKES = [
+import { MORE_BOAT_MODELS } from "./boatDataMore";
+
+const BASE_BOAT_MAKES = [
   "Alumacraft",
   "Bass Cat",
   "Bayliner",
@@ -51,9 +53,11 @@ export const BOAT_MAKES = [
   "Yamaha",
 ] as const;
 
-export type BoatMake = (typeof BOAT_MAKES)[number];
+type BaseBoatMake = (typeof BASE_BOAT_MAKES)[number];
+/** Any make, including ones owners type in themselves. */
+export type BoatMake = string;
 
-export const BOAT_MODELS: Record<BoatMake, string[]> = {
+const BASE_BOAT_MODELS: Record<BaseBoatMake, string[]> = {
   Alumacraft: [
     "Competitor 165 CS",
     "Competitor 175 CS",
@@ -1162,3 +1166,8 @@ export const BOAT_MODELS: Record<BoatMake, string[]> = {
     "SX242",
   ],
 };
+
+/** Every make we know models for, A–Z. */
+export const BOAT_MODELS: Record<string, string[]> = { ...BASE_BOAT_MODELS, ...MORE_BOAT_MODELS };
+export const BOAT_MAKES: string[] = Object.keys(BOAT_MODELS).sort((a, b) => a.localeCompare(b));
+export const OTHER_BOAT = "__other__";

@@ -27,6 +27,21 @@ export function useAdminPeople() {
   return useQuery({ queryKey: ["admin", "people"], queryFn: () => adminFetch<{ people: AdminPerson[] }>("/api/admin/people").then((r) => r.people) });
 }
 
+export interface OwnerDetail {
+  boats: { id: string; label: string; name: string; engines: string; lengthFt: number | null; homePort: string | null; hullId: string | null; photoUrl: string | null; addedAt: string; spend: number; services: number; lastService: string | null }[];
+  records: { id: string; boatId: string; title: string; category: string | null; date: string; cost: number | null; vendor: string | null; source: string; engineHours: number | null }[];
+  jobs: { id: string; title: string; status: string; category: string | null; createdAt: string; bids: number; acceptedPrice: number | null }[];
+  totals: { spend: number; services: number; verified: number; bosunSpend: number };
+}
+
+export function useAdminPersonDetail(id: string | null) {
+  return useQuery({
+    queryKey: ["admin", "person", id],
+    queryFn: () => adminFetch<OwnerDetail>(`/api/admin/people/${id}/detail`),
+    enabled: !!id,
+  });
+}
+
 export function useAdminAction() {
   const qc = useQueryClient();
   return useMutation({

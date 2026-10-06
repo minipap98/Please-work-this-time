@@ -8,7 +8,7 @@ import { PageContainer, PageHeader, Panel, StatGrid, StatTile } from "@/componen
 import LocationPicker from "@/components/LocationPicker";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  useAdminAction, useAdminAudit, useAdminDemand, useAdminPeople, useAdminProspects, useCreateProspect, useDraftOutreach, useSearchProspects, useUpdateProspect,
+  useAdminAction, useAdminAudit, useAdminDemand, useAdminPeople, useAdminPersonDetail, useAdminProspects, useCreateProspect, useDraftOutreach, useSearchProspects, useUpdateProspect,
 } from "@/hooks/use-admin";
 import { PROSPECT_STATUSES, PROSPECT_TRADES, demandCells, prospectScore, type AdminAction, type AdminPerson, type DemandCell, type Prospect, type ProspectStatus } from "@shared/admin";
 import type { PickedLocation } from "@shared/geo";
@@ -239,6 +239,7 @@ function People({ mode }: { mode: "people" | "shops" }) {
                   <DialogDescription>{p.email} · {p.shop ? `Shop: ${p.shop.businessName}` : "Boat owner"} · joined {when(p.createdAt)}</DialogDescription>
                 </DialogHeader>
                 <Flags p={p} />
+                {!p.shop && <OwnerDetail id={p.id} />}
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
                   <dt className="text-muted-foreground">Last sign-in</dt><dd>{ago(p.lastSignIn)}</dd>
                   <dt className="text-muted-foreground">Location</dt><dd>{p.location || "—"}</dd>
@@ -276,6 +277,63 @@ function People({ mode }: { mode: "people" | "shops" }) {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
+/** An owner's boats, what's been done to them and what they've spent. */
+function OwnerDetail({ id }: { id: string }) {
+  const d = useAdminPersonDetail(id);
+  const [boat, setBoat] = useState<string | null>(null);
+  if (d.isLoading) return <p className="text-xs text-muted-foreground">Loading boats and history…</p>;
+  if (d.error) return <p className="text-xs text-red-600">{String(d.error)}</p>;
+  if (!d.data) return null;
+  const { boats, records, jobs, totals } = d.data;
+  const shown = records.filter((r) => !boat || r.boatId === boat);
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-lg border border-border px-3 py-2"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Boats</p><p className="text-lg font-bold tabular-nums">{boats.length}</p></div>
+        <div className="rounded-lg border border-border px-3 py-2"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Services logged</p><p className="text-lg font-bold tabular-nums">{totals.services}<span className="text-xs font-normal text-muted-foreground"> · {totals.verified} verified</span></p></div>
+        <div className="rounded-lg border border-border px-3 py-2"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Spend on record</p><p className="text-lg font-bold tabular-nums">{money(totals.spend)}</p>{totals.bosunSpend > 0 && <p className="text-[10px] text-muted-foreground">{money(totals.bosunSpend)} through Bosun</p>}</div>
+      </div>
+      {boats.length === 0 ? <p className="text-xs text-muted-foreground">No boats added yet.</p> : (
+        <ul className="divide-y divide-border rounded-lg border border-border">
+          {boats.map((b) => (
+            <li key={b.id} className={cn("px-3 py-2 flex items-center gap-3 cursor-pointer hover:bg-slate-50", boat === b.id && "bg-sky-50")} onClick={() => setBoat(boat === b.id ? null : b.id)}>
+              {b.photoUrl ? <img src={b.photoUrl} alt="" className="w-12 h-9 rounded object-cover shrink-0" /> : <div className="w-12 h-9 rounded bg-slate-100 shrink-0 flex items-center justify-center"><Anchor className="w-4 h-4 text-slate-400" /></div>}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium truncate">{b.label || "Boat"}{b.name && <span className="text-muted-foreground font-normal"> · {b.name}</span>}</p>
+                <p className="text-xs text-muted-foreground truncate">{[b.engines, b.lengthFt && `${b.lengthFt} ft`, b.homePort, b.hullId && `HIN ${b.hullId}`].filter(Boolean).join(" · ") || "No details"}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-sm font-semibold tabular-nums">{money(b.spend)}</p>
+                <p className="text-[11px] text-muted-foreground">{b.services} service{b.services === 1 ? "" : "s"}{b.lastService ? ` · last ${when(b.lastService)}` : ""}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {shown.length > 0 && (
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">{boat ? "Work on this boat" : "Work history"}</p>
+          <ul className="max-h-56 overflow-y-auto divide-y divide-border rounded-lg border border-border text-sm">
+            {shown.slice(0, 50).map((r) => (
+              <li key={r.id} className="px-3 py-1.5 flex items-center gap-3">
+                <span className="text-xs text-muted-foreground w-20 shrink-0">{when(r.date)}</span>
+                <span className="min-w-0 flex-1 truncate">{r.title}{r.vendor && <span className="text-muted-foreground"> · {r.vendor}</span>}</span>
+                <span className={cn("text-[10px] font-semibold uppercase", r.source === "owner" ? "text-slate-400" : "text-emerald-700")}>{r.source === "owner" ? "owner" : "verified"}</span>
+                <span className="tabular-nums w-20 text-right">{r.cost != null ? money(Number(r.cost)) : "—"}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {jobs.length > 0 && (
+        <p className="text-xs text-muted-foreground">{jobs.length} job{jobs.length === 1 ? "" : "s"} posted on Bosun · {jobs.filter((j) => j.acceptedPrice != null).length} awarded · {jobs.filter((j) => j.bids === 0).length} with no bids</p>
+      )}
+    </div>
   );
 }
 

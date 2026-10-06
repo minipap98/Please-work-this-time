@@ -6,7 +6,7 @@ import { useMyBoats } from "@/hooks/use-my-boat";
 import { useCreateBoat, useDeleteBoat, useUpdateBoat } from "@/hooks/use-supabase";
 import type { Tables } from "@/lib/database.types";
 import { useNavigate } from "react-router-dom";
-import { BOAT_MAKES, BOAT_MODELS, type BoatMake } from "@/data/boatData";
+import BoatMakeModelFields from "@/components/BoatMakeModelFields";
 import { ENGINE_DATA, ENGINE_TYPES, OUTBOARD_COUNTS, type EngineType } from "@/data/engineData";
 import EngineModelField from "@/components/EngineModelField";
 import BoatDocuments from "@/components/BoatDocuments";
@@ -125,7 +125,6 @@ function BoatForm({
 }) {
   const [form, setForm] = useState<SavedBoat>(boat);
 
-  const boatModels = form.make ? (BOAT_MODELS[form.make as BoatMake] ?? []) : [];
   const engineMakes = form.engineType ? Object.keys(ENGINE_DATA[form.engineType as EngineType]) : [];
 
   const sel = "w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/50";
@@ -137,20 +136,13 @@ function BoatForm({
       <div>
         <h3 className="text-sm font-semibold text-foreground mb-3">Boat Details</h3>
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Make</label>
-            <select value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value, model: "" })} className={sel}>
-              <option value="">Select a make…</option>
-              {BOAT_MAKES.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Model</label>
-            <select value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} disabled={!form.make} className={selDis}>
-              <option value="">{form.make ? "Select a model…" : "Select a make first…"}</option>
-              {boatModels.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
+          <BoatMakeModelFields
+            make={form.make}
+            model={form.model}
+            onChange={(v) => setForm({ ...form, ...v })}
+            selectClassName={sel}
+            inputClassName="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Year</label>
             <select value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} className={sel}>

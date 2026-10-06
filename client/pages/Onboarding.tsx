@@ -5,7 +5,7 @@ import { useRole } from "@/context/RoleContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase, supabaseMissing } from "@/lib/supabase";
 import { toast } from "sonner";
-import { BOAT_MAKES, BOAT_MODELS, type BoatMake } from "@/data/boatData";
+import BoatMakeModelFields from "@/components/BoatMakeModelFields";
 import { ENGINE_DATA, ENGINE_TYPES, OUTBOARD_COUNTS, type EngineType } from "@/data/engineData";
 import EngineModelField from "@/components/EngineModelField";
 import { uploadBoatPhoto } from "@/hooks/use-my-boat";
@@ -232,7 +232,6 @@ export default function Onboarding() {
   const selectDisCls = `${inputCls} disabled:opacity-50 disabled:cursor-not-allowed`;
 
   // ── Computed ─────────────────────────────────────────────────────────────
-  const boatModels = boat.make ? (BOAT_MODELS[boat.make as BoatMake] ?? []) : [];
   const engineMakes = boat.engineType ? Object.keys(ENGINE_DATA[boat.engineType as EngineType]) : [];
 
   const totalContentSteps = steps.length - 1; // exclude "done" from count
@@ -326,20 +325,14 @@ export default function Onboarding() {
               {/* Boat details */}
               <div className="space-y-4 mb-6">
                 <h3 className="text-sm font-semibold text-foreground">Boat Details</h3>
-                <div>
-                  <label className="block text-xs font-medium text-foreground mb-1.5">Make</label>
-                  <select value={boat.make} onChange={(e) => setBoat({ ...boat, make: e.target.value, model: "" })} className={selectCls}>
-                    <option value="">Select a make…</option>
-                    {BOAT_MAKES.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-foreground mb-1.5">Model</label>
-                  <select value={boat.model} onChange={(e) => setBoat({ ...boat, model: e.target.value })} disabled={!boat.make} className={selectDisCls}>
-                    <option value="">{boat.make ? "Select a model…" : "Select a make first…"}</option>
-                    {boatModels.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
+                <BoatMakeModelFields
+                  make={boat.make}
+                  model={boat.model}
+                  onChange={(v) => setBoat({ ...boat, ...v })}
+                  selectClassName={selectCls}
+                  inputClassName={inputCls}
+                  labelClassName="block text-xs font-medium text-foreground mb-1.5"
+                />
                 <div>
                   <label className="block text-xs font-medium text-foreground mb-1.5">Year</label>
                   <select value={boat.year} onChange={(e) => setBoat({ ...boat, year: e.target.value })} className={selectCls}>

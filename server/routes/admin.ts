@@ -147,6 +147,65 @@ export const handleAdminPeople: RequestHandler = async (req, res) => {
   }
 };
 
+/** GET /api/admin/people/:id/detail → an owner's boats, their service history and what they've spent. */
+export const handleAdminPersonDetail: RequestHandler = async (req, res) => {
+  const ctx = await requireAdmin(req, res);
+  if (!ctx) return;
+  try {
+    const id = String(req.params.id);
+    const [boats, records, projects] = await Promise.all([
+      ctx.db.from("boats").select("id, name, make, model, year, engine_make, engine_model, engine_count, engine_type, length_ft, home_port, hull_id, photo_url, created_at").eq("owner_id", id).order("created_at"),
+      ctx.db.from("service_records").select("id, boat_id, title, category, date, cost, vendor_name, source, engine_hours, labor_hours").eq("owner_id", id).order("date", { ascending: false }).limit(500),
+      ctx.db.from("projects").select("id, title, status, category, created_at, chosen_bid_id, bids:bids!bids_project_id_fkey(id, price, vendor_id)").eq("owner_id", id).order("created_at", { ascending: false }),
+    ]);
+    for (const r of [boats, records, projects]) if (r.error) throw r.error;
+    const recs = (records.data ?? []) as { id: string; boat_id: string; title: string; category: string | null; date: string; cost: number | null; vendor_name: string | null; source: string; engine_hours: number | null; labor_hours: number | null }[];
+    const spendByBoat = new Map<string, { total: number; jobs: number; last: string | null }>();
+    for (const r of recs) {
+      const cur = spendByBoat.get(r.boat_id) ?? { total: 0, jobs: 0, last: null };
+      cur.total += Number(r.cost ?? 0);
+      cur.jobs += 1;
+      if (!cur.last || r.date > cur.last) cur.last = r.date;
+      spendByBoat.set(r.boat_id, cur);
+    }
+    const jobs = ((projects.data ?? []) as unknown as { id: string; title: string; status: string; category: string | null; created_at: string; chosen_bid_id: string | null; bids: { id: string; price: number }[] | null }[]).map((p) => ({
+      id: p.id,
+      title: p.title,
+      status: p.status,
+      category: p.category,
+      createdAt: p.created_at,
+      bids: p.bids?.length ?? 0,
+      acceptedPrice: p.chosen_bid_id ? p.bids?.find((b) => b.id === p.chosen_bid_id)?.price ?? null : null,
+    }));
+    res.json({
+      boats: (boats.data ?? []).map((b) => ({
+        id: b.id,
+        label: [b.year, b.make, b.model].filter(Boolean).join(" "),
+        name: b.name,
+        engines: [b.engine_count && b.engine_count > 1 ? `${b.engine_count}×` : "", b.engine_make, b.engine_model].filter(Boolean).join(" ") || b.engine_type || "",
+        lengthFt: b.length_ft,
+        homePort: b.home_port,
+        hullId: b.hull_id,
+        photoUrl: b.photo_url,
+        addedAt: b.created_at,
+        spend: spendByBoat.get(b.id)?.total ?? 0,
+        services: spendByBoat.get(b.id)?.jobs ?? 0,
+        lastService: spendByBoat.get(b.id)?.last ?? null,
+      })),
+      records: recs.map((r) => ({ id: r.id, boatId: r.boat_id, title: r.title, category: r.category, date: r.date, cost: r.cost, vendor: r.vendor_name, source: r.source, engineHours: r.engine_hours })),
+      jobs,
+      totals: {
+        spend: recs.reduce((s, r) => s + Number(r.cost ?? 0), 0),
+        services: recs.length,
+        verified: recs.filter((r) => r.source !== "owner").length,
+        bosunSpend: jobs.reduce((s, j) => s + (j.acceptedPrice ?? 0), 0),
+      },
+    });
+  } catch (e) {
+    fail(res, e);
+  }
+};
+
 export const handleAdminPersonAction: RequestHandler = async (req, res) => {
   const ctx = await requireAdmin(req, res);
   if (!ctx) return;
@@ -334,6 +393,35 @@ interface PlaceResult {
   userRatingCount?: number;
   location?: { latitude: number; longitude: number };
   businessStatus?: string;
+  types?: string[];
+}
+
+// Google place types that are never a service shop: rentals, attractions, retail.
+const NOT_A_SHOP = new Set([
+  "boat_rental", "tourist_attraction", "park", "stadium", "amusement_park", "hardware_store", "sporting_goods_store",
+  "shopping_mall", "department_store", "restaurant", "bar", "hotel", "lodging", "gas_station", "convenience_store",
+]);
+const RETAIL_ONLY = new Set(["store", "home_goods_store", "electronics_store"]);
+const SERVICE_HINTS = new Set(["car_repair", "boat_dealer", "marina", "establishment", "point_of_interest"]);
+
+function looksLikeShop(p: PlaceResult): boolean {
+  const types = p.types ?? [];
+  if (types.some((t) => NOT_A_SHOP.has(t))) return false;
+  // A plain store with no service/marine type (West Marine, chandleries) sells parts, not labor.
+  if (types.some((t) => RETAIL_ONLY.has(t)) && !types.some((t) => ["car_repair", "boat_dealer", "marina"].includes(t))) {
+    const name = (p.displayName?.text ?? "").toLowerCase();
+    if (!/repair|service|mechanic|yard|marine services|boatworks|boat works/.test(name)) return false;
+  }
+  void SERVICE_HINTS;
+  return true;
+}
+
+/** "Rickenbacker Marina, Rickenbacker Causeway, Miami, FL, USA" → "Miami, FL". */
+function shortArea(label: string, lat: number, lng: number): string {
+  const known = areaName(lat, lng, null);
+  if (!/^-?\d/.test(known) && known !== "Unknown area") return known;
+  const parts = label.split(",").map((s) => s.trim()).filter((s) => s && s !== "USA");
+  return parts.length >= 2 ? `${parts[parts.length - 2]}, ${parts[parts.length - 1]}` : label;
 }
 
 async function searchPlaces(textQuery: string, lat: number, lng: number, radiusMiles: number): Promise<PlaceResult[]> {
@@ -342,7 +430,7 @@ async function searchPlaces(textQuery: string, lat: number, lng: number, radiusM
     headers: {
       "Content-Type": "application/json",
       "X-Goog-Api-Key": placesKey(),
-      "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.rating,places.userRatingCount,places.location,places.businessStatus",
+      "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.rating,places.userRatingCount,places.location,places.businessStatus,places.types",
     },
     body: JSON.stringify({
       textQuery,
@@ -373,13 +461,19 @@ export const handleAdminProspectSearch: RequestHandler = async (req, res) => {
       return;
     }
     const trades = (b.trades?.length ? b.trades : PROSPECT_TRADES.map((t) => t.key)).filter((k) => PROSPECT_TRADES.some((t) => t.key === k));
-    const area = b.area?.trim() || areaName(b.lat, b.lng, null);
+    const searchNear = b.area?.trim() || areaName(b.lat, b.lng, null);
+    const area = shortArea(searchNear, b.lat, b.lng);
     const found = new Map<string, { place: PlaceResult; trades: Set<string> }>();
+    let skipped = 0;
     for (const key of trades) {
       const q = PROSPECT_TRADES.find((t) => t.key === key)!.query;
-      const places = await searchPlaces(`${q} near ${area}`, b.lat, b.lng, b.radiusMiles ?? 25);
+      const places = await searchPlaces(`${q} near ${searchNear}`, b.lat, b.lng, b.radiusMiles ?? 25);
       for (const p of places) {
         if (p.businessStatus && p.businessStatus !== "OPERATIONAL") continue;
+        if (!looksLikeShop(p)) {
+          skipped += 1;
+          continue;
+        }
         const cur = found.get(p.id) ?? { place: p, trades: new Set<string>() };
         cur.trades.add(key);
         found.set(p.id, cur);
@@ -425,7 +519,7 @@ export const handleAdminProspectSearch: RequestHandler = async (req, res) => {
         await ctx.db.from("prospects").update(facts).eq("place_id", r.place_id);
       }
     }
-    await audit(ctx, "prospect:search", null, area, { trades, found: rows.length, added });
+    await audit(ctx, "prospect:search", null, area, { trades, found: rows.length, added, skipped });
     res.json({ found: rows.length, added });
   } catch (e) {
     fail(res, e);

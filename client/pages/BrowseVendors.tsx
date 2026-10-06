@@ -355,8 +355,8 @@ export default function BrowseVendors() {
         )}
 
         {/* Results count + view toggle */}
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-xs text-muted-foreground">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-1 gap-y-1 min-w-0">
             {vendors.length} shop{vendors.length !== 1 ? "s" : ""}
             {origin && (
               <>
@@ -364,7 +364,7 @@ export default function BrowseVendors() {
                 <select
                   value={radiusMiles}
                   onChange={(e) => setRadiusMiles(Number(e.target.value))}
-                  className="inline-block rounded-md border border-border bg-white px-1.5 py-0.5 text-xs font-medium text-foreground"
+                  className="inline-block rounded-md border border-border bg-white px-1.5 py-0.5 text-xs font-medium text-foreground max-md:!text-sm"
                   aria-label="Search radius"
                 >
                   {[20, 50, 100].map((m) => <option key={m} value={m}>{m} mi</option>)}
@@ -374,10 +374,10 @@ export default function BrowseVendors() {
             )}
             {search && <span> for &ldquo;{search}&rdquo;</span>}
           </p>
-          <div className="flex items-center bg-muted rounded-lg p-0.5">
+          <div className="flex items-center bg-muted rounded-lg p-0.5 shrink-0">
             <button
               onClick={() => setViewMode("list")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
                 viewMode === "list" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -388,7 +388,7 @@ export default function BrowseVendors() {
             </button>
             <button
               onClick={() => setViewMode("map")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
                 viewMode === "map" ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >

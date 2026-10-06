@@ -269,7 +269,7 @@ export default function VendorDashboard() {
     <div className="min-h-full">
       <PageContainer wide>
         <PageHeader
-          title={`${new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening"}, ${vendor.name.split(" ")[0]}`}
+          title={`${new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening"}, ${vendor.name}`}
           description="Here's what needs you today."
           actions={
             <>

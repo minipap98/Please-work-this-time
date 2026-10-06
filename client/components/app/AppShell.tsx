@@ -179,7 +179,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               <DropdownMenu>
                 <DropdownMenuTrigger className="flex items-center gap-2 rounded-full border border-border bg-white pl-1 pr-2 py-1 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <Avatar initials={initials} vendor={isVendor} size="sm" />
-                  <span className="hidden sm:inline text-sm font-medium max-w-[10rem] truncate">{fullName.split(" ")[0]}</span>
+                  <span className="hidden sm:inline text-sm font-medium max-w-[10rem] truncate">{isVendor ? fullName : fullName.split(" ")[0]}</span>
                   <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">

@@ -230,7 +230,7 @@ function TodayMock() {
       <div className="rounded-3xl bg-white text-[#052443] p-5 shadow-2xl shadow-black/30">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-bold">Good morning, Dean's</p>
+            <p className="text-sm font-bold">Good morning, Dean's Marine</p>
             <p className="text-[11px] text-slate-500">Monday · 3 jobs on the board</p>
           </div>
           <span className="text-[11px] font-semibold rounded-lg bg-[#052443] text-white px-2.5 py-1.5">+ Work order</span>

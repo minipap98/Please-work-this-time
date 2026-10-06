@@ -90,6 +90,10 @@ export default function AuthPage() {
       {/* Brand panel (desktop) */}
       <aside className="hidden lg:flex relative overflow-hidden bg-[#052443] text-white flex-col justify-between p-12">
         <div className="absolute -top-32 -right-24 w-[480px] h-[480px] rounded-full bg-sky-500/10 blur-3xl" />
+        {/* the splash's waterline, carried over */}
+        <svg aria-hidden viewBox="0 0 1440 160" preserveAspectRatio="none" className="absolute bottom-0 left-0 w-full h-20 text-sky-400/10">
+          <path fill="currentColor" d="M0 80 C 180 40 360 40 540 80 S 900 120 1080 80 S 1260 40 1440 80 V160 H0 Z" />
+        </svg>
         <Link to="/" className="relative inline-flex w-fit">
           <BosunLogo tone="light" className="h-7" />
         </Link>

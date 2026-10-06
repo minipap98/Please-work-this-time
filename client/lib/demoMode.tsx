@@ -7,7 +7,11 @@ export function isDemoMode(): boolean {
   if (typeof window === "undefined") return false;
   try {
     if (import.meta.env.VITE_DEMO_MODE === "true") return true;
-    if (new URLSearchParams(window.location.search).get("demo") === "1") return true;
+    if (new URLSearchParams(window.location.search).get("demo") === "1") {
+      // Remember it: redirects (owner ↔ shop guards) drop the query string.
+      localStorage.setItem(STORAGE_KEY, "1");
+      return true;
+    }
     return localStorage.getItem(STORAGE_KEY) === "1";
   } catch {
     return false;

@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 import { timingSafeEqual } from "node:crypto";
 import { normalizeInvoice, type ExtractedInvoice } from "../../shared/invoice.js";
 import { parseJsonObject, readWithClaude, type Source } from "./invoice-extract.js";
+import { handleInboundPartsEmail } from "./inbound-email.js";
+import { inboundTokenFromAddress } from "../../shared/shop.js";
 
 function safeEqual(a: string, b: string): boolean {
   const x = Buffer.from(a);
@@ -41,9 +43,10 @@ const READABLE = new Set(["application/pdf", "image/jpeg", "image/png", "image/w
 const MAX_BYTES = 15 * 1024 * 1024;
 
 /**
- * Inbound receipts. Owners forward invoices to receipts@INBOUND_EMAIL_DOMAIN; the sender's address
- * identifies the account. Point the mail provider at POST /api/inbound/receipts?secret=INBOUND_EMAIL_SECRET
- * (same secret as parts). The first readable attachment (PDF/photo) is read with Claude; with no
+ * Inbound mail for the whole domain. Point the provider's single webhook at
+ * POST /api/inbound/receipts?secret=INBOUND_EMAIL_SECRET: parts+<token>@… is handed to the parts handler,
+ * anything else is treated as a receipt. Owners forward invoices to receipts@INBOUND_EMAIL_DOMAIN; the
+ * sender's address identifies the account. The first readable attachment (PDF/photo) is read with Claude; with no
  * attachment, the email text is read instead. Nothing goes in the Boat Log until the owner reviews it.
  */
 export const handleInboundReceipt: RequestHandler = async (req, res) => {
@@ -61,6 +64,12 @@ export const handleInboundReceipt: RequestHandler = async (req, res) => {
   }
 
   const body = (req.body ?? {}) as Record<string, unknown>;
+  // One webhook for the whole inbound domain: parts+<token>@… is a shop's parts mail, everything else is a receipt.
+  const to = [str(body.To), str(body.to), str(body.recipient), str(body.OriginalRecipient)].filter(Boolean).join(",");
+  if (inboundTokenFromAddress(to)) {
+    handleInboundPartsEmail(req, res, () => undefined);
+    return;
+  }
   const from = emailOf(str(body.From) || str(body.from) || str(body.sender));
   const subject = (str(body.Subject) || str(body.subject)).slice(0, 300);
   const messageId = str(body.MessageID) || str(body["Message-Id"]) || str(body.messageId) || null;

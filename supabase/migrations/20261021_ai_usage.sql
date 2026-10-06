@@ -77,5 +77,6 @@ begin
   return query select true, new_id, n_day + 1, lim.per_day, n_month + 1, lim.per_month;
 end;
 $$;
-revoke all on function public.consume_ai_quota(uuid, text, text) from public;
+-- Supabase grants execute on new public functions to anon and authenticated by default; only the server may call this.
+revoke all on function public.consume_ai_quota(uuid, text, text) from public, anon, authenticated;
 grant execute on function public.consume_ai_quota(uuid, text, text) to service_role;

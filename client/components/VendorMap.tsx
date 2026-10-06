@@ -35,6 +35,19 @@ export default function VendorMap({ vendors, onVendorClick, height = "400px" }: 
     return () => window.removeEventListener(MAPS_FAILED_EVENT, onFail);
   }, []);
 
+  // Google sometimes draws its own "Oops! Something went wrong" panel (key not allowed on this site)
+  // without calling gm_authFailure; swap it for our message.
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const watch = new MutationObserver(() => {
+      if (mapRef.current?.querySelector(".gm-err-container, .gm-err-content")) {
+        setError(`Map unavailable: the Google key doesn't allow ${window.location.hostname}. Add this site to the key's website restrictions.`);
+      }
+    });
+    watch.observe(mapRef.current, { childList: true, subtree: true });
+    return () => watch.disconnect();
+  }, [loaded]);
+
   // Init map
   useEffect(() => {
     if (!loaded || !mapRef.current || mapInstanceRef.current) return;

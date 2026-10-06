@@ -91,8 +91,10 @@ export default function BrowseVendors() {
         lng: v.lng ?? undefined,
       }));
     }
+    // Sample shops exist only in the demo; a live account sees real shops or none.
+    if (!demo) return [];
     return Object.values(getAllVendorProfiles()).map((v) => ({ ...v, id: v.name }));
-  }, [liveVendors]);
+  }, [liveVendors, demo]);
   const milesTo = (v: { lat?: number; lng?: number }) =>
     origin && v.lat != null && v.lng != null ? distanceMiles(origin, { lat: v.lat, lng: v.lng }) : null;
 
@@ -401,11 +403,25 @@ export default function BrowseVendors() {
             <svg className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
             </svg>
-            <p className="text-sm font-medium text-foreground mb-1">No vendors found</p>
-            <p className="text-xs text-muted-foreground mb-3">Try adjusting your search or filters</p>
-            <button onClick={clearFilters} className="text-xs font-semibold text-primary hover:underline">
-              Clear all filters
-            </button>
+            {allVendors.length === 0 ? (
+              <>
+                <p className="text-sm font-medium text-foreground mb-1">No shops on Bosun near you yet</p>
+                <p className="text-xs text-muted-foreground mb-3 max-w-sm mx-auto">
+                  We're signing up shops in your area. Post a job anyway: shops are notified as they join, and you'll see their bids here.
+                </p>
+                <button onClick={() => navigate("/app")} className="text-xs font-semibold text-primary hover:underline">
+                  Post a job
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium text-foreground mb-1">No shops match</p>
+                <p className="text-xs text-muted-foreground mb-3">Try adjusting your search or filters</p>
+                <button onClick={clearFilters} className="text-xs font-semibold text-primary hover:underline">
+                  Clear all filters
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div className={viewMode === "map" ? "space-y-2" : "space-y-3"}>

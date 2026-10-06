@@ -23,7 +23,8 @@ export default function VendorProfile() {
   const decodedName = decodeURIComponent(name ?? "");
   const looksLikeId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decodedName);
   const { data: live, isLoading: liveLoading } = useVendorProfile(looksLikeId ? decodedName : undefined);
-  const canned = getAllVendorProfiles()[decodedName];
+  // Sample shops only exist in the demo; a live account only ever sees real vendor profiles.
+  const canned = demo ? getAllVendorProfiles()[decodedName] : undefined;
   const liveVendor = live as Tables<"vendor_profiles"> | null | undefined;
   const vendor = liveVendor
     ? {
@@ -46,7 +47,7 @@ export default function VendorProfile() {
         lng: undefined as number | undefined,
       }
     : canned;
-  const pastWork = VENDOR_PAST_PROJECTS[decodedName] ?? VENDOR_PAST_PROJECTS[vendor?.name ?? ""] ?? [];
+  const pastWork = demo ? VENDOR_PAST_PROJECTS[decodedName] ?? VENDOR_PAST_PROJECTS[vendor?.name ?? ""] ?? [] : [];
   const isOwnProfile = role === "vendor" && (vendorId === decodedName || vendorId === liveVendor?.id);
 
   if (liveLoading && !vendor) {

@@ -9,6 +9,7 @@ import { useMarketplaceProject, useAcceptMarketplaceBid } from "@/hooks/use-mark
 import { VENDOR_PROFILES } from "@/data/vendorData";
 import { getVendorInsuranceStatus } from "@/data/vendorProfileUtils";
 import { useRole } from "@/context/RoleContext";
+import { isDemoMode } from "@/lib/demoMode";
 import { getProjectPhotos } from "@/lib/photoUtils";
 import {
   Dialog,
@@ -781,7 +782,7 @@ export default function ProjectDetail() {
                   )}
 
                   {/* Past work toggle */}
-                  {VENDOR_PAST_PROJECTS[bid.vendorName] && (
+                  {isDemoMode() && VENDOR_PAST_PROJECTS[bid.vendorName] && (
                     <div className="mt-3 pt-3 border-t border-border/50">
                       <button
                         onClick={() => setExpandedBid(expandedBid === bid.id ? null : bid.id)}

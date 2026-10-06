@@ -298,7 +298,7 @@ function MapPreview({ lat, lng, zoom }: { lat: number; lng: number; zoom: number
         </a>
         </span>
         {googleMapsConfigured && (
-          <span className="text-[10px] text-muted-foreground/80">Map preview unavailable: the key isn't allowed to use the Maps JavaScript API.</span>
+          <span className="text-[10px] text-muted-foreground/80">Map preview unavailable: the Google key doesn't allow this site or the Maps JavaScript API.</span>
         )}
       </div>
     );

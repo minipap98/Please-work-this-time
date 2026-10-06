@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import ImportInvoiceDialog from "@/components/boatlog/ImportInvoiceDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useMyBoats } from "@/hooks/use-my-boat";
 import {
   LOG_CATEGORIES,
   historyShareUrl,
@@ -35,7 +36,9 @@ export default function BoatLog() {
   const { toast } = useToast();
   const [params, setParams] = useSearchParams();
   const { data: boats = [], isLoading } = useLogBoats();
-  const boatId = params.get("boat") ?? boats[0]?.id;
+  const { primary: activeBoat, setPrimaryId } = useMyBoats();
+  // Follows the boat switched to in the top bar; ?boat= still deep-links.
+  const boatId = params.get("boat") ?? (activeBoat && boats.some((b) => b.id === activeBoat.id) ? activeBoat.id : boats[0]?.id);
   const boat = boats.find((b) => b.id === boatId);
   const { data: entries = [] } = useBoatLog(boatId);
   const add = useAddLogEntry();
@@ -119,7 +122,10 @@ export default function BoatLog() {
                 <select
                   className="px-3 py-2 text-sm border border-border rounded-lg bg-white"
                   value={boatId}
-                  onChange={(e) => setParams({ boat: e.target.value })}
+                  onChange={(e) => {
+                    setPrimaryId(e.target.value);
+                    setParams({ boat: e.target.value });
+                  }}
                 >
                   {boats.map((b) => <option key={b.id} value={b.id}>{b.name} · {b.label}</option>)}
                 </select>

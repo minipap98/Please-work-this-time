@@ -10,6 +10,7 @@ import {
 import { ENGINE_DATA, type EngineType } from "@/data/engineData";
 import { type ProjectBoat } from "@/data/projectData";
 import { useMyBoats } from "@/hooks/use-my-boat";
+import BoatSwitcher from "@/components/boats/BoatSwitcher";
 import { DEMO_BOAT } from "@/data/demoBoat";
 import { approximate } from "@shared/geo";
 import { useAuth } from "@/context/AuthContext";
@@ -394,12 +395,15 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
       {/* Boat info + actions */}
       <div className="px-5 pt-4 pb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div className="min-w-0">
-        <h1 className="text-xl font-bold text-foreground leading-tight">
-          {boatInfo?.name ||
-            (boatInfo?.make
-              ? [boatInfo.year, boatInfo.make, boatInfo.model].filter(Boolean).join(" ")
-              : "My Boat")}
-        </h1>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <h1 className="text-xl font-bold text-foreground leading-tight">
+            {boatInfo?.name ||
+              (boatInfo?.make
+                ? [boatInfo.year, boatInfo.make, boatInfo.model].filter(Boolean).join(" ")
+                : "My Boat")}
+          </h1>
+          <BoatSwitcher compact className="text-xs" />
+        </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
           {boatInfo?.name && (boatInfo.make || boatInfo.year) && (
             <p className="text-sm text-muted-foreground">

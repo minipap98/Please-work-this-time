@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useBoats } from "@/hooks/use-supabase";
 import { supabase } from "@/lib/supabase";
@@ -6,41 +6,52 @@ import type { Tables } from "@/lib/database.types";
 
 const primaryKey = (uid: string) => `bosun_primary_boat:${uid}`;
 
+// One shared "active boat" for the whole app, so switching in the top bar updates every page.
+const listeners = new Set<() => void>();
+let activeByUser: Record<string, string | null> = {};
+function readActive(uid: string): string | null {
+  if (!(uid in activeByUser)) {
+    try {
+      activeByUser[uid] = localStorage.getItem(primaryKey(uid));
+    } catch {
+      activeByUser[uid] = null;
+    }
+  }
+  return activeByUser[uid];
+}
+function writeActive(uid: string, id: string) {
+  activeByUser = { ...activeByUser, [uid]: id };
+  try {
+    localStorage.setItem(primaryKey(uid), id);
+  } catch {}
+  listeners.forEach((l) => l());
+}
+function subscribe(l: () => void) {
+  listeners.add(l);
+  return () => listeners.delete(l);
+}
+
 /**
- * The signed-in owner's boats from Supabase, with the one they marked primary.
- * Primary is remembered per account in this browser; it defaults to the first boat added.
+ * The signed-in owner's boats from Supabase, with the one that's active right now.
+ * The active boat is remembered per account in this browser and defaults to the first boat added.
+ * Every page that shows "your boat" (dashboard, maintenance, boat log, settings) follows it.
  */
 export function useMyBoats() {
   const { user } = useAuth();
   const { data: boats = [], isLoading } = useBoats();
-  const [primaryId, setPrimaryIdState] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    try {
-      setPrimaryIdState(localStorage.getItem(primaryKey(user.id)));
-    } catch {
-      setPrimaryIdState(null);
-    }
-  }, [user]);
+  const uid = user?.id ?? "";
+  const activeId = useSyncExternalStore(subscribe, () => (uid ? readActive(uid) : null), () => null);
 
   const setPrimaryId = useCallback(
     (id: string) => {
-      setPrimaryIdState(id);
-      if (user) {
-        try {
-          localStorage.setItem(primaryKey(user.id), id);
-        } catch {}
-      }
+      if (uid) writeActive(uid, id);
     },
-    [user]
+    [uid]
   );
 
   const list = boats as Tables<"boats">[];
-  const primary = useMemo(
-    () => list.find((b) => b.id === primaryId) ?? list[list.length - 1] ?? null,
-    [list, primaryId]
-  );
+  // useBoats returns newest first; the first boat added is the natural default.
+  const primary = useMemo(() => list.find((b) => b.id === activeId) ?? list[list.length - 1] ?? null, [list, activeId]);
   return { boats: list, primary, isLoading, setPrimaryId };
 }
 

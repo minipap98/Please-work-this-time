@@ -319,7 +319,11 @@ export default function ProjectDetail() {
                 </p>
               )}
               <p className="text-xs text-emerald-800 mt-2">
-                {[project.location, project.boat?.name, project.workLocation].filter(Boolean).join(" · ")}
+                {[
+                  project.location,
+                  project.boat && [project.boat.name, [project.boat.make, project.boat.model].filter(Boolean).join(" ")].filter(Boolean).join(", "),
+                  project.workLocation,
+                ].filter(Boolean).join(" · ")}
                 {project.haulOutRequired ? " · Haul-out required" : ""}
               </p>
               <p className="text-xs text-emerald-800 mt-2">Bosun does not pay shops yet — collect payment from the owner directly.</p>

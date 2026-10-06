@@ -8,6 +8,8 @@ interface ProjectCardProps {
   bids: number;
   /** Bids the owner hasn't opened yet. */
   newBids?: number;
+  /** Which boat the job is for, shown when the owner has more than one. */
+  boat?: string;
   onClick?: () => void;
   onCancel?: () => void;
   onReinstate?: () => void;
@@ -38,6 +40,7 @@ export default function ProjectCard({
   date,
   bids,
   newBids = 0,
+  boat,
   onClick,
   onCancel,
   onReinstate,
@@ -59,6 +62,14 @@ export default function ProjectCard({
 
         {/* Title */}
         <h3 className="text-sm font-semibold text-foreground mb-2 leading-snug">{title}</h3>
+        {boat && (
+          <p className="-mt-1 mb-2 flex items-center gap-1 text-[11px] font-medium text-sky-800 truncate">
+            <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 17h18l-2 3H5l-2-3zm2-2l2-7h10l2 7M12 3v5" />
+            </svg>
+            <span className="truncate">{boat}</span>
+          </p>
+        )}
 
         {/* Description */}
         <p className="text-xs text-muted-foreground mb-4 leading-relaxed line-clamp-3">{description}</p>

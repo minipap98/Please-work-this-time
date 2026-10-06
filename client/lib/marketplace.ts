@@ -175,6 +175,7 @@ export function mapProject(row: ProjectRow): Project {
         }
       : undefined,
     boat: mapBoat(row.boat),
+    boatId: row.boat_id ?? undefined,
     bids: (row.bids ?? []).map(mapBid),
     chosenBidId: row.chosen_bid_id ?? undefined,
     photos: photos.length ? photos : undefined,

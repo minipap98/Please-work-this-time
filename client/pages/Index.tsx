@@ -16,6 +16,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useSeenBids } from "@/lib/seenBids";
 import type { StatPick } from "@/components/QuickStats";
 import { getCancelledProjectIds, getLocalProjectStatus } from "@/data/bidUtils";
+import { useMyBoats } from "@/hooks/use-my-boat";
 
 type Tab = "active" | "expired" | "completed";
 
@@ -38,7 +39,14 @@ export default function Index() {
   const seen = useSeenBids(isDemoMode() ? "demo" : user?.id);
   const jobsRef = useRef<HTMLElement>(null);
   const demo = isDemoMode();
-  const { data: allProjects = [], isLoading, refetch } = useOwnerMarketplaceProjects();
+  const { data: everyProject = [], isLoading, refetch } = useOwnerMarketplaceProjects();
+  // Owners with more than one boat can look at one boat's jobs at a time.
+  const { boats } = useMyBoats();
+  const multiBoat = !demo && boats.length > 1;
+  const [boatFilter, setBoatFilter] = useState<string>("all");
+  const allProjects = multiBoat && boatFilter !== "all" ? everyProject.filter((p) => p.boatId === boatFilter) : everyProject;
+  const boatLabel = (p: { boat?: { name?: string; make?: string; model?: string } }) =>
+    multiBoat && p.boat ? [p.boat.name, [p.boat.make, p.boat.model].filter(Boolean).join(" ")].filter(Boolean).join(" · ") : undefined;
   const updateStatus = useUpdateProjectStatus();
   const cancelledIds = demo ? getCancelledProjectIds() : [];
 
@@ -131,8 +139,25 @@ export default function Index() {
         </div>
 
         <section ref={jobsRef} className="rounded-xl border border-border bg-white shadow-card scroll-mt-20">
-          <div className="flex items-center justify-between px-5 pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4">
             <h2 className="text-base font-semibold">Your jobs</h2>
+            {multiBoat && (
+              <div className="flex items-center gap-1 rounded-lg bg-muted p-0.5">
+                {[{ id: "all", label: "All boats" }, ...boats.map((b) => ({ id: b.id, label: `${b.name} · ${b.model}` }))].map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => setBoatFilter(o.id)}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors",
+                      boatFilter === o.id ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           {/* Tab bar */}
           <div className="flex border-b border-border px-5 mt-2 mb-4">
@@ -175,6 +200,7 @@ export default function Index() {
                     date={project.date}
                     bids={project.bids.length}
                     newBids={unreadFor(project)}
+                    boat={boatLabel(project)}
                     onClick={() => navigate(`/project/${project.id}`)}
                     onCancel={tab === "active" ? () => handleCancel(project.id) : undefined}
                     onReinstate={tab === "expired" ? () => handleReinstate(project.id) : undefined}

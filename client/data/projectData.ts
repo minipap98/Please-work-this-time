@@ -69,6 +69,8 @@ export interface Project {
     location?: string;
   };
   boat?: ProjectBoat;
+  /** The owner's boat this job is for (live jobs). */
+  boatId?: string;
   bids: Bid[];
   chosenBidId?: string;
   photos?: string[];

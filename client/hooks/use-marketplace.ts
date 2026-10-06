@@ -14,6 +14,7 @@ import {
   type CreateProjectInput,
   type ProjectRow,
   type SubmitBidInput,
+  formatProjectDate,
 } from "@/lib/marketplace";
 import type { Project, ProjectBoat } from "@/data/projectData";
 import {
@@ -206,7 +207,7 @@ export function useSubmitMarketplaceBid() {
             day: "numeric",
             year: "numeric",
           }),
-          expiryDate: input.expiryDate || "",
+          expiryDate: input.expiryDate ? formatProjectDate(input.expiryDate) : "",
           thread: [],
         });
         return Promise.resolve();

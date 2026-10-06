@@ -211,11 +211,14 @@ export default function ProjectDetail() {
     setStoredStatus(next);
   }
 
+  /** Days until a bid's "valid until" date ("Mar 25, 2026" or ISO). Unknown dates never expire. */
   function daysUntil(dateStr: string) {
-    const parts = dateStr.split(" ");
-    const parsed = new Date(`${parts[0]} ${parts[1]}, ${parts[2]}`);
-    const diff = Math.ceil((parsed.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    return diff;
+    if (!dateStr || dateStr === "TBD") return Infinity;
+    const parsed = new Date(dateStr);
+    if (Number.isNaN(parsed.getTime())) return Infinity;
+    // A plain date is good through the end of that day.
+    if (/^[A-Za-z]{3} \d{1,2}, \d{4}$/.test(dateStr)) parsed.setHours(23, 59, 59, 999);
+    return Math.ceil((parsed.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   }
 
 
@@ -712,9 +715,11 @@ export default function ProjectDetail() {
                           </button>
                           <button
                             onClick={() => handleAcceptBid(bid.id)}
-                            className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+                            disabled={daysUntil(bid.expiryDate) <= 0}
+                            title={daysUntil(bid.expiryDate) <= 0 ? "This bid has expired. Ask the shop to bid again." : undefined}
+                            className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
                           >
-                            Accept Bid
+                            {daysUntil(bid.expiryDate) <= 0 ? "Expired" : "Accept Bid"}
                           </button>
                         </div>
                       )}

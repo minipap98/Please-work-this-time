@@ -310,7 +310,12 @@ export async function submitMarketplaceBid(input: SubmitBidInput): Promise<void>
       vendor_id: input.vendorProfileId,
       price: input.price,
       message: input.message.trim(),
-      expiry_date: input.expiryDate || null,
+      // A date from the picker (YYYY-MM-DD) means "good through the end of that day".
+      expiry_date: input.expiryDate
+        ? /^\d{4}-\d{2}-\d{2}$/.test(input.expiryDate)
+          ? new Date(`${input.expiryDate}T23:59:59`).toISOString()
+          : input.expiryDate
+        : null,
     })
     .select("id")
     .single();

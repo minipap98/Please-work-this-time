@@ -41,7 +41,14 @@ export default function VendorRFPs() {
   const [dialogProjectId, setDialogProjectId] = useState<string | null>(null);
   const [bidMessage, setBidMessage] = useState("");
   const [lineItems, setLineItems] = useState<LineItem[]>([{ ...EMPTY_ITEM }]);
-  const [bidExpiry, setBidExpiry] = useState("");
+  // Bids expire at the end of this day; default two weeks out.
+  const defaultExpiry = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d.toLocaleDateString("en-CA");
+  };
+  const todayIso = new Date().toLocaleDateString("en-CA");
+  const [bidExpiry, setBidExpiry] = useState(defaultExpiry);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<string[]>([]);
 
@@ -79,6 +86,7 @@ export default function VendorRFPs() {
   const isValid =
     !!dialogProject &&
     !!vendorId &&
+    bidExpiry >= todayIso &&
     bidMessage.trim().length > 0 &&
     lineItems.some((item) => item.description.trim() && parseFloat(item.unitPrice) > 0);
 
@@ -91,6 +99,7 @@ export default function VendorRFPs() {
 
   function closeDialog() {
     setDialogProjectId(null);
+    setBidExpiry(defaultExpiry());
   }
 
   function updateItem(index: number, field: keyof LineItem, value: string) {
@@ -426,12 +435,28 @@ export default function VendorRFPs() {
                     Bid valid until
                   </label>
                   <input
-                    type="text"
+                    type="date"
                     value={bidExpiry}
+                    min={todayIso}
                     onChange={(e) => setBidExpiry(e.target.value)}
-                    placeholder="e.g. Mar 25, 2026"
-                    className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {[7, 14, 30].map((days) => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + days);
+                      const v = d.toLocaleDateString("en-CA");
+                      return (
+                        <button key={days} type="button" onClick={() => setBidExpiry(v)} className={`text-xs rounded-full px-2.5 py-1 border ${bidExpiry === v ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>
+                          {days} days
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    After this date the owner can't accept the bid; you can always bid again.
+                    {bidExpiry < todayIso && <span className="text-red-600"> Pick a date from today on.</span>}
+                  </p>
                 </div>
               </div>
 

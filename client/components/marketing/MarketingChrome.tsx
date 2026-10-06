@@ -42,6 +42,7 @@ const LINKS: Record<Audience, { href: string; label: string }[]> = {
     { href: "#tools", label: "Shop tools" },
     { href: "#insights", label: "Insights" },
     { href: "#crew", label: "Your crew" },
+    { href: "#pricing", label: "Pricing" },
   ],
 };
 
@@ -92,7 +93,7 @@ export function MarketingNav({ audience }: { audience: Audience }) {
             onClick={() => navigate(signupPath(audience))}
             className="text-sm font-semibold bg-[#052443] text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-[#0a3360] transition-colors whitespace-nowrap"
           >
-            {audience === "shops" ? "Start free" : "Post a job"}
+            {audience === "shops" ? "Get started" : "Post a job"}
           </button>
         </div>
       </div>

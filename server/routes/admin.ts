@@ -541,7 +541,7 @@ export const handleAdminProspectDraft: RequestHandler = async (req, res) => {
     if (error) throw error;
     const demand = ((req.body ?? {}).demand as string[] | undefined) ?? [];
     const sender = (req.body ?? {}).sender as string | undefined;
-    const prompt = `You write short, plain outreach for Bosun, a marketplace where boat owners post service jobs and local marine shops bid on them. Bosun is free to join; shops pay a fee only on jobs they win, and get free shop software (work orders, scheduling, parts tracking, QuickBooks export).
+    const prompt = `You write short, plain outreach for Bosun, a marketplace where boat owners post service jobs and local marine shops bid on them. Shops pay $99 a month for the shop software (work orders, scheduling, parts tracking, invoicing, QuickBooks export) and a fee only on a new customer's first year of work (10% of the first job, 5% after, nothing once the year is up). Repeat customers are never charged. Founding shops in the South Florida pilot get it on us.
 
 Write to this shop:
 Name: ${p.name}

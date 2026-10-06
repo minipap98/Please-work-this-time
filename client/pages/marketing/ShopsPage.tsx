@@ -1,9 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowRight, BarChart3, BookOpen, Boxes, CalendarDays, Check, ChevronRight, ClipboardList, Compass,
-  FileSpreadsheet, Mail, MapPin, Smartphone, Sun, Users,
+  ArrowRight, BadgeCheck, BarChart3, BookOpen, Boxes, CalendarDays, Check, ChevronRight, ClipboardList, Compass,
+  FileSpreadsheet, Mail, MapPin, Receipt, Smartphone, Sun, Users,
 } from "lucide-react";
 import { MarketingFooter, MarketingNav, signupPath, useStartDemo } from "@/components/marketing/MarketingChrome";
+import { FIRST_JOB_BAND, FIRST_JOB_RATE, FIRST_YEAR_BANDS, PLANS, firstYearFees, money, pct } from "@shared/pricing";
 
 const STEPS = [
   { n: 1, title: "Set up your shop", body: "Your location, how far you travel, the services you do, your bays and techs. Ten minutes." },
@@ -66,7 +67,7 @@ export default function ShopsPage() {
               </button>
             </div>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-300">
-              {["Free to join", "Fee only on jobs you win", "Shop tools included"].map((t) => (
+              {[`${money(PLANS[0].monthly)} a month, every tool included`, "A fee only on customers we bring you", "Repeat work is yours, no fee"].map((t) => (
                 <span key={t} className="flex items-center gap-1.5"><Check className="w-4 h-4 text-sky-300" /> {t}</span>
               ))}
             </div>
@@ -188,13 +189,87 @@ export default function ShopsPage() {
         </div>
       </section>
 
+      {/* Pricing */}
+      <section id="pricing" className="py-16 sm:py-20 bg-slate-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl">
+            <Eyebrow>Pricing</Eyebrow>
+            <H2>One subscription. A fee only on the customers we bring you.</H2>
+            <p className="mt-3 text-slate-600">
+              The software is a flat monthly price. The marketplace charges a fee on a new customer's first year with you, and
+              nothing after that. Your existing customers are never charged.
+            </p>
+          </div>
+
+          <div className="mt-10 grid lg:grid-cols-[1fr_1fr_1.25fr] gap-5">
+            {PLANS.map((p, i) => (
+              <div key={p.key} className={i === 1 ? "rounded-2xl bg-[#052443] text-white p-6 shadow-lg flex flex-col" : "rounded-2xl bg-white border border-border p-6 flex flex-col"}>
+                <p className={i === 1 ? "text-xs font-bold uppercase tracking-wider text-sky-300" : "text-xs font-bold uppercase tracking-wider text-sky-700"}>{p.name}</p>
+                <p className="mt-2 flex items-baseline gap-1">
+                  <span className="text-4xl font-bold tabular-nums">{money(p.monthly)}</span>
+                  <span className={i === 1 ? "text-sm text-slate-300" : "text-sm text-slate-500"}>per month</span>
+                </p>
+                <p className={i === 1 ? "mt-1 text-sm text-slate-300" : "mt-1 text-sm text-slate-600"}>{p.tagline}</p>
+                <ul className={i === 1 ? "mt-5 space-y-2 text-sm text-slate-200 flex-1" : "mt-5 space-y-2 text-sm text-slate-700 flex-1"}>
+                  {p.features.map((f) => (
+                    <li key={f} className="flex gap-2"><Check className={i === 1 ? "w-4 h-4 mt-0.5 text-sky-300 shrink-0" : "w-4 h-4 mt-0.5 text-emerald-500 shrink-0"} /> {f}</li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => navigate(signupPath("shops"))}
+                  className={i === 1 ? "mt-6 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white text-[#052443] text-sm font-semibold hover:bg-sky-50" : "mt-6 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#052443] text-white text-sm font-semibold hover:bg-[#0a3360]"}
+                >
+                  Start with {p.name} <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+
+            {/* The marketplace fee */}
+            <div className="rounded-2xl bg-white border border-border p-6">
+              <p className="text-xs font-bold uppercase tracking-wider text-sky-700 inline-flex items-center gap-1.5"><Receipt className="w-4 h-4" /> New-customer fee</p>
+              <p className="mt-2 text-lg font-semibold text-[#052443] leading-snug">Charged on a customer's first year with you. Then they're yours.</p>
+              <table className="mt-4 w-full text-sm">
+                <tbody className="divide-y divide-border">
+                  <tr><td className="py-2 text-slate-700">Their first job</td><td className="py-2 text-right font-semibold tabular-nums text-[#052443]">{pct(FIRST_JOB_RATE)}</td></tr>
+                  <tr><td className="py-2 text-slate-700">The rest of their first year</td><td className="py-2 text-right font-semibold tabular-nums text-[#052443]">{pct(FIRST_YEAR_BANDS[0].rate)}</td></tr>
+                  {FIRST_YEAR_BANDS.slice(1).map((b, i) => (
+                    <tr key={b.upTo}><td className="py-2 text-slate-500">Once their year passes {money(FIRST_YEAR_BANDS[i].upTo)}</td><td className="py-2 text-right tabular-nums text-slate-600">{pct(b.rate)}</td></tr>
+                  ))}
+                  <tr><td className="py-2 font-semibold text-emerald-700">After 12 months</td><td className="py-2 text-right font-bold tabular-nums text-emerald-700">0%</td></tr>
+                </tbody>
+              </table>
+              <FeeExample />
+              <ul className="mt-4 space-y-2 text-xs text-slate-600">
+                <li className="flex gap-2"><Check className="w-3.5 h-3.5 mt-0.5 text-emerald-500 shrink-0" /> Shown on every bid before you send it, so it's in your price.</li>
+                <li className="flex gap-2"><Check className="w-3.5 h-3.5 mt-0.5 text-emerald-500 shrink-0" /> Charged only when the owner pays through Bosun. Standard card processing applies.</li>
+                <li className="flex gap-2"><Check className="w-3.5 h-3.5 mt-0.5 text-emerald-500 shrink-0" /> The {pct(FIRST_JOB_RATE)} covers the first {money(FIRST_JOB_BAND)} of a first job; a bigger one drops to {pct(FIRST_YEAR_BANDS[0].rate)} past that.</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Why it pays to keep the work on Bosun */}
+          <div className="mt-8 rounded-2xl border border-sky-200 bg-sky-50 p-6 grid md:grid-cols-[auto_1fr] gap-4 items-start">
+            <div className="w-10 h-10 rounded-xl bg-white text-sky-700 border border-sky-200 flex items-center justify-center"><BadgeCheck className="w-5 h-5" /></div>
+            <div>
+              <p className="text-base font-semibold text-[#052443]">Why the owner wants the job on Bosun too</p>
+              <p className="mt-1.5 text-sm text-slate-700 leading-relaxed">
+                Every job you finish through Bosun lands in the owner's Boat Log stamped <span className="font-semibold">verified by your shop</span>, with
+                your notes and line items. Work done off the books isn't verified, and owners can see the difference when they sell the boat or
+                hand a surveyor the history. Their record is the reason they keep coming back to you on Bosun, and after the first year that costs you nothing.
+              </p>
+            </div>
+          </div>
+          <p className="mt-4 text-xs text-slate-500">Launching in South Florida. Our founding shops are on us for the pilot; ask when you sign up.</p>
+        </div>
+      </section>
+
       {/* CTA */}
-      <section className="py-16 sm:py-20 bg-slate-50">
+      <section className="py-16 sm:py-20 bg-white">
         <div className="max-w-3xl mx-auto px-4 text-center">
           <H2>Start getting new customers this week</H2>
           <p className="mt-3 text-slate-600">
-            Free to join. Add your bays, techs and the parts you stock, and you're running. Bosun's fee applies only to
-            jobs you win through the marketplace.
+            Add your bays, techs and the parts you stock, and you're running. {money(PLANS[0].monthly)} a month for the whole shop, and a fee
+            only on the customers Bosun brings you.
           </p>
           <div className="mt-7 flex flex-col sm:flex-row gap-3 justify-center">
             <button
@@ -211,6 +286,20 @@ export default function ShopsPage() {
       </section>
 
       <MarketingFooter audience="shops" />
+    </div>
+  );
+}
+
+/** A worked example, computed from the schedule so the copy can't drift from the numbers. */
+function FeeExample() {
+  const jobs = [1500, 1500];
+  const fees = firstYearFees(jobs);
+  const total = fees.reduce((a, b) => a + b, 0);
+  return (
+    <div className="mt-4 rounded-xl bg-slate-50 border border-border p-3 text-xs text-slate-700 leading-relaxed">
+      <span className="font-semibold text-[#052443]">Example.</span> A new owner books a {money(jobs[0])} service, then a {money(jobs[1])} haul-out
+      six months later: {money(fees[0])} + {money(fees[1])} = <span className="font-semibold text-[#052443]">{money(total)}</span>. Their next
+      job after the first year: <span className="font-semibold text-emerald-700">$0</span>.
     </div>
   );
 }

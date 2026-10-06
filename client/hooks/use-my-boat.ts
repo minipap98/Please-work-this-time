@@ -80,10 +80,13 @@ export const DEFAULT_FRAME: HeroFrame = { zoom: 1, x: 50, y: 50 };
 /** Below 1 the photo sits smaller than the banner (white around it); above 1 it's enlarged. */
 export const MIN_ZOOM = 0.5;
 export const MAX_ZOOM = 3;
-/** The zoom at which a photo of this shape shows in full inside a banner of `boxRatio`. */
+/**
+ * The zoom at which a photo of this shape shows in full inside a banner of `boxRatio`,
+ * with a little breathing room so nothing in the photo touches the banner's edge.
+ */
 export function fitZoom(imageRatio: number, boxRatio: number): number {
   if (!imageRatio || !boxRatio) return 1;
-  return clamp(Math.min(boxRatio / imageRatio, imageRatio / boxRatio), MIN_ZOOM, 1);
+  return clamp(Math.min(boxRatio / imageRatio, imageRatio / boxRatio) * 0.92, MIN_ZOOM, 1);
 }
 const frameKey = (boatId: string) => `bosun_hero_frame:${boatId}`;
 export function readHeroFrame(boatId: string): HeroFrame {

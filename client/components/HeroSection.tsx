@@ -11,6 +11,7 @@ import { ENGINE_DATA, type EngineType } from "@/data/engineData";
 import { type ProjectBoat } from "@/data/projectData";
 import { readHeroFit, useMyBoats } from "@/hooks/use-my-boat";
 import BoatSwitcher from "@/components/boats/BoatSwitcher";
+import { cn } from "@/lib/utils";
 import { DEMO_BOAT } from "@/data/demoBoat";
 import { approximate } from "@shared/geo";
 import { useAuth } from "@/context/AuthContext";
@@ -170,6 +171,8 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
   const createProject = useCreateMarketplaceProject();
   const [open, setOpen] = useState(false);
   const [posting, setPosting] = useState(false);
+  // Width ÷ height of the loaded photo; the banner adopts it (floored at 1.6:1) so the photo isn't cropped.
+  const [heroRatio, setHeroRatio] = useState<number | null>(null);
   const [heroImage, setHeroImage] = useState<string | null>(
     () => (demo ? localStorage.getItem("hero_image") ?? DEFAULT_HERO : null)
   );
@@ -368,25 +371,31 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
   ].filter(Boolean).join(" ");
 
   return (
-    <section className="rounded-xl border border-border bg-white shadow-card overflow-hidden">
-      {/* Banner: fills edge to edge by default; "show the whole photo" (Settings) keeps every pixel on white. */}
+    <section className={cn("rounded-xl border border-border bg-white shadow-card overflow-hidden", heroImage && "md:grid md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]")}>
+      {/* The photo keeps its own shape: full width on phones, beside the details on wider screens.
+          Nothing is trimmed unless it's extremely tall; "show the whole photo" (Settings) pads instead. */}
       <div
         className={
           heroImage
             ? heroFit === "contain"
-              ? "relative bg-white pt-4 px-4"
-              : "relative h-[220px] sm:h-[300px] overflow-hidden bg-slate-100"
+              ? "relative bg-white p-4 md:self-center"
+              : "relative w-full overflow-hidden bg-slate-100 md:self-stretch md:h-full md:min-h-[260px]"
             : "relative h-[200px] sm:h-[260px] overflow-hidden"
         }
+        style={heroImage && heroFit !== "contain" && heroRatio ? { aspectRatio: String(heroRatio) } : undefined}
       >
         {heroImage ? (
           <img
             src={heroImage}
             alt="Your boat"
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              if (img.naturalWidth && img.naturalHeight) setHeroRatio(Math.max(1.6, img.naturalWidth / img.naturalHeight));
+            }}
             className={
               heroFit === "contain"
-                ? "block w-auto h-auto max-w-full max-h-[180px] sm:max-h-[260px] mx-auto"
-                : "block w-full h-full object-cover object-center"
+                ? "block w-auto h-auto max-w-full max-h-[220px] md:max-h-[320px] mx-auto"
+                : "block w-full h-full object-cover object-center md:absolute md:inset-0"
             }
           />
         ) : (
@@ -406,10 +415,10 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
       </div>
 
       {/* Boat info + actions */}
-      <div className="px-5 pt-4 pb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className={cn("px-5 pt-4 pb-5 flex flex-col gap-4", heroImage ? "md:justify-center md:py-6" : "lg:flex-row lg:items-end lg:justify-between")}>
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="text-xl font-bold text-foreground leading-tight">
+          <h1 className="text-xl md:text-2xl font-bold text-foreground leading-tight">
             {boatInfo?.name ||
               (boatInfo?.make
                 ? [boatInfo.year, boatInfo.make, boatInfo.model].filter(Boolean).join(" ")
@@ -440,7 +449,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
       </div>
 
       {/* CTA buttons */}
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 shrink-0">
+      <div className={cn("flex flex-col gap-2 sm:gap-3 shrink-0", heroImage ? "sm:flex-row md:flex-col" : "sm:flex-row")}>
         <button
           onClick={() => setOpen(true)}
           className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-3 sm:py-2.5 rounded-lg text-sm font-semibold hover:bg-brand-600 transition-colors"

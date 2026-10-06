@@ -10,6 +10,7 @@ import {
 import { ENGINE_DATA, type EngineType } from "@/data/engineData";
 import { type ProjectBoat } from "@/data/projectData";
 import { bannerRatio, heroFrameStyle, photoFrameFor, useMyBoats } from "@/hooks/use-my-boat";
+import type { Tables } from "@/lib/database.types";
 import BoatSwitcher from "@/components/boats/BoatSwitcher";
 import { cn } from "@/lib/utils";
 import { DEMO_BOAT } from "@/data/demoBoat";
@@ -111,6 +112,22 @@ const EMPTY_BOAT = {
   isPrimary: true,
 };
 
+type BoatInfo = typeof EMPTY_BOAT;
+function boatInfoFrom(boat: Tables<"boats">): BoatInfo {
+  return {
+    id: boat.id,
+    make: boat.make,
+    model: boat.model,
+    year: boat.year,
+    name: boat.name,
+    engineType: (boat.engine_type as EngineType) || "Outboard",
+    engineMake: boat.engine_make ?? "",
+    engineModel: boat.engine_model ?? "",
+    engineCount: ["Single", "Twin", "Triple", "Quad", "Quint", "Sextuple"][(boat.engine_count ?? 1) - 1] ?? `${boat.engine_count}×`,
+    isPrimary: true,
+  };
+}
+
 interface BoatEquipmentItem {
   id: string;
   boatId: string;
@@ -167,7 +184,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
   const { demo } = useDemoMode();
   const { profile } = useAuth();
   // Live accounts read their own boat from Supabase; browser storage only backs the demo.
-  const { primary } = useMyBoats();
+  const { primary, boats } = useMyBoats();
   const createProject = useCreateMarketplaceProject();
   const [open, setOpen] = useState(false);
   const [posting, setPosting] = useState(false);
@@ -224,19 +241,13 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
       setBoatInfo(EMPTY_BOAT);
       return;
     }
-    setBoatInfo({
-      id: boat.id,
-      make: boat.make,
-      model: boat.model,
-      year: boat.year,
-      name: boat.name,
-      engineType: (boat.engine_type as EngineType) || "Outboard",
-      engineMake: boat.engine_make ?? "",
-      engineModel: boat.engine_model ?? "",
-      engineCount: ["Single", "Twin", "Triple", "Quad", "Quint", "Sextuple"][(boat.engine_count ?? 1) - 1] ?? `${boat.engine_count}×`,
-      isPrimary: true,
-    });
+    setBoatInfo(boatInfoFrom(boat));
   }, [demo, primary, profile?.location]);
+
+  // Which boat the job being posted is for: the active boat unless the owner picks another.
+  const [jobBoatId, setJobBoatId] = useState<string | null>(null);
+  const jobBoat = (!demo && boats.find((b) => b.id === jobBoatId)) || null;
+  const jobBoatInfo: BoatInfo = jobBoat ? boatInfoFrom(jobBoat) : boatInfo;
 
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [engineType, setEngineType] = useState<EngineType | null>(null);
@@ -244,6 +255,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
   const [model, setModel] = useState<string | null>(null);
 
   function handleClose() {
+    setJobBoatId(null);
     setOpen(false);
     setTimeout(() => {
       setStep("category");
@@ -489,6 +501,22 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
               </DialogHeader>
 
               <div className="pt-2">
+                {!demo && boats.length > 1 && (
+                  <label className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                    <span className="text-muted-foreground shrink-0">This job is for</span>
+                    <select
+                      value={jobBoatInfo.id}
+                      onChange={(e) => setJobBoatId(e.target.value)}
+                      className="min-w-0 flex-1 rounded-md border border-border bg-white px-2 py-1 text-sm font-medium text-foreground"
+                    >
+                      {boats.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} · {b.year} {b.make} {b.model}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                   Quick Templates
                 </p>
@@ -952,22 +980,22 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                         // Build propulsion from stored engine info
                         // Use the boat's saved engine; fall back to what they picked in the engine step.
                         const engineModelClean =
-                          (boatInfo?.engineModel || model)?.replace(/\s*\([\d–\-]+.*?\)$/, "") || null;
+                          (jobBoatInfo.engineModel || model)?.replace(/\s*\([\d–\-]+.*?\)$/, "") || null;
                         const propulsion = [
-                          (boatInfo?.engineMake ? boatInfo?.engineType : engineType) === "Outboard"
-                            ? boatInfo?.engineCount || null
+                          (jobBoatInfo.engineMake ? jobBoatInfo.engineType : engineType) === "Outboard"
+                            ? jobBoatInfo.engineCount || null
                             : null,
-                          boatInfo?.engineMake || make || null,
+                          jobBoatInfo.engineMake || make || null,
                           engineModelClean,
                         ]
                           .filter(Boolean)
-                          .join(" ") || boatInfo?.engineType || engineType || "Unknown";
+                          .join(" ") || jobBoatInfo.engineType || engineType || "Unknown";
 
                         const boat: ProjectBoat = {
-                          name: boatInfo?.name || "My Boat",
-                          make: boatInfo?.make || "",
-                          model: boatInfo?.model || "",
-                          year: boatInfo?.year || "",
+                          name: jobBoatInfo.name || "My Boat",
+                          make: jobBoatInfo.make || "",
+                          model: jobBoatInfo.model || "",
+                          year: jobBoatInfo.year || "",
                           propulsion,
                         };
 
@@ -979,7 +1007,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
                             category: selectedCategory || undefined,
                             location: location || undefined,
                             ...jobCoords(),
-                            boatId: boatInfo?.id || undefined,
+                            boatId: jobBoatInfo.id || undefined,
                             photos: projectPhotos,
                             metadata: {
                               workLocation: workLocation || undefined,

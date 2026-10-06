@@ -800,6 +800,45 @@ export interface Database {
         };
         Relationships: [];
       };
+      receipt_inbox: {
+        Row: {
+          id: string;
+          owner_id: string;
+          from_email: string;
+          subject: string;
+          received_at: string;
+          attachment_path: string | null;
+          attachment_name: string | null;
+          extracted: Json | null;
+          read_error: string | null;
+          status: "pending" | "added" | "dismissed";
+          resolved_at: string | null;
+          message_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          from_email?: string;
+          subject?: string;
+          received_at?: string;
+          attachment_path?: string | null;
+          attachment_name?: string | null;
+          extracted?: Json | null;
+          read_error?: string | null;
+          status?: "pending" | "added" | "dismissed";
+          resolved_at?: string | null;
+          message_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          status?: "pending" | "added" | "dismissed";
+          resolved_at?: string | null;
+          extracted?: Json | null;
+          read_error?: string | null;
+        };
+        Relationships: [];
+      };
       shop_customers: {
         Row: {
           id: string;

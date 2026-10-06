@@ -141,7 +141,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex min-h-screen flex-1 flex-col min-w-0">
+      <div className="flex min-h-screen flex-1 flex-col min-w-0 overflow-x-hidden">
         {/* ── Top bar ── */}
         <header className="sticky top-0 z-30 border-b border-border bg-white/90 backdrop-blur">
           {demo && (
@@ -174,7 +174,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             )}
             <div className="flex items-center gap-1 sm:gap-2">
               {isVendor && <span className="md:hidden"><ShopSearchBar vendorId={vendorId} /></span>}
-              {!isVendor && <span className="md:hidden"><BoatSwitcher compact /></span>}
+              {!isVendor && <span className="md:hidden min-w-0"><BoatSwitcher compact className="max-w-[8.5rem]" /></span>}
               <NotificationCenter />
               <DropdownMenu>
                 <DropdownMenuTrigger className="flex items-center gap-2 rounded-full border border-border bg-white pl-1 pr-2 py-1 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">

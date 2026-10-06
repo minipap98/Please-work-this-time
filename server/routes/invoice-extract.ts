@@ -17,10 +17,10 @@ export const handleInvoiceHealth: RequestHandler = (_req, res) => {
   res.json({ configured: !!process.env.ANTHROPIC_API_KEY, supabase: !!(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL) });
 };
 
-type Source = Anthropic.Beta.BetaContentBlockParam;
+export type Source = Anthropic.Beta.BetaContentBlockParam;
 
 /** Structured output is plain JSON; the plain-JSON retry may wrap it in prose or fences. */
-function parseJsonObject(text: string): unknown {
+export function parseJsonObject(text: string): unknown {
   try {
     return JSON.parse(text);
   } catch {
@@ -31,7 +31,7 @@ function parseJsonObject(text: string): unknown {
   }
 }
 
-async function readWithClaude(source: Source) {
+export async function readWithClaude(source: Source) {
   const client = new Anthropic();
   const base = {
     model: "claude-opus-5-5",

@@ -472,3 +472,58 @@ export async function invoiceUrl(path: string): Promise<string | null> {
   const { data } = await supabase.storage.from("boat-documents").createSignedUrl(path, 600);
   return data?.signedUrl ?? null;
 }
+
+
+/* ── Emailed receipts waiting for review ─────────────────────────────────── */
+
+export interface InboxReceipt {
+  id: string;
+  fromEmail: string;
+  subject: string;
+  receivedAt: string;
+  attachmentPath: string | null;
+  attachmentName: string | null;
+  extracted: ExtractedInvoice | null;
+  readError: string | null;
+}
+
+export function useReceiptInbox() {
+  const { user } = useAuth();
+  const demo = isDemoMode();
+  return useQuery({
+    queryKey: ["receipt-inbox", user?.id],
+    queryFn: async (): Promise<InboxReceipt[]> => {
+      const { data, error } = await supabase
+        .from("receipt_inbox")
+        .select("*")
+        .eq("owner_id", user!.id)
+        .eq("status", "pending")
+        .order("received_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((r) => ({
+        id: r.id,
+        fromEmail: r.from_email,
+        subject: r.subject,
+        receivedAt: r.received_at,
+        attachmentPath: r.attachment_path,
+        attachmentName: r.attachment_name,
+        extracted: r.extracted ? normalizeInvoice(r.extracted) : null,
+        readError: r.read_error,
+      }));
+    },
+    enabled: !!user && !demo,
+    refetchInterval: 60_000,
+  });
+}
+
+export function useResolveReceipt() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "added" | "dismissed" }) => {
+      const { error } = await supabase.from("receipt_inbox").update({ status, resolved_at: new Date().toISOString() }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["receipt-inbox", user?.id] }),
+  });
+}

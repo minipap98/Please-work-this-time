@@ -2,6 +2,7 @@ import { PageContainer, PageHeader, Panel, StatGrid, StatTile } from "@/componen
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import ImportInvoiceDialog from "@/components/boatlog/ImportInvoiceDialog";
+import ReceiptInbox, { RECEIPTS_ADDRESS } from "@/components/boatlog/ReceiptInbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useMyBoats } from "@/hooks/use-my-boat";
@@ -143,6 +144,20 @@ export default function BoatLog() {
             </>
           }
         />
+        <ReceiptInbox className="mb-5" />
+        {RECEIPTS_ADDRESS && boat && (
+          <p className="mb-5 text-xs text-muted-foreground">
+            Have old receipts in your email? Forward them from {" "}
+            <span className="font-medium text-foreground">the address on your Bosun account</span> to{" "}
+            <button
+              onClick={() => { navigator.clipboard.writeText(RECEIPTS_ADDRESS ?? ""); toast({ title: "Copied", description: RECEIPTS_ADDRESS }); }}
+              className="font-mono font-semibold text-sky-700 hover:underline"
+            >
+              {RECEIPTS_ADDRESS}
+            </button>
+            . They show up here for review.
+          </p>
+        )}
 
         {boat && (
           <Panel className="mb-4">

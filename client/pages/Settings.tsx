@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useDemoMode } from "@/lib/demoMode";
 import { readHeroFit, useMyBoats, uploadBoatPhoto, writeHeroFit, type HeroFit } from "@/hooks/use-my-boat";
+import { RECEIPTS_ADDRESS } from "@/components/boatlog/ReceiptInbox";
 import { useUpdateBoat } from "@/hooks/use-supabase";
 import LocationPicker from "@/components/LocationPicker";
 import type { PickedLocation } from "@shared/geo";
@@ -292,8 +293,30 @@ export default function Settings() {
           />
         </section>
 
+        {RECEIPTS_ADDRESS && !demo && (
+          <div className="rounded-xl border border-border bg-white shadow-card p-5 sm:p-6">
+            <h2 className="text-base font-semibold text-foreground mb-1">Email receipts to Bosun</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Forward old invoices and receipts, PDFs or photos attached, and they land in your Boat Log inbox for review.
+              Send them from <span className="font-medium text-foreground">{user?.email}</span> so Bosun knows they're yours.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="rounded-lg border border-border bg-slate-50 px-3 py-2 text-sm">{RECEIPTS_ADDRESS}</code>
+              <button
+                type="button"
+                onClick={() => { navigator.clipboard.writeText(RECEIPTS_ADDRESS ?? ""); toast.success("Address copied"); }}
+                className="px-3 py-2 text-sm font-medium rounded-lg border border-border bg-white hover:bg-muted"
+              >
+                Copy
+              </button>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">Tip: in Gmail, search your inbox for the shop's name, select all, and forward. One receipt per email reads best.</p>
+          </div>
+        )}
+
         {/* Location section */}
         {!cropSrc && (
+
           <section className="border border-border rounded-lg p-6 mt-6">
             <h2 className="text-base font-semibold text-foreground mb-1">Location</h2>
             <p className="text-sm text-muted-foreground mb-4">

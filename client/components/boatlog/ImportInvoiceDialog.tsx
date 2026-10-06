@@ -20,8 +20,18 @@ const EMPTY: ExtractedInvoice = {
 };
 
 /** Upload an old invoice, let Bosun read it, and confirm before it lands in the Boat Log. */
+export interface ImportInitial {
+  /** What was already read (an emailed receipt); null when reading failed. */
+  invoice: ExtractedInvoice | null;
+  path: string | null;
+  /** Shown instead of the usual "check what we read" line. */
+  note?: string | null;
+  title?: string;
+  description?: string;
+}
+
 export default function ImportInvoiceDialog({
-  open, onOpenChange, boatId, saving, onSave,
+  open, onOpenChange, boatId, saving, onSave, initial,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -29,6 +39,8 @@ export default function ImportInvoiceDialog({
   saving: boolean;
   /** One entry, or several when the owner splits the invoice. */
   onSave: (entries: NewLogEntry[]) => void;
+  /** Skip the upload step and open straight on review with this data. */
+  initial?: ImportInitial;
 }) {
   const read = useReadInvoice();
   const [stage, setStage] = useState<Stage>({ step: "pick" });
@@ -42,13 +54,20 @@ export default function ImportInvoiceDialog({
 
   useEffect(() => {
     if (!open) return;
-    setStage({ step: "pick" });
-    setInv(EMPTY);
-    setPath(null);
     setNotes("");
     setError(null);
     setSplits(null);
     setAssignment([]);
+    if (initial) {
+      setInv(initial.invoice ?? EMPTY);
+      setPath(initial.path);
+      setStage({ step: "review", note: initial.note ?? (initial.invoice ? null : "We couldn't read this one. Fill in the details by hand.") });
+    } else {
+      setStage({ step: "pick" });
+      setInv(EMPTY);
+      setPath(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   function choose(file: File | undefined) {
@@ -153,10 +172,10 @@ export default function ImportInvoiceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Import an invoice</DialogTitle>
+          <DialogTitle>{initial?.title ?? "Import an invoice"}</DialogTitle>
           <DialogDescription>
-            Upload a PDF or a photo of an old invoice or receipt. Bosun reads the shop, date, parts and total so you only
-            have to check them.
+            {initial?.description ??
+              "Upload a PDF or a photo of an old invoice or receipt. Bosun reads the shop, date, parts and total so you only have to check them."}
           </DialogDescription>
         </DialogHeader>
 

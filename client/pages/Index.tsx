@@ -4,6 +4,7 @@ import HeroSection from "@/components/HeroSection";
 import QuickStats from "@/components/QuickStats";
 import MaintenanceAlert from "@/components/MaintenanceAlert";
 import BoatLogStrip from "@/components/BoatLogStrip";
+import ReceiptInbox from "@/components/boatlog/ReceiptInbox";
 import ProjectCard from "@/components/ProjectCard";
 import { cn } from "@/lib/utils";
 import { PageContainer } from "@/components/app/Page";
@@ -104,6 +105,7 @@ export default function Index() {
         <div className="grid gap-3 md:grid-cols-2">
           <MaintenanceAlert />
           <BoatLogStrip />
+          <ReceiptInbox className="md:col-span-2" />
         </div>
 
         <section className="rounded-xl border border-border bg-white shadow-card">

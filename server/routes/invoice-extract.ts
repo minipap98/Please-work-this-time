@@ -1,11 +1,16 @@
 import type { RequestHandler } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
-import { INVOICE_PROMPT, INVOICE_SCHEMA, normalizeInvoice } from "../../shared/invoice.js";
+import { INVOICE_PROMPT, INVOICE_SCHEMA, normalizeInvoice, type ExtractedInvoice } from "../../shared/invoice.js";
+import { cachedResult, consumeQuota, fileHash, recordUsage, serviceDb, usageOf } from "../lib/ai-usage.js";
+import { countPdfPages } from "../lib/pdf.js";
 
 const MAX_BYTES = 15 * 1024 * 1024;
+/** Real invoices are one to three pages; a long PDF costs a dollar or more per read. */
+export const MAX_PDF_PAGES = 10;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
 type ImageType = (typeof IMAGE_TYPES)[number];
+export const INVOICE_MODEL = "claude-opus-5-5";
 
 /**
  * POST /api/invoices/extract { path }
@@ -14,7 +19,7 @@ type ImageType = (typeof IMAGE_TYPES)[number];
  * Nothing is saved here; the owner confirms on the review screen.
  */
 export const handleInvoiceHealth: RequestHandler = (_req, res) => {
-  res.json({ configured: !!process.env.ANTHROPIC_API_KEY, supabase: !!(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL) });
+  res.json({ configured: !!process.env.ANTHROPIC_API_KEY && !!serviceDb(), supabase: !!(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL) });
 };
 
 export type Source = Anthropic.Beta.BetaContentBlockParam;
@@ -31,11 +36,27 @@ export function parseJsonObject(text: string): unknown {
   }
 }
 
+/** Turn a file into a Claude content block, or explain why it can't be read. Also caps PDF length. */
+export function sourceFor(buf: Buffer, type: string): { source: Source } | { error: string; status: number } {
+  if (type === "application/pdf") {
+    const pages = countPdfPages(buf);
+    if (pages != null && pages > MAX_PDF_PAGES) {
+      return { status: 422, error: `That PDF has ${pages} pages. Invoices are usually one to three, so upload just the invoice pages (up to ${MAX_PDF_PAGES}).` };
+    }
+    return { source: { type: "document", source: { type: "base64", media_type: "application/pdf", data: buf.toString("base64") } } };
+  }
+  if ((IMAGE_TYPES as readonly string[]).includes(type)) {
+    return { source: { type: "image", source: { type: "base64", media_type: type as ImageType, data: buf.toString("base64") } } };
+  }
+  return { status: 415, error: "Upload a PDF or a photo (JPG or PNG)." };
+}
+
 export async function readWithClaude(source: Source) {
   const client = new Anthropic();
   const base = {
-    model: "claude-opus-5-5",
-    max_tokens: 16000,
+    model: INVOICE_MODEL,
+    // The schema output is a few hundred tokens; this bounds a page of dense text plus brief thinking.
+    max_tokens: 8000,
     output_config: { effort: "low" as const, format: { type: "json_schema" as const, schema: INVOICE_SCHEMA as unknown as Record<string, unknown> } },
     messages: [{ role: "user" as const, content: [source, { type: "text" as const, text: INVOICE_PROMPT }] }],
   };
@@ -43,6 +64,7 @@ export async function readWithClaude(source: Source) {
     return await client.beta.messages.create({ ...base, betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" });
   } catch (e) {
     if (!(e instanceof Anthropic.BadRequestError)) throw e;
+    // A 400 is rejected before generation, so these retries don't add to the bill.
     // If the fallback beta isn't enabled for this key, read without it rather than failing.
     if (/fallback/i.test(e.message)) {
       console.warn("invoice extract: retrying without fallbacks:", e.message);
@@ -99,7 +121,9 @@ const extract: RequestHandler = async (req, res) => {
     res.status(401).json({ error: "Sign in to import invoices." });
     return;
   }
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const admin = serviceDb();
+  if (!process.env.ANTHROPIC_API_KEY || !admin) {
+    // No service role means no usage tracking, and reading without a quota is off by design.
     res.status(503).json({ error: "Invoice reading isn't set up yet.", code: "not_configured" });
     return;
   }
@@ -128,34 +152,55 @@ const extract: RequestHandler = async (req, res) => {
     return;
   }
 
-  const data = Buffer.from(await file.arrayBuffer()).toString("base64");
+  const buf = Buffer.from(await file.arrayBuffer());
   const type = file.type || (path.endsWith(".pdf") ? "application/pdf" : "image/jpeg");
-  let source: Source;
-  if (type === "application/pdf") {
-    source = { type: "document", source: { type: "base64", media_type: "application/pdf", data } };
-  } else if ((IMAGE_TYPES as readonly string[]).includes(type)) {
-    source = { type: "image", source: { type: "base64", media_type: type as ImageType, data } };
-  } else {
-    res.status(415).json({ error: "Upload a PDF or a photo (JPG or PNG)." });
+  const made = sourceFor(buf, type);
+  if ("error" in made) {
+    res.status(made.status).json({ error: made.error });
     return;
   }
 
-  {
-    const msg = await readWithClaude(source);
-
-    if (msg.stop_reason === "refusal") {
-      res.status(422).json({ error: "We couldn't read that file. Enter the details by hand." });
-      return;
-    }
-    if (msg.stop_reason === "max_tokens") {
-      res.status(422).json({ error: "That invoice is too long to read in one go. Enter the details by hand." });
-      return;
-    }
-    const text = msg.content.find((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")?.text;
-    if (!text) {
-      res.status(502).json({ error: "We couldn't read that file. Enter the details by hand." });
-      return;
-    }
-    res.json({ invoice: normalizeInvoice(parseJsonObject(text)) });
+  // Everything below costs money, so it runs inside the account's quota.
+  const hash = fileHash(buf);
+  const quota = await consumeQuota(admin, userData.user.id, "invoice", hash);
+  if (!quota.allowed) {
+    res.status(429).json({ error: quota.message, code: "quota" });
+    return;
   }
+
+  const earlier = await cachedResult<ExtractedInvoice>(admin, hash);
+  if (earlier) {
+    await recordUsage(admin, quota.usageId, { status: "cached", note: "same file as an earlier read" });
+    res.json({ invoice: normalizeInvoice(earlier), cached: true });
+    return;
+  }
+
+  let msg: Awaited<ReturnType<typeof readWithClaude>>;
+  try {
+    msg = await readWithClaude(made.source);
+  } catch (e) {
+    await recordUsage(admin, quota.usageId, { status: "failed", model: INVOICE_MODEL, note: e instanceof Error ? e.message : String(e) });
+    throw e;
+  }
+  const usage = usageOf(msg);
+
+  if (msg.stop_reason === "refusal") {
+    await recordUsage(admin, quota.usageId, { status: "failed", model: msg.model, usage, note: "refusal" });
+    res.status(422).json({ error: "We couldn't read that file. Enter the details by hand." });
+    return;
+  }
+  if (msg.stop_reason === "max_tokens") {
+    await recordUsage(admin, quota.usageId, { status: "failed", model: msg.model, usage, note: "max_tokens" });
+    res.status(422).json({ error: "That invoice is too long to read in one go. Enter the details by hand." });
+    return;
+  }
+  const text = msg.content.find((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")?.text;
+  if (!text) {
+    await recordUsage(admin, quota.usageId, { status: "failed", model: msg.model, usage, note: "no text in reply" });
+    res.status(502).json({ error: "We couldn't read that file. Enter the details by hand." });
+    return;
+  }
+  const invoice = normalizeInvoice(parseJsonObject(text));
+  await recordUsage(admin, quota.usageId, { status: "ok", model: msg.model, usage, result: invoice });
+  res.json({ invoice });
 };

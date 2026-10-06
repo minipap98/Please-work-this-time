@@ -3,7 +3,8 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { timingSafeEqual } from "node:crypto";
 import { normalizeInvoice, type ExtractedInvoice } from "../../shared/invoice.js";
-import { parseJsonObject, readWithClaude, type Source } from "./invoice-extract.js";
+import { INVOICE_MODEL, parseJsonObject, readWithClaude, sourceFor, type Source } from "./invoice-extract.js";
+import { cachedResult, consumeQuota, fileHash, recordUsage, usageOf } from "../lib/ai-usage.js";
 import { handleInboundPartsEmail } from "./inbound-email.js";
 import { inboundTokenFromAddress } from "../../shared/shop.js";
 
@@ -108,6 +109,9 @@ export const handleInboundReceipt: RequestHandler = async (req, res) => {
   let attachmentPath: string | null = null;
   let attachmentName: string | null = null;
   let source: Source | null = null;
+  let readError: string | null = null;
+  // Hash of what gets read: the attachment bytes, or the email text when there is none.
+  let hash: string | null = null;
   const file = attachmentsOf(body).find((a) => READABLE.has(a.type) && a.data.length <= MAX_BYTES);
   if (file) {
     const ext = file.type === "application/pdf" ? "pdf" : file.type.split("/")[1].replace("jpeg", "jpg");
@@ -115,29 +119,52 @@ export const handleInboundReceipt: RequestHandler = async (req, res) => {
     attachmentName = file.name;
     const { error: upErr } = await admin.storage.from("boat-documents").upload(attachmentPath, file.data, { contentType: file.type, upsert: true });
     if (upErr) attachmentPath = null;
-    const data = file.data.toString("base64");
-    source =
-      file.type === "application/pdf"
-        ? { type: "document", source: { type: "base64", media_type: "application/pdf", data } }
-        : { type: "image", source: { type: "base64", media_type: file.type as "image/jpeg" | "image/png" | "image/webp" | "image/gif", data } };
+    const made = sourceFor(file.data, file.type);
+    if ("error" in made) readError = made.error;
+    else {
+      source = made.source;
+      hash = fileHash(file.data);
+    }
   } else if (text.length > 40) {
-    source = { type: "text", text: `Forwarded email (subject: ${subject}):\n\n${text.slice(0, 20000)}` };
+    const snippet = text.slice(0, 20000);
+    source = { type: "text", text: `Forwarded email (subject: ${subject}):\n\n${snippet}` };
+    hash = fileHash(Buffer.from(snippet));
   }
 
   let extracted: ExtractedInvoice | null = null;
-  let readError: string | null = null;
-  if (!source) {
+  if (readError) {
+    // The attachment was there but can't be read (too many pages); nothing to spend.
+  } else if (!source) {
     readError = "No PDF, photo or readable text in the email.";
   } else if (!process.env.ANTHROPIC_API_KEY) {
     readError = "Receipt reading isn't set up on the server.";
   } else {
-    try {
-      const msg = await readWithClaude(source);
-      const out = msg.content.find((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")?.text;
-      if (msg.stop_reason === "refusal" || !out) readError = "Couldn't read this receipt.";
-      else extracted = normalizeInvoice(parseJsonObject(out));
-    } catch (e) {
-      readError = e instanceof Error ? e.message : "Couldn't read this receipt.";
+    // Every read runs inside the owner's receipt quota, so a flood of forwarded mail can't run up the bill.
+    const quota = await consumeQuota(admin, profile.id, "receipt", hash);
+    if (!quota.allowed) {
+      readError = `${quota.message} This one wasn't read, so enter it by hand.`;
+    } else {
+      const earlier = hash ? await cachedResult<ExtractedInvoice>(admin, hash) : null;
+      if (earlier) {
+        extracted = normalizeInvoice(earlier);
+        await recordUsage(admin, quota.usageId, { status: "cached", note: "same file as an earlier read" });
+      } else {
+        try {
+          const msg = await readWithClaude(source);
+          const usage = usageOf(msg);
+          const out = msg.content.find((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")?.text;
+          if (msg.stop_reason === "refusal" || !out) {
+            readError = "Couldn't read this receipt.";
+            await recordUsage(admin, quota.usageId, { status: "failed", model: msg.model, usage, note: msg.stop_reason ?? "no text" });
+          } else {
+            extracted = normalizeInvoice(parseJsonObject(out));
+            await recordUsage(admin, quota.usageId, { status: "ok", model: msg.model, usage, result: extracted });
+          }
+        } catch (e) {
+          readError = e instanceof Error ? e.message : "Couldn't read this receipt.";
+          await recordUsage(admin, quota.usageId, { status: "failed", model: INVOICE_MODEL, note: readError });
+        }
+      }
     }
   }
 

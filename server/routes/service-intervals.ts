@@ -2,6 +2,9 @@ import type { RequestHandler } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { PLAN_SCHEMA, normalizePlan, planPrompt, type EngineRequest } from "../../shared/servicePlan.js";
+import { consumeQuota, recordUsage, serviceDb, usageOf } from "../lib/ai-usage.js";
+
+const MODEL = "claude-opus-5-5";
 
 function parseJsonObject(text: string): unknown {
   try {
@@ -17,8 +20,9 @@ function parseJsonObject(text: string): unknown {
 async function askClaude(prompt: string) {
   const client = new Anthropic();
   const base = {
-    model: "claude-opus-5-5",
-    max_tokens: 16000,
+    model: MODEL,
+    // Up to 16 schedule items is about 2K tokens of JSON; this leaves room for brief thinking.
+    max_tokens: 6000,
     output_config: { effort: "low" as const, format: { type: "json_schema" as const, schema: PLAN_SCHEMA as unknown as Record<string, unknown> } },
     messages: [{ role: "user" as const, content: prompt }],
   };
@@ -26,6 +30,7 @@ async function askClaude(prompt: string) {
     return await client.beta.messages.create({ ...base, betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" });
   } catch (e) {
     if (!(e instanceof Anthropic.BadRequestError)) throw e;
+    // A 400 is rejected before generation, so these retries don't add to the bill.
     if (/fallback/i.test(e.message)) return await client.beta.messages.create(base);
     if (/output_config|schema/i.test(e.message)) {
       return await client.beta.messages.create({
@@ -57,7 +62,8 @@ export const handleServiceIntervals: RequestHandler = async (req, res) => {
       res.status(401).json({ error: "Sign in to get service intervals." });
       return;
     }
-    if (!process.env.ANTHROPIC_API_KEY) {
+    const admin = serviceDb();
+    if (!process.env.ANTHROPIC_API_KEY || !admin) {
       res.status(503).json({ error: "Service interval lookup isn't set up yet.", code: "not_configured" });
       return;
     }
@@ -83,17 +89,33 @@ export const handleServiceIntervals: RequestHandler = async (req, res) => {
       return;
     }
 
-    const msg = await askClaude(planPrompt(engine));
+    const quota = await consumeQuota(admin, userData.user.id, "intervals");
+    if (!quota.allowed) {
+      res.status(429).json({ error: quota.message, code: "quota" });
+      return;
+    }
+
+    let msg: Awaited<ReturnType<typeof askClaude>>;
+    try {
+      msg = await askClaude(planPrompt(engine));
+    } catch (e) {
+      await recordUsage(admin, quota.usageId, { status: "failed", model: MODEL, note: e instanceof Error ? e.message : String(e) });
+      throw e;
+    }
+    const usage = usageOf(msg);
     if (msg.stop_reason === "refusal" || msg.stop_reason === "max_tokens") {
+      await recordUsage(admin, quota.usageId, { status: "failed", model: msg.model, usage, note: msg.stop_reason });
       res.status(422).json({ error: "We couldn't build a schedule for that engine. Add items by hand instead." });
       return;
     }
     const text = msg.content.find((c): c is Anthropic.Beta.BetaTextBlock => c.type === "text")?.text;
     const tasks = text ? normalizePlan(parseJsonObject(text)) : [];
     if (tasks.length === 0) {
+      await recordUsage(admin, quota.usageId, { status: "failed", model: msg.model, usage, note: "empty plan" });
       res.status(502).json({ error: "We couldn't build a schedule for that engine. Add items by hand instead." });
       return;
     }
+    await recordUsage(admin, quota.usageId, { status: "ok", model: msg.model, usage, note: `${engine.engineMake} ${engine.engineModel}` });
     res.json({ tasks });
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) {

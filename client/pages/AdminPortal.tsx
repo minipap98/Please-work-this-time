@@ -1,28 +1,31 @@
 import { useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Anchor, ClipboardList, Copy, LogOut, MapPin, Search, ShieldCheck, Sparkles, Users, Wrench } from "lucide-react";
+import { AlertTriangle, Anchor, ClipboardList, Copy, LogOut, MapPin, Search, ShieldCheck, Sparkles, Users, Wrench } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { BosunLogo } from "@/components/marketing/BosunLogo";
 import { PageContainer, PageHeader, Panel, StatGrid, StatTile } from "@/components/app/Page";
 import LocationPicker from "@/components/LocationPicker";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  useAdminAction, useAdminAudit, useAdminDemand, useAdminPeople, useAdminPersonDetail, useAdminProspects, useCreateProspect, useDraftOutreach, useSearchProspects, useUpdateProspect,
+  useAdminAction, useAdminAiUsage, useAdminAudit, useAdminDemand, useAdminPeople, useAdminPersonDetail, useAdminProspects, useCreateProspect, useDraftOutreach, useSearchProspects, useUpdateProspect,
 } from "@/hooks/use-admin";
 import { PROSPECT_STATUSES, PROSPECT_TRADES, demandCells, prospectScore, type AdminAction, type AdminPerson, type DemandCell, type Prospect, type ProspectStatus } from "@shared/admin";
+import { AI_ALERT_USD_30D, AI_KIND_LABELS, type AiStatus } from "@shared/aiUsage";
 import type { PickedLocation } from "@shared/geo";
 import { cn } from "@/lib/utils";
 
-type Tab = "overview" | "people" | "shops" | "demand" | "prospects" | "audit";
+type Tab = "overview" | "people" | "shops" | "demand" | "prospects" | "ai" | "audit";
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "people", label: "People" },
   { key: "shops", label: "Shops" },
   { key: "demand", label: "Demand" },
   { key: "prospects", label: "Prospects" },
+  { key: "ai", label: "AI usage" },
   { key: "audit", label: "Audit log" },
 ];
+const usd = (n: number) => (n < 1 ? `$${n.toFixed(2)}` : `$${n.toFixed(n < 100 ? 2 : 0)}`);
 
 const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
 const ago = (iso: string | null | undefined) => {
@@ -83,6 +86,7 @@ export default function AdminPortal() {
         {tab === "shops" && <People mode="shops" />}
         {tab === "demand" && <Demand />}
         {tab === "prospects" && <Prospects />}
+        {tab === "ai" && <AiUsage />}
         {tab === "audit" && <Audit />}
       </PageContainer>
     </div>
@@ -95,6 +99,7 @@ function Overview({ go }: { go: (t: Tab) => void }) {
   const people = useAdminPeople();
   const demand = useAdminDemand();
   const prospects = useAdminProspects();
+  const ai = useAdminAiUsage();
   const ps = people.data ?? [];
   const owners = ps.filter((p) => p.role === "owner");
   const shops = ps.filter((p) => p.shop);
@@ -108,13 +113,21 @@ function Overview({ go }: { go: (t: Tab) => void }) {
     <>
       <PageHeader title="Bosun operations" description="Who's on the platform, where the work is, and who to call next." />
       {people.error && <p className="mb-4 text-sm text-red-600">{String(people.error)}</p>}
-      <StatGrid className="sm:grid-cols-3 lg:grid-cols-6">
+      <StatGrid className="sm:grid-cols-3 lg:grid-cols-7">
         <StatTile icon={<Users />} label="Boat owners" value={owners.length} sub={`${owners.filter((o) => Date.parse(o.createdAt) >= monthAgo).length} new in 30d`} onClick={() => go("people")} />
         <StatTile icon={<Wrench />} label="Shops" value={shops.length} sub={`${shops.filter((s) => s.shop?.verifiedAt).length} verified`} onClick={() => go("shops")} />
         <StatTile icon={<ClipboardList />} label="Jobs posted" value={projects.length} sub={`${recentJobs.length} in 30d`} onClick={() => go("demand")} />
         <StatTile icon={<Search />} label="Open jobs, ≤1 bid" value={thin.length} tone={thin.length ? "warn" : "default"} sub="where shops are missing" onClick={() => go("demand")} />
         <StatTile icon={<MapPin />} label="Prospects" value={prospects.data?.prospects.length ?? 0} sub={`${(prospects.data?.prospects ?? []).filter((p) => p.status === "interested").length} interested`} onClick={() => go("prospects")} />
         <StatTile icon={<Anchor />} label="Follow-ups due" value={due.length} tone={due.length ? "warn" : "default"} onClick={() => go("prospects")} />
+        <StatTile
+          icon={<Sparkles />}
+          label="AI spend, 30d"
+          value={ai.data ? usd(ai.data.summary.month.cost) : "—"}
+          tone={ai.data?.summary.spenders.some((s) => s.flagged) ? "warn" : "default"}
+          sub={ai.data ? `${ai.data.summary.month.calls} reads · ${ai.data.summary.spenders.filter((s) => s.flagged).length} flagged` : "loading"}
+          onClick={() => go("ai")}
+        />
       </StatGrid>
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
         <Panel padded={false}>
@@ -612,6 +625,99 @@ function StatusPill({ s }: { s: ProspectStatus }) {
     "not-a-fit": "bg-slate-100 text-slate-500 border-slate-200",
   };
   return <span className={cn("text-[11px] font-semibold rounded-full px-2 py-0.5 border whitespace-nowrap", c[s])}>{PROSPECT_STATUSES.find((x) => x.value === s)?.label}</span>;
+}
+
+/* ── AI usage ─────────────────────────────────────────────────────────────── */
+
+const STATUS_LABEL: Record<AiStatus, string> = { pending: "in flight", ok: "read", failed: "failed", cached: "reused", denied: "over limit" };
+
+function AiUsage() {
+  const q = useAdminAiUsage();
+  const d = q.data;
+  const s = d?.summary;
+  const flagged = s?.spenders.filter((p) => p.flagged) ?? [];
+  const who = (id: string) => d?.people[id]?.name || d?.people[id]?.email || id.slice(0, 8);
+  return (
+    <>
+      <PageHeader title="AI usage" description="Every Claude call Bosun pays for: invoice and receipt reads, service schedules and outreach drafts. Each account has a daily and monthly allowance." />
+      {q.error && <p className="mb-4 text-sm text-red-600">{String(q.error)}</p>}
+      {d && !d.configured && <p className="mb-4 text-sm text-amber-700">ANTHROPIC_API_KEY isn't set on the server, so nothing is being read right now.</p>}
+      {flagged.length > 0 && (
+        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold">{flagged.length} account{flagged.length === 1 ? "" : "s"} worth a look</p>
+            <p className="text-xs mt-0.5">Hit a limit today, or past {usd(AI_ALERT_USD_30D)} of reads in 30 days: {flagged.slice(0, 5).map((p) => who(p.userId)).join(", ")}{flagged.length > 5 ? "…" : ""}. Suspend from People if it's not a real owner.</p>
+          </div>
+        </div>
+      )}
+      <StatGrid className="sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile icon={<Sparkles />} label="Today" value={s ? usd(s.today.cost) : "—"} sub={s ? `${s.today.calls} reads` : ""} />
+        <StatTile icon={<Sparkles />} label="Last 30 days" value={s ? usd(s.month.cost) : "—"} sub={s ? `${s.month.calls} reads · ${s.month.cached} reused for free` : ""} />
+        <StatTile icon={<AlertTriangle />} label="Over limit today" value={s?.today.denied ?? "—"} tone={s?.today.denied ? "warn" : "default"} sub="requests turned away" />
+        <StatTile icon={<Users />} label="Accounts using AI" value={s?.spenders.length ?? "—"} sub="in 30 days" />
+      </StatGrid>
+      <div className="mt-6 grid gap-5 lg:grid-cols-3">
+        <Panel padded={false} className="lg:col-span-2">
+          <div className="px-5 py-3 border-b border-border"><h2 className="text-sm font-semibold">Top accounts, 30 days</h2></div>
+          <table className="w-full text-sm">
+            <thead className="text-xs text-muted-foreground"><tr>
+              <th className="text-left px-5 py-2 font-semibold">Account</th>
+              <th className="text-right px-3 py-2 font-semibold">Today</th>
+              <th className="text-right px-3 py-2 font-semibold">30d reads</th>
+              <th className="text-right px-3 py-2 font-semibold">30d cost</th>
+              <th className="text-left px-5 py-2 font-semibold hidden sm:table-cell">Last</th>
+            </tr></thead>
+            <tbody className="divide-y divide-border">
+              {(s?.spenders ?? []).slice(0, 40).map((p) => (
+                <tr key={p.userId} className={cn(p.flagged && "bg-amber-50/60")}>
+                  <td className="px-5 py-2 min-w-0"><span className="font-medium">{who(p.userId)}</span>{p.flagged && <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-amber-700">flag</span>}{d?.people[p.userId]?.name && <span className="block text-xs text-muted-foreground truncate">{d.people[p.userId].email}</span>}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{p.callsToday}{p.deniedToday ? <span className="text-amber-700"> +{p.deniedToday} denied</span> : null}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{p.calls30d}{p.cached30d ? <span className="text-muted-foreground text-xs"> ({p.cached30d} reused)</span> : null}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-semibold">{usd(p.cost30d)}</td>
+                  <td className="px-5 py-2 text-muted-foreground hidden sm:table-cell">{ago(p.lastAt)}</td>
+                </tr>
+              ))}
+              {(s?.spenders ?? []).length === 0 && <tr><td colSpan={5} className="px-5 py-6 text-center text-muted-foreground">{q.isLoading ? "Loading…" : "No AI reads in the last 30 days."}</td></tr>}
+            </tbody>
+          </table>
+        </Panel>
+        <div className="space-y-5">
+          <Panel padded={false}>
+            <div className="px-5 py-3 border-b border-border"><h2 className="text-sm font-semibold">By feature, 30 days</h2></div>
+            <ul className="divide-y divide-border">
+              {(s?.byKind ?? []).map((k) => (
+                <li key={k.kind} className="px-5 py-2.5 text-sm flex items-center justify-between gap-3"><span>{AI_KIND_LABELS[k.kind]}</span><span className="text-muted-foreground tabular-nums">{k.calls30d} · {usd(k.cost30d)}</span></li>
+              ))}
+              {(s?.byKind ?? []).length === 0 && <li className="px-5 py-4 text-sm text-muted-foreground">Nothing yet.</li>}
+            </ul>
+          </Panel>
+          <Panel padded={false}>
+            <div className="px-5 py-3 border-b border-border"><h2 className="text-sm font-semibold">Limits per account</h2></div>
+            <ul className="divide-y divide-border">
+              {(d?.limits ?? []).map((l) => (
+                <li key={l.kind} className="px-5 py-2.5 text-sm flex items-center justify-between gap-3"><span>{AI_KIND_LABELS[l.kind]}</span><span className="text-muted-foreground tabular-nums">{l.perDay}/day · {l.perMonth}/month</span></li>
+              ))}
+            </ul>
+            <p className="px-5 py-2.5 text-xs text-muted-foreground border-t border-border">Change them in the ai_limits table; they apply on the next request.</p>
+          </Panel>
+        </div>
+      </div>
+      <Panel padded={false} className="mt-5">
+        <div className="px-5 py-3 border-b border-border"><h2 className="text-sm font-semibold">Recent</h2></div>
+        <ul className="divide-y divide-border">
+          {(d?.recent ?? []).map((r) => (
+            <li key={r.id} className="px-5 py-2 text-sm flex items-center gap-3">
+              <span className="text-xs text-muted-foreground w-28 shrink-0">{new Date(r.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+              <span className="min-w-0 flex-1 truncate"><span className="font-medium">{r.userId ? who(r.userId) : "system"}</span> · {AI_KIND_LABELS[r.kind]} · <span className={cn(r.status === "denied" && "text-amber-700 font-semibold", r.status === "failed" && "text-red-600")}>{STATUS_LABEL[r.status]}</span>{r.note ? <span className="text-muted-foreground"> · {r.note}</span> : null}</span>
+              <span className="text-xs text-muted-foreground tabular-nums shrink-0">{r.status === "ok" || r.status === "failed" ? `${(r.inputTokens + r.outputTokens).toLocaleString()} tok · ${usd(r.costUsd)}` : ""}</span>
+            </li>
+          ))}
+          {(d?.recent ?? []).length === 0 && <li className="px-5 py-6 text-sm text-muted-foreground text-center">{q.isLoading ? "Loading…" : "Nothing yet."}</li>}
+        </ul>
+      </Panel>
+    </>
+  );
 }
 
 /* ── Audit ────────────────────────────────────────────────────────────────── */

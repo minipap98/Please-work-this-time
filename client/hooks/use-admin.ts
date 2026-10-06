@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { AdminAction, AdminPerson, DemandProject, Prospect } from "@shared/admin";
+import type { AiLimit, AiUsageRow, AiUsageSummary } from "@shared/aiUsage";
 
 export interface AuditEntry {
   id: string;
@@ -96,6 +97,18 @@ export function useDraftOutreach() {
     mutationFn: ({ id, demand, sender }: { id: string; demand: string[]; sender?: string }) =>
       adminFetch<{ draft: { subject: string; email: string; text: string } }>(`/api/admin/prospects/${id}/draft`, { method: "POST", body: JSON.stringify({ demand, sender }) }).then((r) => r.draft),
   });
+}
+
+export interface AiUsageReport {
+  configured: boolean;
+  summary: AiUsageSummary;
+  people: Record<string, { name: string; email: string }>;
+  limits: AiLimit[];
+  recent: AiUsageRow[];
+}
+
+export function useAdminAiUsage() {
+  return useQuery({ queryKey: ["admin", "ai-usage"], queryFn: () => adminFetch<AiUsageReport>("/api/admin/ai-usage"), refetchInterval: 60_000 });
 }
 
 export function useAdminAudit() {

@@ -9,6 +9,7 @@ import { handleInboundReceipt } from "./routes/receipts-inbound.js";
 import { handleExtractInvoice, handleInvoiceHealth } from "./routes/invoice-extract.js";
 import { handleServiceIntervals } from "./routes/service-intervals.js";
 import {
+  handleAdminAiUsage,
   handleAdminAudit,
   handleAdminDemand,
   handleAdminPeople,
@@ -66,6 +67,7 @@ export function createServer() {
   app.post("/api/admin/prospects/:id", handleAdminProspectUpdate);
   app.post("/api/admin/prospects/:id/draft", handleAdminProspectDraft);
   app.get("/api/admin/audit", handleAdminAudit);
+  app.get("/api/admin/ai-usage", handleAdminAiUsage);
 
   return app;
 }

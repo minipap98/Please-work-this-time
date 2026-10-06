@@ -2,6 +2,8 @@ import type { Request, RequestHandler, Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import { PROSPECT_TRADES, areaName, type AdminAction, type AdminPerson, type DemandProject, type Prospect } from "../../shared/admin.js";
+import { summarizeAiUsage, type AiKind, type AiLimit, type AiStatus, type AiUsageRow } from "../../shared/aiUsage.js";
+import { consumeQuota, recordUsage, usageOf } from "../lib/ai-usage.js";
 
 /* ── Auth: the caller must be signed in and have profiles.is_admin ─────────── */
 
@@ -551,13 +553,67 @@ Open demand near them on Bosun right now:
 ${demand.length ? demand.map((d) => `- ${d}`).join("\n") : "- (no specific numbers; keep it general)"}
 
 Return JSON only: {"subject": string, "email": string, "text": string}. The email is 90–130 words, friendly, no hype, names one or two concrete demand facts if given, ends with a one-line ask to reply or book a 15-minute call. The text is an SMS under 300 characters. Sign as ${sender || "the Bosun team"}. No placeholders in square brackets.`;
+    const quota = await consumeQuota(ctx.db, ctx.admin.id, "outreach");
+    if (!quota.allowed) {
+      res.status(429).json({ error: quota.message, code: "quota" });
+      return;
+    }
     const client = new Anthropic();
-    const msg = await client.messages.create({ model: "claude-opus-5-5", max_tokens: 800, messages: [{ role: "user", content: prompt }] });
+    const model = "claude-opus-5-5";
+    let msg: Anthropic.Message;
+    try {
+      msg = await client.messages.create({ model, max_tokens: 800, messages: [{ role: "user", content: prompt }] });
+    } catch (e) {
+      await recordUsage(ctx.db, quota.usageId, { status: "failed", model, note: e instanceof Error ? e.message : String(e) });
+      throw e;
+    }
+    await recordUsage(ctx.db, quota.usageId, { status: "ok", model: msg.model, usage: usageOf(msg), note: p.name as string });
     const text = msg.content.map((c) => ("text" in c ? c.text : "")).join("");
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
     const draft = JSON.parse(text.slice(start, end + 1)) as { subject: string; email: string; text: string };
     res.json({ draft });
+  } catch (e) {
+    fail(res, e);
+  }
+};
+
+/** GET /api/admin/ai-usage → 30 days of Claude calls rolled up, who made them, and the limits in force. */
+export const handleAdminAiUsage: RequestHandler = async (req, res) => {
+  const ctx = await requireAdmin(req, res);
+  if (!ctx) return;
+  try {
+    const since = new Date(Date.now() - 30 * 86400_000).toISOString();
+    const [usage, limits] = await Promise.all([
+      ctx.db.from("ai_usage").select("id, user_id, kind, status, model, input_tokens, output_tokens, cost_usd, note, created_at").gte("created_at", since).order("created_at", { ascending: false }).limit(20000),
+      ctx.db.from("ai_limits").select("kind, per_day, per_month"),
+    ]);
+    if (usage.error) throw usage.error;
+    if (limits.error) throw limits.error;
+    const rows: AiUsageRow[] = (usage.data ?? []).map((r) => ({
+      id: r.id as string,
+      userId: (r.user_id as string | null) ?? null,
+      kind: r.kind as AiKind,
+      status: r.status as AiStatus,
+      model: (r.model as string | null) ?? null,
+      inputTokens: Number(r.input_tokens ?? 0),
+      outputTokens: Number(r.output_tokens ?? 0),
+      costUsd: Number(r.cost_usd ?? 0),
+      note: (r.note as string | null) ?? null,
+      createdAt: r.created_at as string,
+    }));
+    const summary = summarizeAiUsage(rows);
+    const ids = summary.spenders.map((s) => s.userId);
+    const { data: profiles } = ids.length ? await ctx.db.from("profiles").select("id, name, email").in("id", ids) : { data: [] };
+    const people: Record<string, { name: string; email: string }> = {};
+    for (const p of profiles ?? []) people[p.id as string] = { name: (p.name as string) ?? "", email: (p.email as string) ?? "" };
+    res.json({
+      configured: !!process.env.ANTHROPIC_API_KEY,
+      summary,
+      people,
+      limits: (limits.data ?? []).map((l): AiLimit => ({ kind: l.kind as AiKind, perDay: Number(l.per_day), perMonth: Number(l.per_month) })),
+      recent: rows.slice(0, 60),
+    });
   } catch (e) {
     fail(res, e);
   }

@@ -55,6 +55,22 @@ export function useMyBoats() {
   return { boats: list, primary, isLoading, setPrimaryId };
 }
 
+export type HeroFit = "cover" | "contain";
+const fitKey = (boatId: string) => `bosun_hero_fit:${boatId}`;
+/** How the dashboard banner shows this boat's photo: fill the banner (default) or show every pixel. */
+export function readHeroFit(boatId: string): HeroFit {
+  try {
+    return localStorage.getItem(fitKey(boatId)) === "contain" ? "contain" : "cover";
+  } catch {
+    return "cover";
+  }
+}
+export function writeHeroFit(boatId: string, fit: HeroFit) {
+  try {
+    localStorage.setItem(fitKey(boatId), fit);
+  } catch {}
+}
+
 /** Upload a boat photo (data URL from the cropper) and return its public URL. */
 export async function uploadBoatPhoto(userId: string, dataUrl: string): Promise<string> {
   const blob = await (await fetch(dataUrl)).blob();

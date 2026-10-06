@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { ENGINE_DATA, type EngineType } from "@/data/engineData";
 import { type ProjectBoat } from "@/data/projectData";
-import { useMyBoats } from "@/hooks/use-my-boat";
+import { readHeroFit, useMyBoats } from "@/hooks/use-my-boat";
 import BoatSwitcher from "@/components/boats/BoatSwitcher";
 import { DEMO_BOAT } from "@/data/demoBoat";
 import { approximate } from "@shared/geo";
@@ -359,6 +359,7 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
   const showWarrantyClaimOption =
     selectedEquipment && (selectedWarrantyStatus === "active" || selectedWarrantyStatus === "expiring");
 
+  const heroFit = readHeroFit(demo ? "demo" : boatInfo?.id ?? "");
   const engineModel = boatInfo?.engineModel?.replace(/\s*\([\d–\-]+.*?\)$/, "") || null;
   const engineDisplay = [
     boatInfo?.engineType === "Outboard" ? boatInfo?.engineCount || null : null,
@@ -368,23 +369,26 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
 
   return (
     <section className="rounded-xl border border-border bg-white shadow-card overflow-hidden">
-      {/* The photo keeps its own shape (nothing cropped) over a blurred copy of itself, so it fills the banner. */}
-      <div className={heroImage ? "relative h-[200px] sm:h-[280px] overflow-hidden bg-slate-900" : "relative h-[200px] sm:h-[260px] overflow-hidden"}>
+      {/* Banner: fills edge to edge by default; "show the whole photo" (Settings) keeps every pixel on white. */}
+      <div
+        className={
+          heroImage
+            ? heroFit === "contain"
+              ? "relative bg-white pt-4 px-4"
+              : "relative h-[220px] sm:h-[300px] overflow-hidden bg-slate-100"
+            : "relative h-[200px] sm:h-[260px] overflow-hidden"
+        }
+      >
         {heroImage ? (
-          <>
-            <img
-              src={heroImage}
-              alt=""
-              aria-hidden
-              className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-70"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-slate-900/10" />
-            <img
-              src={heroImage}
-              alt="Your boat"
-              className="relative z-10 block w-auto h-full max-w-full mx-auto object-contain drop-shadow-[0_10px_24px_rgba(0,0,0,0.35)]"
-            />
-          </>
+          <img
+            src={heroImage}
+            alt="Your boat"
+            className={
+              heroFit === "contain"
+                ? "block w-auto h-auto max-w-full max-h-[180px] sm:max-h-[260px] mx-auto"
+                : "block w-full h-full object-cover object-center"
+            }
+          />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-sky-50 to-white text-center px-6">
             <svg className="w-10 h-10 text-sky-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">

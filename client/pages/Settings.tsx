@@ -6,7 +6,7 @@ import "react-image-crop/dist/ReactCrop.css";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useDemoMode } from "@/lib/demoMode";
-import { useMyBoats, uploadBoatPhoto } from "@/hooks/use-my-boat";
+import { readHeroFit, useMyBoats, uploadBoatPhoto, writeHeroFit, type HeroFit } from "@/hooks/use-my-boat";
 import { useUpdateBoat } from "@/hooks/use-supabase";
 import LocationPicker from "@/components/LocationPicker";
 import type { PickedLocation } from "@shared/geo";
@@ -47,6 +47,9 @@ export default function Settings() {
   const { primary } = useMyBoats();
   const updateBoat = useUpdateBoat();
   const [saving, setSaving] = useState(false);
+  const fitBoatId = demo ? "demo" : primary?.id ?? "";
+  const [heroFit, setHeroFit] = useState<HeroFit>(() => readHeroFit(fitBoatId));
+  useEffect(() => setHeroFit(readHeroFit(fitBoatId)), [fitBoatId]);
 
   // Demo keeps the photo in this browser; live accounts store it on their primary boat.
   const [preview, setPreview] = useState<string>(
@@ -218,6 +221,32 @@ export default function Settings() {
             </div>
           ) : (
             <>
+              {/* Banner fit */}
+              {preview && (
+                <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+                  <span className="text-muted-foreground mr-1">On the dashboard:</span>
+                  {([
+                    ["cover", "Fill the banner"],
+                    ["contain", "Show the whole photo"],
+                  ] as [HeroFit, string][]).map(([v, l]) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => {
+                        writeHeroFit(fitBoatId, v);
+                        setHeroFit(v);
+                      }}
+                      className={`text-xs font-medium rounded-full px-3 py-1.5 border ${heroFit === v ? "bg-primary text-primary-foreground border-primary" : "border-border bg-white hover:bg-muted"}`}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                  <span className="basis-full text-xs text-muted-foreground">
+                    {heroFit === "cover" ? "Edge to edge; a little top and bottom may be trimmed." : "Every pixel shows, with white space beside it."}
+                  </span>
+                </div>
+              )}
+
               {/* Preview */}
               <div className="w-full rounded-md overflow-hidden bg-gray-100 mb-4">
                 {preview ? (

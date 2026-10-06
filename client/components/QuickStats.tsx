@@ -4,7 +4,18 @@ import { isActiveProjectStatus } from "@shared/api";
 import { CheckCircle2, FolderOpen, Gavel, Star } from "lucide-react";
 import { StatGrid, StatTile } from "@/components/app/Page";
 
-export default function QuickStats({ projects = [] }: { projects?: Project[] }) {
+export type StatPick = "active" | "bids" | "rating" | "completed";
+
+export default function QuickStats({
+  projects = [],
+  newBids = 0,
+  onPick,
+}: {
+  projects?: Project[];
+  /** Bids the owner hasn't looked at yet. */
+  newBids?: number;
+  onPick?: (what: StatPick) => void;
+}) {
   const stats = useMemo(() => {
     const allProjects = projects;
     const activeCount = allProjects.filter((p) => isActiveProjectStatus(p.status)).length;
@@ -26,15 +37,33 @@ export default function QuickStats({ projects = [] }: { projects?: Project[] }) 
 
   return (
     <StatGrid>
-      <StatTile label="Active jobs" value={stats.activeCount} sub="Open for bids or in progress" icon={<FolderOpen />} />
-      <StatTile label="Bids received" value={stats.totalBids} sub="Across all your jobs" icon={<Gavel />} />
+      <StatTile label="Active jobs" value={stats.activeCount} sub="Open for bids or in progress" icon={<FolderOpen />} onClick={onPick && (() => onPick("active"))} />
+      <StatTile
+        label="Bids received"
+        value={stats.totalBids}
+        tone={newBids > 0 ? "brand" : "default"}
+        sub={
+          newBids > 0 ? (
+            <span className="inline-flex items-center gap-1.5 font-semibold text-sky-700">
+              <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+              {newBids} new to review
+            </span>
+          ) : (
+            "Across all your jobs"
+          )
+        }
+        icon={<Gavel />}
+        onClick={onPick && (() => onPick("bids"))}
+        className={newBids > 0 ? "border-sky-300 ring-1 ring-sky-200" : undefined}
+      />
       <StatTile
         label="Avg rating"
         value={stats.avgRating > 0 ? stats.avgRating.toFixed(1) : "—"}
         sub={stats.avgRating > 0 ? `From ${stats.totalBids} bids` : "No ratings yet"}
         icon={<Star />}
+        onClick={onPick && (() => onPick("rating"))}
       />
-      <StatTile label="Completed" value={stats.completedCount} sub="Jobs finished" icon={<CheckCircle2 />} />
+      <StatTile label="Completed" value={stats.completedCount} sub="Jobs finished" icon={<CheckCircle2 />} onClick={onPick && (() => onPick("completed"))} />
     </StatGrid>
   );
 }

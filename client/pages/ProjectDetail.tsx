@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import ReviewForm from "@/components/ReviewForm";
@@ -10,6 +10,8 @@ import { VENDOR_PROFILES } from "@/data/vendorData";
 import { getVendorInsuranceStatus } from "@/data/vendorProfileUtils";
 import { useRole } from "@/context/RoleContext";
 import { isDemoMode } from "@/lib/demoMode";
+import { useAuth } from "@/context/AuthContext";
+import { markBidsSeen } from "@/lib/seenBids";
 import { getProjectPhotos } from "@/lib/photoUtils";
 import {
   Dialog,
@@ -46,6 +48,12 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const { role, vendorId } = useRole();
   const { data: project, isLoading } = useMarketplaceProject(id);
+  const { user } = useAuth();
+  // Opening the job counts as having looked at its bids.
+  useEffect(() => {
+    if (!project) return;
+    markBidsSeen(isDemoMode() ? "demo" : user?.id ?? "", project.bids.map((b) => b.id));
+  }, [project, user?.id]);
   const acceptBid = useAcceptMarketplaceBid();
   const [expandedBid, setExpandedBid] = useState<string | null>(null);
   const [rejectedIds, setRejectedIds] = useState<string[]>(() => getRejectedBidIds());

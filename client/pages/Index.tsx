@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import HeroSection from "@/components/HeroSection";
 import QuickStats from "@/components/QuickStats";
@@ -12,6 +12,9 @@ import { isActiveProjectStatus } from "@shared/api";
 import { useOwnerMarketplaceProjects, useUpdateProjectStatus } from "@/hooks/use-marketplace";
 import { supabaseMissing } from "@/lib/supabase";
 import { isDemoMode } from "@/lib/demoMode";
+import { useAuth } from "@/context/AuthContext";
+import { useSeenBids } from "@/lib/seenBids";
+import type { StatPick } from "@/components/QuickStats";
 import { getCancelledProjectIds, getLocalProjectStatus } from "@/data/bidUtils";
 
 type Tab = "active" | "expired" | "completed";
@@ -31,6 +34,9 @@ function effectiveStatus(projectId: string, rawStatus: string) {
 export default function Index() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("active");
+  const { user } = useAuth();
+  const seen = useSeenBids(isDemoMode() ? "demo" : user?.id);
+  const jobsRef = useRef<HTMLElement>(null);
   const demo = isDemoMode();
   const { data: allProjects = [], isLoading, refetch } = useOwnerMarketplaceProjects();
   const updateStatus = useUpdateProjectStatus();
@@ -94,13 +100,29 @@ export default function Index() {
     return allProjects.filter((p) => effectiveStatus(p.id, p.status) === value).length;
   }
 
+  const unreadFor = (p: { bids: { id: string }[] }) => p.bids.filter((b) => !seen.has(b.id)).length;
+  const newBids = allProjects.reduce((n, p) => n + unreadFor(p), 0);
+  const showJobs = (t: Tab) => {
+    setTab(t);
+    setTimeout(() => jobsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
+  const pick = (what: StatPick) => {
+    if (what === "bids") {
+      const withNew = allProjects.filter((p) => unreadFor(p) > 0);
+      if (withNew.length === 1) return navigate(`/project/${withNew[0].id}`);
+      return showJobs("active");
+    }
+    if (what === "rating") return navigate("/vendors");
+    showJobs(what === "completed" ? "completed" : "active");
+  };
+
   return (
     <div className="min-h-full">
       <PageContainer wide className="space-y-4">
         {/* The boat; posting a job re-fetches so it appears right away */}
         <HeroSection onProjectPosted={() => refetch()} />
 
-        <QuickStats projects={allProjects} />
+        <QuickStats projects={allProjects} newBids={newBids} onPick={pick} />
 
         <div className="grid gap-3 md:grid-cols-2">
           <MaintenanceAlert />
@@ -108,7 +130,7 @@ export default function Index() {
           <ReceiptInbox className="md:col-span-2" />
         </div>
 
-        <section className="rounded-xl border border-border bg-white shadow-card">
+        <section ref={jobsRef} className="rounded-xl border border-border bg-white shadow-card scroll-mt-20">
           <div className="flex items-center justify-between px-5 pt-4">
             <h2 className="text-base font-semibold">Your jobs</h2>
           </div>
@@ -152,6 +174,7 @@ export default function Index() {
                     status={project.status}
                     date={project.date}
                     bids={project.bids.length}
+                    newBids={unreadFor(project)}
                     onClick={() => navigate(`/project/${project.id}`)}
                     onCancel={tab === "active" ? () => handleCancel(project.id) : undefined}
                     onReinstate={tab === "expired" ? () => handleReinstate(project.id) : undefined}

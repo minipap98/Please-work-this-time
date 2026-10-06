@@ -6,6 +6,8 @@ interface ProjectCardProps {
   status: "active" | "bidding" | "in-progress" | "completed" | "expired" | "gathering";
   date: string;
   bids: number;
+  /** Bids the owner hasn't opened yet. */
+  newBids?: number;
   onClick?: () => void;
   onCancel?: () => void;
   onReinstate?: () => void;
@@ -35,6 +37,7 @@ export default function ProjectCard({
   status,
   date,
   bids,
+  newBids = 0,
   onClick,
   onCancel,
   onReinstate,
@@ -73,6 +76,12 @@ export default function ProjectCard({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.856-1.487M15 10a3 3 0 11-6 0 3 3 0 016 0zM6 20h12a6 6 0 00-6-6 6 6 0 00-6 6z" />
             </svg>
             {bids} bid{bids !== 1 ? "s" : ""}
+            {newBids > 0 && (
+              <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-800">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                {newBids} new
+              </span>
+            )}
           </div>
         </div>
       </div>

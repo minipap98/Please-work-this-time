@@ -63,7 +63,7 @@ type BidRow = Tables<"bids"> & {
   messages?: MessageRow[] | null;
 };
 
-type BoatRow = Pick<Tables<"boats">, "name" | "make" | "model" | "year" | "propulsion">;
+type BoatRow = Pick<Tables<"boats">, "name" | "make" | "model" | "year" | "propulsion" | "engine_make" | "engine_model" | "engine_count" | "hull_id" | "home_port" | "length_ft">;
 
 type PhotoRow = Pick<Tables<"project_photos">, "url" | "sort_order">;
 
@@ -94,6 +94,12 @@ function mapBoat(boat: BoatRow | null | undefined): ProjectBoat | undefined {
     model: boat.model,
     year: boat.year,
     propulsion: boat.propulsion ?? "",
+    engineMake: boat.engine_make,
+    engineModel: boat.engine_model,
+    engineCount: boat.engine_count,
+    hullId: boat.hull_id,
+    homePort: boat.home_port,
+    lengthFt: boat.length_ft,
   };
 }
 

@@ -37,6 +37,12 @@ describe("mapProject", () => {
         model: "SDX 250",
         year: "2020",
         propulsion: "Mercury Verado 250",
+        engine_make: null,
+        engine_model: null,
+        engine_count: null,
+        hull_id: null,
+        home_port: null,
+        length_ft: null,
       },
       photos: [{ url: "https://cdn.example/p.jpg", sort_order: 0 }],
       bids: [

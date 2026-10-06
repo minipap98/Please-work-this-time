@@ -40,6 +40,13 @@ export interface ProjectBoat {
   model: string;
   year: string;
   propulsion: string;
+  /** Extra details a shop can copy onto its customer file (live jobs only). */
+  engineMake?: string | null;
+  engineModel?: string | null;
+  engineCount?: number | null;
+  hullId?: string | null;
+  homePort?: string | null;
+  lengthFt?: number | null;
 }
 
 export interface Project {

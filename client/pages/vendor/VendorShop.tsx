@@ -182,17 +182,54 @@ export default function VendorShop({
   const openNew = (patch: Partial<WorkOrderDraft> = {}) =>
     setEditor({ ...blankWorkOrder(nextWorkOrderNumber(orders), settings), ...patch });
 
-  const openFromJob = (job: Project) => {
+  /**
+   * A won Bosun job already knows the owner and the boat, so the customer and boat go on file
+   * automatically (or are matched if they're already there) and the work order opens with them picked.
+   */
+  const openFromJob = async (job: Project) => {
     const bid = job.bids.find((b) => b.id === job.chosenBidId);
     const label = job.boat ? `${job.boat.year} ${job.boat.make} ${job.boat.model}${job.boat.name ? ` · ${job.boat.name}` : ""}` : "";
-    const onFile = boats.find((b) => boatLabel(b) === label);
+    const ownerName = job.ownerContact?.name ?? job.owner ?? "";
+    const ownerEmail = job.ownerContact?.email ?? "";
+    let boatId: string | null = boats.find((b) => boatLabel(b) === label)?.id ?? null;
+
+    if (!boatId && job.boat && ownerName) {
+      const norm = (x: string) => x.trim().toLowerCase();
+      const existing =
+        customers.find((c) => ownerEmail && norm(c.email) === norm(ownerEmail)) ??
+        customers.find((c) => norm(c.name) === norm(ownerName));
+      const count = job.boat.engineCount ?? 0;
+      const countWord = ["", "Single", "Twin", "Triple", "Quad"][count] ?? (count ? `${count}×` : "");
+      const engine = [countWord, job.boat.engineMake, job.boat.engineModel?.replace(/\s*\([^)]*\)$/, "")].filter(Boolean).join(" ");
+      try {
+        const saved = await saveCustomer.mutateAsync({
+          customer: existing
+            ? { id: existing.id, name: existing.name, email: existing.email || ownerEmail, phone: existing.phone || (job.ownerContact?.phone ?? ""), notes: existing.notes }
+            : { name: ownerName, email: ownerEmail, phone: job.ownerContact?.phone ?? "", notes: "Added from a Bosun job" },
+          boats: [{
+            name: job.boat.name ?? "",
+            year: job.boat.year ? Number(job.boat.year) || null : null,
+            make: job.boat.make ?? "",
+            model: job.boat.model ?? "",
+            engine,
+            hullId: job.boat.hullId ?? "",
+            slip: job.boat.homePort?.split(",")[0] ?? "",
+          }],
+        });
+        boatId = saved.boatIds[0] ?? null;
+        toast({ title: existing ? `Added ${label} to ${existing.name}` : `${ownerName} added to your customers`, description: "Owner and boat details came from the Bosun job." });
+      } catch (e) {
+        fail(e);
+      }
+    }
+
     openNew({
-      boatId: onFile?.id ?? null,
+      boatId,
       title: job.title,
       description: job.description,
-      customerName: job.ownerContact?.name ?? job.owner ?? "",
-      customerEmail: job.ownerContact?.email ?? "",
-      boatLabel: job.boat ? `${job.boat.year} ${job.boat.make} ${job.boat.model}${job.boat.name ? ` · ${job.boat.name}` : ""}` : "",
+      customerName: ownerName,
+      customerEmail: ownerEmail,
+      boatLabel: label,
       projectId: job.id,
       lines: bid?.lineItems?.length
         ? bid.lineItems.map((li) => ({ kind: "labor" as const, description: li.description, quantity: li.quantity, unitPrice: li.unitPrice }))

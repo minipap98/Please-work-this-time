@@ -254,7 +254,7 @@ export default function Settings() {
                     </button>
                   ))}
                   <span className="basis-full text-xs text-muted-foreground">
-                    {heroFit === "cover" ? "Edge to edge. Drag the photo and zoom to choose what shows." : "Every pixel shows, with white space beside it."}
+                    {heroFit === "cover" ? "Edge to edge. Drag the photo and zoom to choose what shows; the box is the exact shape of the banner." : "Every pixel shows, with white space beside it."}
                   </span>
                 </div>
               )}

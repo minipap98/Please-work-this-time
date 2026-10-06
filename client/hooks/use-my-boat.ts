@@ -97,6 +97,15 @@ export function writeHeroFrame(boatId: string, frame: HeroFrame) {
     localStorage.setItem(frameKey(boatId), JSON.stringify(frame));
   } catch {}
 }
+/**
+ * Width ÷ height of the dashboard banner for a photo of this size. The banner takes the
+ * photo's own shape (nothing trimmed at zoom 1) within sensible limits, and the Settings
+ * editor uses the same shape so what you frame there is exactly what shows.
+ */
+export function bannerRatio(naturalWidth: number, naturalHeight: number): number {
+  if (!naturalWidth || !naturalHeight) return 1.6;
+  return clamp(naturalWidth / naturalHeight, 1.6, 2.2);
+}
 /** Inline style that applies a frame to an `object-cover` image. */
 export function heroFrameStyle(frame: HeroFrame): CSSProperties {
   return {

@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { ENGINE_DATA, type EngineType } from "@/data/engineData";
 import { type ProjectBoat } from "@/data/projectData";
-import { heroFrameStyle, readHeroFit, readHeroFrame, useMyBoats } from "@/hooks/use-my-boat";
+import { bannerRatio, heroFrameStyle, readHeroFit, readHeroFrame, useMyBoats } from "@/hooks/use-my-boat";
 import BoatSwitcher from "@/components/boats/BoatSwitcher";
 import { cn } from "@/lib/utils";
 import { DEMO_BOAT } from "@/data/demoBoat";
@@ -373,17 +373,18 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
 
   return (
     <section className={cn("rounded-xl border border-border bg-white shadow-card overflow-hidden", heroImage && "md:grid md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]")}>
-      {/* The photo keeps its own shape: full width on phones, beside the details on wider screens.
-          Nothing is trimmed unless it's extremely tall; "show the whole photo" (Settings) pads instead. */}
+      {/* The banner is exactly the shape the Settings editor shows (bannerRatio), full width on
+          phones and beside the details on wider screens, so the framing chosen there is what shows.
+          "Show the whole photo" (Settings) pads instead of filling. */}
       <div
         className={
           heroImage
             ? heroFit === "contain"
-              ? "relative bg-white p-4 md:self-center"
-              : "relative w-full overflow-hidden bg-slate-100 md:self-stretch md:h-full md:min-h-[260px]"
+              ? "relative bg-white p-4 md:self-center md:border-r md:border-border/60"
+              : "relative w-full overflow-hidden bg-slate-100 md:self-center md:border-r md:border-border/60"
             : "relative h-[200px] sm:h-[260px] overflow-hidden"
         }
-        style={heroImage && heroFit !== "contain" && heroRatio ? { aspectRatio: String(heroRatio) } : undefined}
+        style={heroImage && heroFit !== "contain" ? { aspectRatio: String(heroRatio ?? 1.6) } : undefined}
       >
         {heroImage ? (
           <img
@@ -391,12 +392,12 @@ export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) 
             alt="Your boat"
             onLoad={(e) => {
               const img = e.currentTarget;
-              if (img.naturalWidth && img.naturalHeight) setHeroRatio(Math.max(1.6, img.naturalWidth / img.naturalHeight));
+              setHeroRatio(bannerRatio(img.naturalWidth, img.naturalHeight));
             }}
             className={
               heroFit === "contain"
                 ? "block w-auto h-auto max-w-full max-h-[220px] md:max-h-[320px] mx-auto"
-                : "block w-full h-full object-cover md:absolute md:inset-0"
+                : "absolute inset-0 block w-full h-full object-cover"
             }
             style={heroFit === "contain" ? undefined : heroFrameStyle(heroFrame)}
           />

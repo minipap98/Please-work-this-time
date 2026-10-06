@@ -1,16 +1,18 @@
 import { useRef, useState } from "react";
 import { ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
-import { DEFAULT_FRAME, heroFrameStyle, type HeroFrame } from "@/hooks/use-my-boat";
+import { DEFAULT_FRAME, bannerRatio, heroFrameStyle, type HeroFrame } from "@/hooks/use-my-boat";
 
 /**
  * Lets the owner drag the photo around and zoom it inside a banner-shaped box.
- * The box uses the same 1.6:1 shape the dashboard banner has on a phone, so what you
- * frame here is what you get there.
+ * The box takes the exact shape the dashboard banner has for this photo (bannerRatio),
+ * so what you frame here is what you get there.
  */
 export function HeroFrameEditor({ src, frame, onChange }: { src: string; frame: HeroFrame; onChange: (f: HeroFrame) => void }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; fx: number; fy: number } | null>(null);
   const [dragging, setDragging] = useState(false);
+  // Same shape as the dashboard banner for this photo, so the preview is exact.
+  const [ratio, setRatio] = useState(1.6);
 
   const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
   const setZoom = (zoom: number) => onChange({ ...frame, zoom: clamp(Math.round(zoom * 20) / 20, 1, 3) });
@@ -41,13 +43,20 @@ export function HeroFrameEditor({ src, frame, onChange }: { src: string; frame: 
       <div
         ref={boxRef}
         className={`relative w-full overflow-hidden rounded-md bg-slate-100 select-none touch-none ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
-        style={{ aspectRatio: "1.6" }}
+        style={{ aspectRatio: String(ratio) }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
       >
-        <img src={src} alt="" draggable={false} className="block w-full h-full object-cover" style={heroFrameStyle(frame)} />
+        <img
+          src={src}
+          alt=""
+          draggable={false}
+          onLoad={(e) => setRatio(bannerRatio(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight))}
+          className="absolute inset-0 block w-full h-full object-cover"
+          style={heroFrameStyle(frame)}
+        />
         <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-black/10" />
         <span className="pointer-events-none absolute bottom-2 left-2 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-medium text-white">
           Drag to move · slider to zoom

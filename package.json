@@ -12,7 +12,9 @@
     "test:shared": "pnpm --filter @bosun/shared test",
     "test:smoke": "pnpm --filter @bosun/web test:smoke",
     "typecheck": "turbo run typecheck",
-    "format.fix": "prettier --write ."
+    "format.fix": "prettier --write .",
+    "dev:mobile": "pnpm --filter @bosun/mobile start",
+    "export:ios": "pnpm --filter @bosun/mobile export:ios"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

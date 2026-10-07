@@ -50,6 +50,15 @@ Push notifications need a physical device, an EAS project id, the APNs key on EA
 
 What's in the app: sign up / sign in, onboarding, and the whole owner side: home (your boat, what's due, your jobs), posting a job with camera or library photos, bids and accepting one, messaging, notifications, My Boats (add/edit/photo/home port, model insights), the Boat Log (log work, import an invoice by camera/photo/PDF, emailed receipts, share links), Maintenance (what's due, mark done, the manufacturer schedule for your engines), Find a Shop (by distance, with reviews), reviewing a shop after a job, and settings. Shops get "Jobs near you", bidding, My bids, shop profile, crew and push notifications. Shop OS, billing, subscriptions, PDF/CSV exports and Google-verified marina pins stay on the web. Universal links from getbosun.app open the matching screen.
 
+Building for the simulator with `xcodebuild` and no Apple certificate: sign ad-hoc rather than not at all, or the
+Keychain refuses the app ("A required entitlement is not present") and sign-in won't persist:
+
+```bash
+xcodebuild -workspace ios/Bosun.xcworkspace -scheme Bosun -configuration Debug -sdk iphonesimulator \
+  -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
+  CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= build
+```
+
 After pulling a change that adds a native module (the owner build added `expo-document-picker` and `expo-location`), run `npx expo prebuild --platform ios --clean` and rebuild before `npx expo start`.
 
 ## Checks

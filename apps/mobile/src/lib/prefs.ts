@@ -1,7 +1,7 @@
 // Small per-device preferences (the active boat, an engine-hours override). Kept in the
 // Keychain store we already have so no extra native module is needed; none of it is secret.
-import * as SecureStore from "expo-secure-store";
 import { useCallback, useSyncExternalStore } from "react";
+import { secureStore } from "./secureStore";
 
 const cache = new Map<string, string | null>();
 const listeners = new Set<() => void>();
@@ -14,7 +14,8 @@ function notify() {
 function load(key: string): Promise<void> {
   let p = loading.get(key);
   if (!p) {
-    p = SecureStore.getItemAsync(key)
+    p = secureStore
+      .get(key)
       .then((v) => {
         cache.set(key, v);
       })
@@ -31,8 +32,8 @@ export async function setPref(key: string, value: string | null): Promise<void> 
   cache.set(key, value);
   notify();
   try {
-    if (value === null) await SecureStore.deleteItemAsync(key);
-    else await SecureStore.setItemAsync(key, value);
+    if (value === null) await secureStore.remove(key);
+    else await secureStore.set(key, value);
   } catch {
     // The value still applies for this session.
   }

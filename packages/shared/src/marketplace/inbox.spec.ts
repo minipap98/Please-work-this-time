@@ -43,3 +43,17 @@ describe("buildThreads", () => {
     expect(threads[0].unreadCount).toBe(1);
   });
 });
+
+describe("buildThreads with live read receipts", () => {
+  it("counts messages sent to me that I haven't read, ignoring the browser index", () => {
+    const live = bid("live", [
+      { from: "vendor", text: "Hi", time: "2026-08-01T10:00:00Z", recipientId: "owner", read: true },
+      { from: "vendor", text: "Still there?", time: "2026-08-01T11:00:00Z", recipientId: "owner", read: false },
+      { from: "user", text: "Yes", time: "2026-08-01T12:00:00Z", recipientId: "vendor", read: false },
+    ]);
+    const owner = buildThreads([project("a", [live])], { userId: "owner", readCount: () => 99 });
+    expect(owner[0].unreadCount).toBe(1);
+    const shop = buildThreads([project("a", [live])], { userId: "vendor" });
+    expect(shop[0].unreadCount).toBe(1);
+  });
+});

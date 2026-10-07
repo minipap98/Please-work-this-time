@@ -345,6 +345,9 @@ export interface Database {
           rejected: boolean;
           created_at: string;
           updated_at: string;
+          seen_at?: string | null;
+          withdrawn_at?: string | null;
+          rejected_at?: string | null;
         };
         Insert: {
           id?: string;
@@ -363,6 +366,8 @@ export interface Database {
           expiry_date?: string | null;
           accepted?: boolean | null;
           rejected?: boolean;
+          seen_at?: string | null;
+          withdrawn_at?: string | null;
         };
         Relationships: [];
       };
@@ -1159,6 +1164,30 @@ export interface Database {
         };
         Relationships: [];
       };
+      device_push_tokens: {
+        Row: {
+          id: string;
+          user_id: string;
+          token: string;
+          platform: "ios" | "android" | "web";
+          app_version: string | null;
+          created_at: string;
+          last_seen_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          token: string;
+          platform: "ios" | "android" | "web";
+          app_version?: string | null;
+          last_seen_at?: string;
+        };
+        Update: {
+          app_version?: string | null;
+          last_seen_at?: string;
+        };
+        Relationships: [];
+      };
       notifications: {
         Row: {
           id: string;
@@ -1218,6 +1247,10 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      accept_bid: {
+        Args: { p_project: string; p_bid: string; p_booking?: Json | null };
+        Returns: undefined;
+      };
       shop_adjust_inventory: {
         Args: { item_id: string; delta: number };
         Returns: number;

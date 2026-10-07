@@ -55,7 +55,7 @@ type LineItemRow = Pick<
 type MessageRow = Pick<
   Tables<"messages">,
   "sender_id" | "text" | "created_at" | "is_quote" | "quote_title" | "quote_price" | "quote_description"
-> & { sender?: { role?: string } | null };
+> & Partial<Pick<Tables<"messages">, "recipient_id" | "status">> & { sender?: { role?: string } | null };
 
 export type BidRow = Tables<"bids"> & {
   vendor?: VendorRow | null;
@@ -111,6 +111,7 @@ function mapMessage(msg: MessageRow, vendorUserId?: string): BidMessage {
     from: fromVendor ? "vendor" : "user",
     text: msg.text,
     time: formatProjectDate(msg.created_at),
+    ...(msg.recipient_id ? { recipientId: msg.recipient_id, read: msg.status === "read" } : {}),
   };
   if (msg.is_quote) {
     return {
@@ -145,6 +146,10 @@ export function mapBid(row: BidRow): Bid {
     submittedDate: formatProjectDate(row.submitted_at),
     expiryDate: row.expiry_date ? formatProjectDate(row.expiry_date) : "TBD",
     thread: (row.messages ?? []).map((m) => mapMessage(m, vendor?.user_id)),
+    rejected: row.rejected === true,
+    withdrawnAt: row.withdrawn_at ?? null,
+    // undefined until the migration adds the column; null after it, until the owner looks.
+    seenAt: "seen_at" in row ? row.seen_at ?? null : undefined,
   };
 }
 
@@ -178,6 +183,7 @@ export function mapProject(row: ProjectRow): Project {
     boatId: row.boat_id ?? undefined,
     bids: (row.bids ?? []).map(mapBid),
     chosenBidId: row.chosen_bid_id ?? undefined,
+    booking: meta.booking && typeof meta.booking === "object" ? (meta.booking as Record<string, unknown>) : null,
     photos: photos.length ? photos : undefined,
     isWarrantyClaim: Boolean(meta.isWarrantyClaim),
     workLocation: meta.workLocation as Project["workLocation"],

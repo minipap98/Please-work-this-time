@@ -8,6 +8,7 @@ import { handleInboundPartsEmail } from "./routes/inbound-email.js";
 import { handleInboundReceipt } from "./routes/receipts-inbound.js";
 import { handleExtractInvoice, handleInvoiceHealth } from "./routes/invoice-extract.js";
 import { handleServiceIntervals } from "./routes/service-intervals.js";
+import { handlePushDispatch } from "./routes/push.js";
 import {
   handleAdminAiUsage,
   handleAdminAudit,
@@ -68,6 +69,9 @@ export function createServer() {
   app.post("/api/admin/prospects/:id/draft", handleAdminProspectDraft);
   app.get("/api/admin/audit", handleAdminAudit);
   app.get("/api/admin/ai-usage", handleAdminAiUsage);
+
+  // v1: endpoints added for the mobile app. Existing /api/* routes keep their contracts.
+  app.post("/api/v1/push/dispatch", handlePushDispatch);
 
   return app;
 }

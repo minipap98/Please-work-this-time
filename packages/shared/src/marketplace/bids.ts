@@ -1,4 +1,5 @@
 import type { Db } from "../db/client";
+import { isMissingColumn } from "../db/optionalColumns";
 import type { ProjectStatus } from "./types";
 
 export interface BidLineItemInput {
@@ -76,11 +77,31 @@ export async function updateProjectStatus(client: Db, projectId: string, status:
   if (error) throw error;
 }
 
+/** PostgREST's "no such function" error: the migration that adds an RPC hasn't been run yet. */
+export function isMissingFunction(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  return err.code === "PGRST202" || err.code === "42883" || /Could not find the function|function .* does not exist/i.test(err.message ?? "");
+}
+
 /**
- * Accept a bid: flag the bid, then point the job at it with the booking details in metadata.
- * (Two writes, no transaction; an `accept_bid` RPC replaces this in the backend phase.)
+ * Accept a bid through the `accept_bid` RPC: one transaction that checks the job is the
+ * owner's and still open, that the bid is on it and live, flags the winner, rejects the rest
+ * and moves the job to in-progress with the booking in metadata. Until that migration has run,
+ * falls back to the original two writes.
  */
 export async function acceptBid(
+  client: Db,
+  projectId: string,
+  bidId: string,
+  booking?: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await client.rpc("accept_bid", { p_project: projectId, p_bid: bidId, p_booking: (booking ?? null) as never });
+  if (!error) return;
+  if (!isMissingFunction(error)) throw error;
+  await acceptBidLegacy(client, projectId, bidId, booking);
+}
+
+async function acceptBidLegacy(
   client: Db,
   projectId: string,
   bidId: string,
@@ -101,5 +122,27 @@ export async function acceptBid(
     .from("projects")
     .update({ chosen_bid_id: bidId, status: "in-progress", metadata } as never)
     .eq("id", projectId);
+  if (error) throw error;
+}
+
+/** The owner opened the job: every bid on it has now been seen. Ignored until `bids.seen_at` exists. */
+export async function markBidsSeen(client: Db, projectId: string): Promise<void> {
+  const { error } = await client
+    .from("bids")
+    .update({ seen_at: new Date().toISOString() })
+    .eq("project_id", projectId)
+    .is("seen_at", null);
+  if (error && !isMissingColumn(error)) throw error;
+}
+
+/** Owner declines (or un-declines) a bid. The shop is told through the bid_rejected trigger. */
+export async function setBidRejected(client: Db, bidId: string, rejected: boolean): Promise<void> {
+  const { error } = await client.from("bids").update({ rejected }).eq("id", bidId);
+  if (error) throw error;
+}
+
+/** Shop withdraws its bid. The row stays (the owner sees it crossed out) but can't be accepted. */
+export async function withdrawBid(client: Db, bidId: string): Promise<void> {
+  const { error } = await client.from("bids").update({ withdrawn_at: new Date().toISOString() }).eq("id", bidId);
   if (error) throw error;
 }

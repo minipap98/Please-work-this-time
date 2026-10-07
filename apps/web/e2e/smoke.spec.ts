@@ -135,3 +135,20 @@ test.describe("API contracts", () => {
     expect([401, 503]).toContain(res.status());
   });
 });
+
+test.describe("API v1 (mobile)", () => {
+  test("push dispatch is locked until configured", async ({ request }) => {
+    const res = await request.post("/api/v1/push/dispatch", { data: { type: "INSERT", table: "notifications", record: {} } });
+    expect(res.status()).toBe(503);
+    expect((await res.json()).code).toBe("not_configured");
+  });
+});
+
+test.describe("universal links", () => {
+  test("the Apple app-site-association file is served as JSON", async ({ request }) => {
+    const res = await request.get("/.well-known/apple-app-site-association");
+    expect(res.ok()).toBe(true);
+    const body = JSON.parse(await res.text()) as { applinks?: { details?: unknown[] } };
+    expect(body.applinks?.details?.length).toBeGreaterThan(0);
+  });
+});

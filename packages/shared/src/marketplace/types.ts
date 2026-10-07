@@ -7,6 +7,9 @@ export interface BidMessage {
   from: "vendor" | "user";
   text: string;
   time: string;
+  /** Live messages: who it was sent to and whether they've read it. */
+  recipientId?: string;
+  read?: boolean;
   // Quote proposal fields (only present when type === "quote")
   type?: "quote";
   quoteId?: string;
@@ -31,6 +34,12 @@ export interface Bid {
   expiryDate: string;
   thread: BidMessage[];
   isAutoBid?: boolean;
+  /** Owner declined it. */
+  rejected?: boolean;
+  /** When the shop withdrew it (live bids). */
+  withdrawnAt?: string | null;
+  /** When the owner first looked at it; null = not yet, undefined = column not available. */
+  seenAt?: string | null;
 }
 
 export interface InvoiceItem {
@@ -78,6 +87,8 @@ export interface Project {
   boatId?: string;
   bids: Bid[];
   chosenBidId?: string;
+  /** Service window the owner picked when accepting (week, time, notes, bidId, vendorName). */
+  booking?: Record<string, unknown> | null;
   photos?: string[];
   linkedEquipmentId?: string;
   isWarrantyClaim?: boolean;

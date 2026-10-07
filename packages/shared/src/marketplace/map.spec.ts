@@ -119,3 +119,26 @@ describe("bid thread attribution", () => {
     expect(bid.thread.map((m) => m.from)).toEqual(["vendor", "user"]);
   });
 });
+
+describe("bid state and booking", () => {
+  it("passes through rejected / withdrawn / seen and the booking", () => {
+    const row = {
+      id: "p", owner_id: "o", boat_id: null, title: "t", description: "", status: "in-progress", category: null, location: null,
+      chosen_bid_id: "b", date: null, expires_at: null, created_at: "2026-08-25T00:00:00.000Z", updated_at: "2026-08-25T00:00:00.000Z",
+      metadata: { booking: { bidId: "b", week: "Sep 7 – Sep 11", time: "Morning" } },
+      bids: [{
+        id: "b", project_id: "p", vendor_id: "v", price: 1, message: null, submitted_at: "2026-08-25T00:00:00.000Z", expiry_date: null,
+        accepted: true, rejected: false, created_at: "", updated_at: "", seen_at: null, withdrawn_at: null,
+      }],
+    } as unknown as ProjectRow;
+    const project = mapProject(row);
+    expect(project.booking).toEqual({ bidId: "b", week: "Sep 7 – Sep 11", time: "Morning" });
+    expect(project.bids[0]).toMatchObject({ rejected: false, withdrawnAt: null, seenAt: null });
+  });
+
+  it("leaves seenAt undefined when the column isn't there yet", () => {
+    const bid = mapBid({ id: "b", project_id: "p", vendor_id: "v", price: 1, message: null, submitted_at: "", expiry_date: null, accepted: null, rejected: false, created_at: "", updated_at: "" });
+    expect(bid.seenAt).toBeUndefined();
+    expect(bid.withdrawnAt).toBeNull();
+  });
+});

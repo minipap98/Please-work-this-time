@@ -18,6 +18,7 @@ import { approximate } from "@shared/geo";
 import { useAuth } from "@/context/AuthContext";
 import { useDemoMode } from "@/lib/demoMode";
 import { useCreateMarketplaceProject } from "@/hooks/use-marketplace";
+import { JOB_CATEGORIES, type JobCategory } from "@shared/marketplace/catalog";
 import { toast } from "sonner";
 
 // ─── Icons ───────────────────────────────────────────────────
@@ -68,20 +69,23 @@ const ICONS = {
   },
 };
 
+// The categories themselves are shared with the mobile app; only the icons are the web's.
+const CATEGORY_ICONS: Record<JobCategory, keyof typeof ICONS> = {
+  "Engine Service": "engine",
+  "Detailing & Waxing": "sparkles",
+  "Decking & Upholstery": "layers",
+  "Electrical": "bolt",
+  "Electronics & AV": "monitor",
+  "Hull & Gelcoat": "anchor",
+  "Mechanical": "tool",
+  "Other / Custom": "sliders",
+};
+
 const PROJECT_CATEGORIES: {
   icon: keyof typeof ICONS;
   label: string;
   description: string;
-}[] = [
-  { icon: "engine",   label: "Engine Service",      description: "Oil changes, tune-ups, impeller replacement, winterization" },
-  { icon: "sparkles", label: "Detailing & Waxing",  description: "Hull cleaning, buffing, waxing, interior detailing" },
-  { icon: "layers",   label: "Decking & Upholstery",description: "Teak decking, vinyl flooring, seat re-upholstery" },
-  { icon: "bolt",     label: "Electrical",           description: "Wiring, bilge pumps, lighting, battery systems" },
-  { icon: "monitor",  label: "Electronics & AV",     description: "GPS, fishfinders, stereo systems, chartplotters" },
-  { icon: "anchor",   label: "Hull & Gelcoat",       description: "Osmotic blistering, gelcoat repair, antifouling paint" },
-  { icon: "tool",     label: "Mechanical",           description: "Steering, throttle, trim tabs, outdrive service" },
-  { icon: "sliders",  label: "Other / Custom",       description: "Something else not listed above" },
-];
+}[] = JOB_CATEGORIES.map((c) => ({ icon: CATEGORY_ICONS[c.label], label: c.label, description: c.description }));
 
 const PROJECT_TEMPLATES: {
   icon: keyof typeof ICONS;

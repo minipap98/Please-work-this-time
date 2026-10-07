@@ -34,3 +34,10 @@ dist-ssr
 # Playwright
 apps/web/test-results
 apps/web/playwright-report
+
+# Expo / mobile
+apps/mobile/.expo
+apps/mobile/dist
+apps/mobile/ios
+apps/mobile/android
+apps/mobile/expo-env.d.ts

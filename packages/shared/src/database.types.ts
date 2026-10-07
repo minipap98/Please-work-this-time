@@ -202,6 +202,7 @@ export interface Database {
           lat?: number | null;
           lng?: number | null;
           place_id?: string | null;
+          verified_at?: string | null;
         };
         Insert: {
           id?: string;

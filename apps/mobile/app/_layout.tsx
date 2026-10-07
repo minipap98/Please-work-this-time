@@ -44,8 +44,9 @@ export default function RootLayout() {
             <Stack.Screen name="login" options={{ title: "Sign in", headerShown: false }} />
             <Stack.Screen name="signup" options={{ title: "Create account", headerShown: false }} />
             <Stack.Screen name="onboarding" options={{ title: "Set up", headerShown: false }} />
-            <Stack.Screen name="(owner)" options={{ headerShown: false }} />
-            <Stack.Screen name="(vendor)" options={{ headerShown: false }} />
+            {/* The tab groups draw their own headers; the title here is only what the back button on the next screen says. */}
+            <Stack.Screen name="(owner)" options={{ title: "Home", headerShown: false }} />
+            <Stack.Screen name="(vendor)" options={{ title: "Shop", headerShown: false }} />
             <Stack.Screen name="project/[id]" options={{ title: "Job" }} />
             <Stack.Screen name="bid/[projectId]" options={{ title: "Place a bid", presentation: "modal" }} />
             <Stack.Screen name="thread/[bidId]" options={{ title: "Messages" }} />

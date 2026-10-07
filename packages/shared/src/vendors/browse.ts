@@ -116,8 +116,8 @@ export function specialtyOptions(cards: VendorCard[]): string[] {
 
 /** Where distances are measured from: the active boat's home port, else the owner's own location. */
 export function browseOrigin(
-  boat: { home_port_lat: number | null; home_port_lng: number | null } | null | undefined,
-  profile: { location_lat: number | null; location_lng: number | null } | null | undefined,
+  boat: { home_port_lat?: number | null; home_port_lng?: number | null } | null | undefined,
+  profile: { location_lat?: number | null; location_lng?: number | null } | null | undefined,
 ): { lat: number; lng: number; label: "Your boat" | "You" } | null {
   if (boat && boat.home_port_lat != null && boat.home_port_lng != null) return { lat: boat.home_port_lat, lng: boat.home_port_lng, label: "Your boat" };
   if (profile && profile.location_lat != null && profile.location_lng != null) return { lat: profile.location_lat, lng: profile.location_lng, label: "You" };

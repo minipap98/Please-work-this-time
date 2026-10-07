@@ -94,6 +94,5 @@ export function heroFrameStyle(frame: HeroFrame, imageRatio?: number, boxRatio?:
 
 /** Upload a boat photo (data URL from the cropper) and return its public URL. */
 export async function uploadBoatPhoto(userId: string, dataUrl: string): Promise<string> {
-  const blob = await (await fetch(dataUrl)).blob();
-  return uploadBoatPhotoBytes(supabase, userId, { bytes: new Uint8Array(await blob.arrayBuffer()), contentType: "image/jpeg" });
+  return uploadBoatPhotoBytes(supabase, userId, dataUrl);
 }

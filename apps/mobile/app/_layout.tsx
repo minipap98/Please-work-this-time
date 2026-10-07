@@ -53,6 +53,19 @@ export default function RootLayout() {
             <Stack.Screen name="settings" options={{ title: "Settings" }} />
             <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
             <Stack.Screen name="inbox" options={{ title: "Inbox" }} />
+            <Stack.Screen name="post" options={{ title: "Post a job" }} />
+            <Stack.Screen name="boat/new" options={{ title: "Add a boat" }} />
+            <Stack.Screen name="boat/edit" options={{ title: "Edit boat" }} />
+            <Stack.Screen name="boat/[id]" options={{ title: "Boat" }} />
+            <Stack.Screen name="boat-log" options={{ title: "Boat Log" }} />
+            <Stack.Screen name="log/new" options={{ title: "Log work", presentation: "modal" }} />
+            <Stack.Screen name="log/[id]" options={{ title: "Service" }} />
+            <Stack.Screen name="log/import" options={{ title: "Import invoice", presentation: "modal" }} />
+            <Stack.Screen name="receipts" options={{ title: "Emailed receipts" }} />
+            <Stack.Screen name="maintenance" options={{ title: "Maintenance" }} />
+            <Stack.Screen name="maintenance/plan" options={{ title: "Service schedule", presentation: "modal" }} />
+            <Stack.Screen name="vendor/[id]" options={{ title: "Shop" }} />
+            <Stack.Screen name="history/[token]" options={{ title: "Service history" }} />
           </Stack>
         </AuthProvider>
       </QueryClientProvider>

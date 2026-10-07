@@ -2,7 +2,7 @@
 // The server asks Claude for INVOICE_SCHEMA; everything it returns goes through
 // normalizeInvoice() and is shown to the owner for review before anything is saved.
 
-import type { LogLine } from "./boatLog.js";
+import type { LogLine } from "./boatLog";
 
 export const LOG_CATEGORY_VALUES = [
   "Engine Oil & Fuel",

@@ -5,6 +5,7 @@ import type { InsertTables, Tables, UpdateTables } from "../database.types";
 import { LOCATION_KEYS, isMissingColumn, withoutKeys } from "../db/optionalColumns";
 import type { PickedLocation } from "../geo";
 import { ENGINE_COUNT_WORDS, engineCountFromWord } from "../onboarding";
+import { dataUrlToBytes, type PhotoInput } from "../marketplace/photos";
 
 export type BoatRow = Tables<"boats">;
 
@@ -138,15 +139,11 @@ export function boatRowFromForm(f: BoatForm, now: Date = new Date()) {
   };
 }
 
-export interface PhotoBytes {
-  bytes: Uint8Array;
-  contentType: string;
-}
-
-/** Upload a boat photo to the public boat-photos bucket and return its URL (the apps resize first). */
-export async function uploadBoatPhoto(client: Db, ownerId: string, photo: PhotoBytes): Promise<string> {
+/** Upload a boat photo (a data: URL or bytes) to the public boat-photos bucket and return its URL. The apps resize first. */
+export async function uploadBoatPhoto(client: Db, ownerId: string, photo: PhotoInput): Promise<string> {
+  const file = typeof photo === "string" ? dataUrlToBytes(photo) : photo;
   const path = `${ownerId}/${Date.now()}.jpg`;
-  const { error } = await client.storage.from("boat-photos").upload(path, photo.bytes, { contentType: photo.contentType });
+  const { error } = await client.storage.from("boat-photos").upload(path, file.bytes, { contentType: file.contentType });
   if (error) throw error;
   return client.storage.from("boat-photos").getPublicUrl(path).data.publicUrl;
 }

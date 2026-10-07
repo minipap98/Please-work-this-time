@@ -21,9 +21,10 @@
         "webcredentials:getbosun.app"
       ],
       "infoPlist": {
-        "NSCameraUsageDescription": "Take photos of the work your boat needs so shops can bid accurately.",
-        "NSPhotoLibraryUsageDescription": "Attach photos of your boat to a job.",
-        "ITSAppUsesNonExemptEncryption": false
+        "NSCameraUsageDescription": "Take photos of the work your boat needs, and snap invoices for the Boat Log.",
+        "NSPhotoLibraryUsageDescription": "Attach photos of your boat to a job, and import invoices from your photos.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Show shops near you, sorted by distance."
       },
       "config": {
         "usesNonExemptEncryption": false
@@ -82,6 +83,13 @@
           "imageWidth": 160
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Show shops near you, sorted by distance."
+        }
+      ],
+      "expo-document-picker",
       "expo-dev-client",
       "./plugins/withSceneDelegate"
     ],

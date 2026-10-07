@@ -6,6 +6,7 @@ import type { Bid, Project } from "@bosun/shared/marketplace/types";
 import { useAuth } from "@/lib/auth";
 import { useAcceptBid, useMarkBidsSeen, useMyVendorProfile, useProject, useSetBidRejected, useUpdateProjectStatus } from "@/lib/queries";
 import { colors, radius, space } from "@/lib/theme";
+import { ReviewCard } from "@/screens/ReviewCard";
 import { Badge, Button, Card, Chip, Field, Loading, Muted, Row, Screen, Title } from "@/ui";
 
 const money = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
@@ -111,6 +112,10 @@ export default function ProjectScreen() {
             />
           )}
         </Card>
+      )}
+
+      {isOwner && chosen && project.status === "completed" && chosen.vendorProfileId && (
+        <ReviewCard projectId={project.id} vendorId={chosen.vendorProfileId} vendorName={chosen.vendorName} />
       )}
 
       {isVendor && !mine && open && (

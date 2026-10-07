@@ -1,4 +1,4 @@
-import { MORE_BOAT_MODELS } from "./boatDataMore.js";
+import { MORE_BOAT_MODELS } from "./boatDataMore";
 
 const BASE_BOAT_MAKES = [
   "Alumacraft",

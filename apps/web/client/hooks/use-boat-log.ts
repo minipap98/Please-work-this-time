@@ -2,20 +2,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { supabase, supabaseMissing } from "@/lib/supabase";
 import { isDemoMode } from "@/lib/demoMode";
-import type { Database, Tables } from "@/lib/database.types";
 import { invoiceToLogLines, normalizeInvoice, type ExtractedInvoice } from "@shared/invoice";
 import { resizePhoto } from "@/lib/photoUtils";
-import { toHistoryEntry, type LogEntry, type LogLine, type LogSource, type SharedHistory } from "@shared/boatLog";
+import { toHistoryEntry, type LogEntry, type SharedHistory } from "@shared/boatLog";
+import { addLogEntry, deleteLogEntry, invoiceSignedUrl, listBoatLog, type NewLogEntry } from "@shared/boatLog/records";
+import { createHistoryShare, getHistoryShare, publicHistory, revokeHistoryShare, setHistoryShareCosts, type HistoryShare } from "@shared/boatLog/shares";
+import { invoiceUploadPath, readInvoice as readInvoiceWithServer, uploadInvoice, type InvoiceRead } from "@shared/boatLog/invoiceRead";
+import { listReceiptInbox, resolveReceipt, type InboxReceipt } from "@shared/boatLog/receipts";
+import { api } from "@/lib/api";
 
-export type MaintenanceCategory = Database["public"]["Enums"]["maintenance_category"];
-
-export const LOG_CATEGORIES: MaintenanceCategory[] = [
-  "Engine Oil & Fuel",
-  "Cooling System",
-  "Drivetrain",
-  "Electrical & Safety",
-  "Hull & Bottom",
-];
+export { LOG_CATEGORIES, type MaintenanceCategory, type NewLogEntry } from "@shared/boatLog/records";
+export { type HistoryShare } from "@shared/boatLog/shares";
+export { type InvoiceRead } from "@shared/boatLog/invoiceRead";
+export { type InboxReceipt } from "@shared/boatLog/receipts";
 
 export interface LogBoat {
   id: string;
@@ -105,36 +104,6 @@ function saveDemo(entries: LogEntry[]) {
   }
 }
 
-function mapLines(raw: unknown): LogLine[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .filter((l): l is Record<string, unknown> => !!l && typeof l === "object")
-    .map((l) => ({
-      kind: (l.kind === "part" || l.kind === "fee" ? l.kind : "labor") as LogLine["kind"],
-      description: String(l.description ?? ""),
-      quantity: Number(l.quantity) || 0,
-      unitPrice: Number(l.unitPrice ?? l.unit_price) || 0,
-    }));
-}
-
-function mapRecord(r: Tables<"service_records">): LogEntry {
-  return {
-    id: r.id,
-    boatId: r.boat_id,
-    title: r.title,
-    category: r.category,
-    date: r.date,
-    engineHours: r.engine_hours,
-    cost: r.cost != null ? Number(r.cost) : null,
-    laborHours: r.labor_hours != null ? Number(r.labor_hours) : null,
-    vendorName: r.vendor_name,
-    notes: r.notes,
-    source: (r.source as LogSource) ?? "owner",
-    lines: mapLines(r.line_items),
-    invoicePath: r.invoice_path ?? null,
-  };
-}
-
 export function useLogBoats() {
   const { user } = useAuth();
   const demo = isDemoMode();
@@ -166,31 +135,10 @@ export function useBoatLog(boatId: string | undefined) {
     queryKey: ["boat-log", boatId],
     queryFn: async (): Promise<LogEntry[]> => {
       if (isDemoMode()) return loadDemo().filter((e) => e.boatId === boatId);
-      const { data, error } = await supabase
-        .from("service_records")
-        .select("*")
-        .eq("boat_id", boatId!)
-        .order("date", { ascending: false });
-      if (error) throw error;
-      return (data ?? []).map(mapRecord);
+      return listBoatLog(supabase, boatId!);
     },
     enabled: !!boatId,
   });
-}
-
-export interface NewLogEntry {
-  boatId: string;
-  title: string;
-  category: MaintenanceCategory | null;
-  date: string;
-  engineHours: number | null;
-  cost: number | null;
-  vendorName: string | null;
-  notes: string | null;
-  laborHours?: number | null;
-  lines?: LogLine[];
-  invoicePath?: string | null;
-  invoiceNumber?: string | null;
 }
 
 export function useAddLogEntry() {
@@ -212,26 +160,7 @@ export function useAddLogEntry() {
         ]);
         return;
       }
-      const { error } = await supabase.from("service_records").insert({
-        boat_id: entry.boatId,
-        owner_id: user!.id,
-        title: entry.title,
-        category: entry.category,
-        date: entry.date,
-        engine_hours: entry.engineHours,
-        cost: entry.cost,
-        vendor_name: entry.vendorName,
-        notes: entry.notes,
-        ...(entry.laborHours != null ? { labor_hours: entry.laborHours } : {}),
-        ...(entry.lines?.length ? { line_items: entry.lines as unknown as Database["public"]["Tables"]["service_records"]["Insert"]["line_items"] } : {}),
-        ...(entry.invoicePath ? { invoice_path: entry.invoicePath, invoice_number: entry.invoiceNumber ?? null } : {}),
-      });
-      if (error) {
-        if (/invoice_(path|number)/.test(error.message)) {
-          throw new Error("Invoice import needs a quick database update (20261011_invoice_import.sql). Ask your admin to run it.");
-        }
-        throw error;
-      }
+      await addLogEntry(supabase, user!.id, entry);
     },
     onSuccess: (_d, v) => {
       qc.invalidateQueries({ queryKey: ["boat-log", v.boatId] });
@@ -248,21 +177,13 @@ export function useDeleteLogEntry() {
         saveDemo(loadDemo().filter((e) => e.id !== id));
         return;
       }
-      const { error } = await supabase.from("service_records").delete().eq("id", id);
-      if (error) throw error;
+      await deleteLogEntry(supabase, id);
     },
     onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["boat-log", v.boatId] }),
   });
 }
 
 // ── Shareable service history ────────────────────────────────────────────────
-
-export interface HistoryShare {
-  id: string;
-  token: string;
-  showCosts: boolean;
-  createdAt: string;
-}
 
 const DEMO_SHARE_KEY = "bosun_demo_history_share_v1";
 export const DEMO_SHARE_TOKEN = "demo-no-vacancy";
@@ -296,16 +217,7 @@ export function useHistoryShare(boatId: string | undefined) {
     queryKey: ["history-share", boatId],
     queryFn: async (): Promise<HistoryShare | null> => {
       if (isDemoMode()) return loadDemoShare();
-      const { data, error } = await supabase
-        .from("boat_history_shares")
-        .select("*")
-        .eq("boat_id", boatId!)
-        .is("revoked_at", null)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return data ? { id: data.id, token: data.token, showCosts: data.show_costs, createdAt: data.created_at } : null;
+      return getHistoryShare(supabase, boatId!);
     },
     enabled: !!boatId,
   });
@@ -321,13 +233,7 @@ export function useCreateHistoryShare() {
         saveDemoShare(share);
         return share;
       }
-      const { data, error } = await supabase
-        .from("boat_history_shares")
-        .insert({ boat_id: boatId, owner_id: user!.id, show_costs: showCosts })
-        .select()
-        .single();
-      if (error) throw error;
-      return { id: data.id, token: data.token, showCosts: data.show_costs, createdAt: data.created_at };
+      return createHistoryShare(supabase, user!.id, boatId, showCosts);
     },
     onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["history-share", v.boatId] }),
   });
@@ -341,8 +247,7 @@ export function useSetHistoryCosts() {
         saveDemoShare({ ...share, showCosts });
         return;
       }
-      const { error } = await supabase.from("boat_history_shares").update({ show_costs: showCosts }).eq("id", share.id);
-      if (error) throw error;
+      await setHistoryShareCosts(supabase, share.id, showCosts);
     },
     onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["history-share", v.boatId] }),
   });
@@ -357,11 +262,7 @@ export function useRevokeHistoryShare() {
         saveDemoShare(null);
         return;
       }
-      const { error } = await supabase
-        .from("boat_history_shares")
-        .update({ revoked_at: new Date().toISOString() })
-        .eq("id", share.id);
-      if (error) throw error;
+      await revokeHistoryShare(supabase, share.id);
     },
     onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["history-share", v.boatId] }),
   });
@@ -382,9 +283,7 @@ export function usePublicHistory(token: string | undefined) {
         };
       }
       if (supabaseMissing) return null;
-      const { data, error } = await supabase.rpc("public_boat_history", { share_token: token! });
-      if (error) throw error;
-      return (data as unknown as SharedHistory | null) ?? null;
+      return publicHistory(supabase, token!);
     },
     enabled: !!token,
     retry: false,
@@ -392,10 +291,6 @@ export function usePublicHistory(token: string | undefined) {
 }
 
 // ── Invoice import ───────────────────────────────────────────────────────────
-
-export type InvoiceRead =
-  | { status: "read"; invoice: ExtractedInvoice; path: string | null }
-  | { status: "manual"; reason: string; path: string | null };
 
 /** A canned read for the demo, shaped like a real twin-outboard 300-hour service. */
 function demoInvoice(): ExtractedInvoice {
@@ -439,28 +334,9 @@ export function useReadInvoice() {
         body = await (await fetch(await resizePhoto(file, 2000, 0.85))).blob();
       }
       if (body.size > 15 * 1024 * 1024) throw new Error("That file is over 15 MB. Try a smaller scan or a photo.");
-      const path = `${user.id}/invoices/${boatId}/${Date.now()}.${isPdf ? "pdf" : "jpg"}`;
-      const { error: upError } = await supabase.storage
-        .from("boat-documents")
-        .upload(path, body, { contentType: isPdf ? "application/pdf" : "image/jpeg" });
-      if (upError) throw upError;
-
-      const { data: sess } = await supabase.auth.getSession();
-      const res = await fetch("/api/invoices/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sess.session?.access_token ?? ""}` },
-        body: JSON.stringify({ path }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { invoice?: unknown; error?: string; code?: string };
-      if (res.ok && json.invoice) return { status: "read", invoice: normalizeInvoice(json.invoice), path };
-      return {
-        status: "manual",
-        reason:
-          json.code === "not_configured"
-            ? "Automatic reading isn't switched on yet, so fill in the details below. Your invoice is saved with the entry."
-            : `${json.error ?? `Invoice reading failed (server error ${res.status}).`} Your invoice is saved with the entry, so fill in the details below.`,
-        path,
-      };
+      const path = invoiceUploadPath(user.id, boatId, isPdf);
+      await uploadInvoice(supabase, path, body, isPdf);
+      return readInvoiceWithServer(api, path);
     },
   });
 }
@@ -469,25 +345,11 @@ export { invoiceToLogLines };
 
 /** Short-lived link to view a private invoice. */
 export async function invoiceUrl(path: string): Promise<string | null> {
-  const { data } = await supabase.storage.from("boat-documents").createSignedUrl(path, 600);
-  return data?.signedUrl ?? null;
+  return invoiceSignedUrl(supabase, path);
 }
 
 
 /* ── Emailed receipts waiting for review ─────────────────────────────────── */
-
-export interface InboxReceipt {
-  id: string;
-  fromEmail: string;
-  subject: string;
-  receivedAt: string;
-  attachmentPath: string | null;
-  attachmentName: string | null;
-  extracted: ExtractedInvoice | null;
-  readError: string | null;
-  /** Filed but Claude hasn't finished reading it yet (takes 10–30 s after the email arrives). */
-  reading: boolean;
-}
 
 export function useReceiptInbox() {
   const { user } = useAuth();
@@ -495,24 +357,7 @@ export function useReceiptInbox() {
   return useQuery({
     queryKey: ["receipt-inbox", user?.id],
     queryFn: async (): Promise<InboxReceipt[]> => {
-      const { data, error } = await supabase
-        .from("receipt_inbox")
-        .select("*")
-        .eq("owner_id", user!.id)
-        .eq("status", "pending")
-        .order("received_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []).map((r) => ({
-        id: r.id,
-        fromEmail: r.from_email,
-        subject: r.subject,
-        receivedAt: r.received_at,
-        attachmentPath: r.attachment_path,
-        attachmentName: r.attachment_name,
-        extracted: r.extracted ? normalizeInvoice(r.extracted) : null,
-        readError: r.read_error,
-        reading: !r.extracted && !r.read_error,
-      }));
+      return listReceiptInbox(supabase, user!.id);
     },
     enabled: !!user && !demo,
     // Poll quickly while something is still being read, otherwise once a minute.
@@ -525,8 +370,7 @@ export function useResolveReceipt() {
   const { user } = useAuth();
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "added" | "dismissed" }) => {
-      const { error } = await supabase.from("receipt_inbox").update({ status, resolved_at: new Date().toISOString() }).eq("id", id);
-      if (error) throw error;
+      await resolveReceipt(supabase, id, status);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["receipt-inbox", user?.id] }),
   });

@@ -4,7 +4,15 @@
 import { supabase, supabaseMissing } from "@/lib/supabase";
 import { api } from "@/lib/api";
 import { createProject, type CreateProjectInput } from "@shared/marketplace/jobs";
-import { acceptBid, submitBid, updateProjectStatus as setProjectStatus, type SubmitBidInput } from "@shared/marketplace/bids";
+import {
+  acceptBid,
+  markBidsSeen,
+  setBidRejected,
+  submitBid,
+  updateProjectStatus as setProjectStatus,
+  withdrawBid,
+  type SubmitBidInput,
+} from "@shared/marketplace/bids";
 import { uploadProjectPhotos as uploadPhotos, type PhotoInput } from "@shared/marketplace/photos";
 import type { Project } from "@shared/marketplace/types";
 
@@ -49,4 +57,16 @@ export async function acceptMarketplaceBid(
   booking?: Record<string, unknown>,
 ): Promise<void> {
   return acceptBid(await requireClient(), projectId, bidId, booking);
+}
+
+export async function markMarketplaceBidsSeen(projectId: string): Promise<void> {
+  return markBidsSeen(await requireClient(), projectId);
+}
+
+export async function setMarketplaceBidRejected(bidId: string, rejected: boolean): Promise<void> {
+  return setBidRejected(await requireClient(), bidId, rejected);
+}
+
+export async function withdrawMarketplaceBid(bidId: string): Promise<void> {
+  return withdrawBid(await requireClient(), bidId);
 }

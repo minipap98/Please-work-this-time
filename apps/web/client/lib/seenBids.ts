@@ -1,8 +1,10 @@
 import { useSyncExternalStore } from "react";
+import type { Bid } from "@shared/marketplace/types";
 
 /**
- * Which bids the owner has already looked at, kept in this browser per account.
- * A bid counts as seen once its job's detail page has been opened.
+ * Which bids the owner has already looked at. Live bids carry `seenAt` from the database
+ * (set when the job page opens); this browser-side set is the fallback for the demo and for
+ * a database that hasn't got the column yet.
  */
 const key = (uid: string) => `bosun_seen_bids:${uid}`;
 const listeners = new Set<() => void>();
@@ -46,3 +48,9 @@ export function useSeenBids(uid: string | undefined): Set<string> {
   );
 }
 const EMPTY = new Set<string>();
+
+/** Has the owner looked at this bid? The database answers when it can; the browser otherwise. */
+export function isBidUnseen(bid: Pick<Bid, "id" | "seenAt">, localSeen: Set<string>): boolean {
+  if (bid.seenAt !== undefined) return bid.seenAt === null;
+  return !localSeen.has(bid.id);
+}

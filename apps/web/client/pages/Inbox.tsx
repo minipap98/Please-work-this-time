@@ -6,7 +6,8 @@ import { buildThreads as buildSharedThreads, type InboxThread } from "@shared/ma
 import { useOwnerMarketplaceProjects, useVendorBidProjects } from "@/hooks/use-marketplace";
 import { useRole } from "@/context/RoleContext";
 import { useAuth } from "@/context/AuthContext";
-import { useSendMessage } from "@/hooks/use-supabase";
+import { useMarkMessagesRead, useSendMessage } from "@/hooks/use-supabase";
+import { isDemoMode } from "@/lib/demoMode";
 import { toast } from "sonner";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -44,8 +45,9 @@ function readCount(bidId: string): number {
   return parseInt(localStorage.getItem(`msg_read_${bidId}`) ?? "0", 10);
 }
 
-function buildThreads(projects: Project[]): InboxThread[] {
-  return buildSharedThreads(projects, { readCount });
+function buildThreads(projects: Project[], userId?: string): InboxThread[] {
+  // Live messages carry read receipts; the demo falls back to the browser index.
+  return buildSharedThreads(projects, { userId, readCount });
 }
 
 // ─── Quote Card ─────────────────────────────────────────────────────────────
@@ -93,6 +95,7 @@ export default function Inbox() {
   const { role, vendorId } = useRole();
   const { user } = useAuth();
   const sendMessage = useSendMessage();
+  const markRead = useMarkMessagesRead();
   const ownerQuery = useOwnerMarketplaceProjects();
   const vendorQuery = useVendorBidProjects(role === "vendor" ? vendorId : null);
   const liveProjects = (role === "vendor" ? vendorQuery.data : ownerQuery.data) ?? [];
@@ -101,23 +104,27 @@ export default function Inbox() {
   const [replyText, setReplyText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const userId = isDemoMode() ? undefined : user?.id;
   useEffect(() => {
-    setThreads(buildThreads(liveProjects));
-  }, [liveProjects]);
+    setThreads(buildThreads(liveProjects, userId));
+  }, [liveProjects, userId]);
 
   useEffect(() => {
-    const onFocus = () => setThreads(buildThreads(liveProjects));
+    const onFocus = () => setThreads(buildThreads(liveProjects, userId));
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [liveProjects]);
+  }, [liveProjects, userId]);
 
   const selectedThread = threads.find((t) => t.bid.id === selectedBidId) ?? null;
 
-  // Mark read when opening a thread
+  // Mark read when opening a thread: on the messages themselves for live accounts, in this browser for the demo.
   useEffect(() => {
     if (selectedBidId && selectedThread && selectedThread.unreadCount > 0) {
       localStorage.setItem(`msg_read_${selectedBidId}`, String(selectedThread.bid.thread.length));
-      setThreads(buildThreads(liveProjects));
+      if (userId) {
+        markRead.mutate(selectedBidId, { onSuccess: () => (role === "vendor" ? vendorQuery : ownerQuery).refetch() });
+      }
+      setThreads(buildThreads(liveProjects, userId));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBidId]);

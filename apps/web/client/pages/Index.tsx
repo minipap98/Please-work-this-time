@@ -13,7 +13,7 @@ import { useOwnerMarketplaceProjects, useUpdateProjectStatus } from "@/hooks/use
 import { supabaseMissing } from "@/lib/supabase";
 import { isDemoMode } from "@/lib/demoMode";
 import { useAuth } from "@/context/AuthContext";
-import { useSeenBids } from "@/lib/seenBids";
+import { isBidUnseen, useSeenBids } from "@/lib/seenBids";
 import type { StatPick } from "@/components/QuickStats";
 import { getCancelledProjectIds, getLocalProjectStatus } from "@/data/bidUtils";
 import { useMyBoats } from "@/hooks/use-my-boat";
@@ -108,7 +108,7 @@ export default function Index() {
     return allProjects.filter((p) => effectiveStatus(p.id, p.status) === value).length;
   }
 
-  const unreadFor = (p: { bids: { id: string }[] }) => p.bids.filter((b) => !seen.has(b.id)).length;
+  const unreadFor = (p: { bids: { id: string; seenAt?: string | null }[] }) => p.bids.filter((b) => isBidUnseen(b, seen)).length;
   const newBids = allProjects.reduce((n, p) => n + unreadFor(p), 0);
   const showJobs = (t: Tab) => {
     setTab(t);

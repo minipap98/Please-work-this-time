@@ -1,0 +1,20 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["TEAMID.app.getbosun.ios"],
+        "components": [
+          { "/": "/project/*", "comment": "A job and its bids" },
+          { "/": "/inbox", "comment": "Messages" },
+          { "/": "/app", "comment": "Owner home" },
+          { "/": "/vendor-dashboard", "comment": "Shop home" },
+          { "/": "/vendor-rfps", "comment": "Jobs near you" },
+          { "/": "/vendor-my-bids", "comment": "My bids" },
+          { "/": "/login", "comment": "Auth email links" },
+          { "/": "/history/*", "comment": "Shared service history" }
+        ]
+      }
+    ]
+  },
+  "webcredentials": { "apps": ["TEAMID.app.getbosun.ios"] }
+}

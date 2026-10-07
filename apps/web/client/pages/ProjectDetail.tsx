@@ -5,7 +5,14 @@ import ReviewForm from "@/components/ReviewForm";
 import StripePayment from "@/components/StripePayment";
 import { VENDOR_PAST_PROJECTS } from "@/data/projectData";
 import { getRejectedBidIds, rejectBid, unrejectBid, getBidAdjustment, getRescindedBidIds } from "@/data/bidUtils";
-import { useMarketplaceProject, useAcceptMarketplaceBid } from "@/hooks/use-marketplace";
+import {
+  useMarketplaceProject,
+  useAcceptMarketplaceBid,
+  useMarkBidsSeen,
+  useSetBidRejected,
+  useUpdateProjectStatus,
+} from "@/hooks/use-marketplace";
+import { toast } from "sonner";
 import { VENDOR_PROFILES } from "@/data/vendorData";
 import { getVendorInsuranceStatus } from "@/data/vendorProfileUtils";
 import { useRole } from "@/context/RoleContext";
@@ -49,22 +56,38 @@ export default function ProjectDetail() {
   const { role, vendorId } = useRole();
   const { data: project, isLoading } = useMarketplaceProject(id);
   const { user } = useAuth();
-  // Opening the job counts as having looked at its bids.
+  const demo = isDemoMode();
+  const markSeen = useMarkBidsSeen();
+  // Opening the job counts as having looked at its bids: saved on the bids for live jobs
+  // (so every device agrees), in this browser for the demo.
   useEffect(() => {
     if (!project) return;
-    markBidsSeen(isDemoMode() ? "demo" : user?.id ?? "", project.bids.map((b) => b.id));
-  }, [project, user?.id]);
+    markBidsSeen(demo ? "demo" : user?.id ?? "", project.bids.map((b) => b.id));
+    if (!demo && role === "owner" && project.bids.some((b) => b.seenAt === null)) markSeen.mutate(project.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id, project?.bids.length, user?.id]);
   const acceptBid = useAcceptMarketplaceBid();
+  const setRejected = useSetBidRejected();
+  const updateStatus = useUpdateProjectStatus();
   const [expandedBid, setExpandedBid] = useState<string | null>(null);
   const [rejectedIds, setRejectedIds] = useState<string[]>(() => getRejectedBidIds());
   const [rescindedIds] = useState<string[]>(() => getRescindedBidIds());
 
+  // Live jobs persist declines on the bid (the shop is told); the demo keeps them in this browser.
   function handleRejectBid(bidId: string) {
+    if (!demo) {
+      setRejected.mutate({ bidId, rejected: true }, { onError: (e) => toast.error(e instanceof Error ? e.message : "Could not decline.") });
+      return;
+    }
     rejectBid(bidId);
     setRejectedIds(getRejectedBidIds());
   }
 
   function handleUnrejectBid(bidId: string) {
+    if (!demo) {
+      setRejected.mutate({ bidId, rejected: false }, { onError: (e) => toast.error(e instanceof Error ? e.message : "Could not undo.") });
+      return;
+    }
     unrejectBid(bidId);
     setRejectedIds(getRejectedBidIds());
   }
@@ -77,6 +100,10 @@ export default function ProjectDetail() {
   const [bookingConfirmed, setBookingConfirmed] = useState(() => {
     try { return JSON.parse(localStorage.getItem(`booking_${id}`) ?? "null"); } catch { return null; }
   });
+  // Live jobs carry the booking in their metadata, so it shows on any device.
+  useEffect(() => {
+    if (!demo && project?.booking) setBookingConfirmed(project.booking);
+  }, [demo, project?.booking]);
 
   const serviceDialogBid = serviceDialogBidId
     ? project?.bids.find((b) => b.id === serviceDialogBidId)
@@ -206,15 +233,20 @@ export default function ProjectDetail() {
   const [storedStatus, setStoredStatus] = useState<string>(() => {
     try { return localStorage.getItem(statusKey) ?? ""; } catch { return ""; }
   });
-  // Locally advanced status wins; otherwise the project's own status, with every "still taking bids" state as "active".
+  // The job's own status, with every "still taking bids" state as "active". In the demo a locally
+  // advanced status wins; live jobs are the database's word (completion feeds the Boat Log).
   const projectStatus =
-    storedStatus ||
+    (demo && storedStatus) ||
     (project?.status === "in-progress" || project?.status === "completed" || project?.status === "expired"
       ? project.status
       : "active");
 
   function advanceStatus() {
     const next = projectStatus === "active" ? "in-progress" : "completed";
+    if (!demo && id) {
+      updateStatus.mutate({ projectId: id, status: next }, { onError: (e) => toast.error(e instanceof Error ? e.message : "Could not update the job.") });
+      return;
+    }
     localStorage.setItem(statusKey, next);
     setStoredStatus(next);
   }
@@ -591,8 +623,8 @@ export default function ProjectDetail() {
           <div className="space-y-4">
             {project.bids.map((bid) => {
               const isChosen = bid.id === project.chosenBidId;
-              const isRejected = rejectedIds.includes(bid.id);
-              const isRescinded = rescindedIds.includes(bid.id);
+              const isRejected = demo ? rejectedIds.includes(bid.id) : bid.rejected === true;
+              const isRescinded = demo ? rescindedIds.includes(bid.id) : bid.withdrawnAt != null;
               const canAct = (project.status === "active" || project.status === "bidding") && !isChosen && !isRescinded;
               const bidAdj = getBidAdjustment(bid.id);
               const displayPrice = bidAdj?.price ?? bid.price;

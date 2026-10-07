@@ -9,8 +9,11 @@ import {
   acceptMarketplaceBid,
   createMarketplaceProject,
   mapProject,
+  markMarketplaceBidsSeen,
+  setMarketplaceBidRejected,
   submitMarketplaceBid,
   updateProjectStatus,
+  withdrawMarketplaceBid,
   type CreateProjectInput,
   type ProjectRow,
   type SubmitBidInput,
@@ -286,5 +289,36 @@ export function useAdminMarketplace() {
       };
     },
     enabled: !!profile?.is_admin && !supabaseMissing,
+  });
+}
+
+/** Opening a job counts as having looked at its bids (live jobs only; the demo keeps a browser list). */
+export function useMarkBidsSeen() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (projectId: string) => (isDemoMode() ? Promise.resolve() : markMarketplaceBidsSeen(projectId)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["marketplace-projects"] }),
+  });
+}
+
+export function useSetBidRejected() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ bidId, rejected }: { bidId: string; rejected: boolean }) => setMarketplaceBidRejected(bidId, rejected),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["marketplace-projects"] });
+      qc.invalidateQueries({ queryKey: ["marketplace-project"] });
+    },
+  });
+}
+
+export function useWithdrawBid() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (bidId: string) => withdrawMarketplaceBid(bidId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["marketplace-projects"] });
+      qc.invalidateQueries({ queryKey: ["marketplace-project"] });
+    },
   });
 }

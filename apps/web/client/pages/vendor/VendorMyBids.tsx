@@ -6,8 +6,9 @@ import {
   isBidAccepted, sendVendorQuote, getBidAdjustment, saveBidAdjustment,
   getRescindedBidIds, rescindBid,
 } from "@/data/bidUtils";
-import { useVendorBidProjects } from "@/hooks/use-marketplace";
+import { useVendorBidProjects, useWithdrawBid } from "@/hooks/use-marketplace";
 import { useSendMessage } from "@/hooks/use-supabase";
+import { isDemoMode } from "@/lib/demoMode";
 import { toast } from "sonner";
 import { Bid, BidMessage, Project } from "@/data/projectData";
 import { getEscrowStatus } from "@/data/vendorRetentionUtils";
@@ -15,19 +16,22 @@ import { getEscrowStatus } from "@/data/vendorRetentionUtils";
 type BidFilter = "all" | "submitted" | "accepted" | "completed" | "lost" | "expired" | "rescinded";
 
 function getBidFilter(bid: Bid, project: Project): Exclude<BidFilter, "all"> {
-  // Rescinded takes priority — vendor withdrew before any decision
-  if (getRescindedBidIds().includes(bid.id)) return "rescinded";
+  // Rescinded takes priority — vendor withdrew before any decision. Live bids carry it on the row.
+  const withdrawn = isDemoMode() ? getRescindedBidIds().includes(bid.id) : bid.withdrawnAt != null;
+  if (withdrawn) return "rescinded";
   if (project.chosenBidId === bid.id) {
     return project.status === "completed" ? "completed" : "accepted";
   }
-  // Also check localStorage booking (for bids accepted via the owner UI)
-  try {
-    const raw = localStorage.getItem(`booking_${project.id}`);
-    if (raw) {
-      const booking = JSON.parse(raw);
-      if (booking.bidId === bid.id) return "accepted";
-    }
-  } catch {}
+  // The demo keeps the owner's booking in this browser.
+  if (isDemoMode()) {
+    try {
+      const raw = localStorage.getItem(`booking_${project.id}`);
+      if (raw) {
+        const booking = JSON.parse(raw);
+        if (booking.bidId === bid.id) return "accepted";
+      }
+    } catch {}
+  }
   if (project.status === "expired") return "expired";
   if (project.status === "completed" || project.status === "in-progress") return "lost";
   return "submitted";
@@ -169,6 +173,7 @@ function CongratsBanner({
 export default function VendorMyBids() {
   const { vendorId } = useRole();
   const sendMessage = useSendMessage();
+  const withdraw = useWithdrawBid();
   const { data: vendorProjects = [], refetch } = useVendorBidProjects(vendorId);
   const [selectedBidId, setSelectedBidId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
@@ -296,9 +301,19 @@ export default function VendorMyBids() {
     forceUpdate((n) => n + 1);
   }
 
-  function rescindSelectedBid() {
+  async function rescindSelectedBid() {
     if (!selected) return;
-    rescindBid(selected.bid.id);
+    if (isDemoMode()) {
+      rescindBid(selected.bid.id);
+    } else {
+      try {
+        await withdraw.mutateAsync(selected.bid.id);
+        refetch();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not withdraw the bid.");
+        return;
+      }
+    }
     setShowRescindConfirm(false);
     setShowAdjustForm(false);
     setShowQuoteForm(false);

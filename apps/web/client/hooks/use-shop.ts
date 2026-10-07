@@ -19,6 +19,18 @@ import {
   type WorkOrderStatus,
 } from "@shared/shop";
 import {
+  inviteCrew,
+  listCrew,
+  myCrewMemberships,
+  removeCrew,
+  renameCrew,
+  setCrewRole,
+  type CrewMembership,
+  type CrewRole,
+  type ShopMember,
+} from "@shared/shop/crew";
+
+import {
   DEFAULT_SHOP_SETTINGS,
   demoInventory,
   demoShipments,
@@ -792,15 +804,7 @@ export type { WorkOrderLine };
 
 // ── Crew logins ──────────────────────────────────────────────────────────────
 
-export type CrewRole = "tech" | "manager";
-
-export interface ShopMember {
-  id: string;
-  email: string;
-  techName: string;
-  role: CrewRole;
-  joined: boolean;
-}
+export type { CrewMembership, CrewRole, ShopMember };
 
 function saveDemoCrew(crew: ShopMember[]) {
   try {
@@ -831,19 +835,7 @@ export function useCrew(vendorId: string | null) {
     queryKey: ["shop-crew", vendorId],
     queryFn: async (): Promise<ShopMember[]> => {
       if (isDemoMode()) return loadDemoCrew();
-      const { data, error } = await db()
-        .from("shop_members")
-        .select("*")
-        .eq("vendor_id", vendorId!)
-        .order("created_at");
-      if (error) throw error;
-      return (data ?? []).map((m) => ({
-        id: m.id,
-        email: m.email,
-        techName: m.tech_name,
-        role: (m.role === "manager" ? "manager" : "tech") as CrewRole,
-        joined: !!m.user_id,
-      }));
+      return listCrew(db(), vendorId!);
     },
     enabled: !!vendorId,
   });
@@ -860,10 +852,7 @@ export function useInviteCrew(vendorId: string | null) {
         saveDemoCrew(crew);
         return;
       }
-      const { error } = await db()
-        .from("shop_members")
-        .upsert({ vendor_id: vendorId!, email: clean, tech_name: techName, role }, { onConflict: "vendor_id,email" });
-      if (error) throw error;
+      await inviteCrew(db(), vendorId!, { email: clean, techName, role });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["shop-crew", vendorId] }),
   });
@@ -877,8 +866,7 @@ export function useRemoveCrew(vendorId: string | null) {
         saveDemoCrew(loadDemoCrew().filter((m) => m.id !== id));
         return;
       }
-      const { error } = await db().from("shop_members").delete().eq("id", id);
-      if (error) throw error;
+      await removeCrew(db(), id);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["shop-crew", vendorId] }),
   });
@@ -892,8 +880,7 @@ export function useSetCrewRole(vendorId: string | null) {
         saveDemoCrew(loadDemoCrew().map((m) => (m.id === id ? { ...m, role } : m)));
         return;
       }
-      const { error } = await db().from("shop_members").update({ role }).eq("id", id);
-      if (error) throw error;
+      await setCrewRole(db(), id, role);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["shop-crew", vendorId] }),
   });
@@ -914,8 +901,7 @@ export function useRenameCrew(vendorId: string | null) {
         });
         return;
       }
-      const { error } = await db().rpc("rename_crew_member", { member_id: member.id, new_name: name });
-      if (error) throw error;
+      await renameCrew(db(), member, name);
     },
     onSuccess: () => {
       invalidateShop(qc, vendorId!);
@@ -925,13 +911,6 @@ export function useRenameCrew(vendorId: string | null) {
 }
 
 // ── Tech view ────────────────────────────────────────────────────────────────
-
-export interface CrewMembership {
-  vendorId: string;
-  shopName: string;
-  techName: string;
-  role: CrewRole;
-}
 
 /** Shops I'm on the crew of. Claims any invite sent to my email first. */
 export function useMyCrewMemberships(userId: string | undefined, demoTech?: string) {
@@ -944,21 +923,7 @@ export function useMyCrewMemberships(userId: string | undefined, demoTech?: stri
         const role = loadDemoCrew().find((m) => m.techName === techName)?.role ?? "tech";
         return [{ vendorId: "demo-shop", shopName: "Dean's Marine", techName, role }];
       }
-      const client = db();
-      await client.rpc("claim_shop_invites");
-      const { data, error } = await client
-        .from("shop_members")
-        .select("vendor_id, tech_name, role, vendor:vendor_profiles(business_name)")
-        .eq("user_id", userId!);
-      if (error) throw error;
-      return ((data ?? []) as unknown as { vendor_id: string; tech_name: string; role: string; vendor: { business_name: string } | null }[]).map(
-        (m) => ({
-          vendorId: m.vendor_id,
-          shopName: m.vendor?.business_name ?? "Your shop",
-          techName: m.tech_name,
-          role: (m.role === "manager" ? "manager" : "tech") as CrewRole,
-        })
-      );
+      return myCrewMemberships(db(), userId!);
     },
     enabled: isDemoMode() || !!userId,
   });

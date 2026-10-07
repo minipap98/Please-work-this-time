@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import type { Database, InsertTables, UpdateTables } from "@/lib/database.types";
+import { listBidMessages, listNotifications, markMessagesRead, markNotificationsRead, sendMessage } from "@shared/marketplace/messages";
+import { getMyVendorProfile, getVendorProfile, listVendorProfiles, updateMyVendorProfile } from "@shared/vendors/profile";
 
 // ============================================================
 // BOATS
@@ -297,29 +299,14 @@ export function useAcceptBid() {
 export function useVendorProfiles() {
   return useQuery({
     queryKey: ["vendor-profiles"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vendor_profiles")
-        .select("*")
-        .order("business_name");
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => listVendorProfiles(supabase),
   });
 }
 
 export function useVendorProfile(id: string | undefined) {
   return useQuery({
     queryKey: ["vendor-profile", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vendor_profiles")
-        .select("*")
-        .eq("id", id!)
-        .single();
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => getVendorProfile(supabase, id!),
     enabled: !!id,
   });
 }
@@ -328,15 +315,7 @@ export function useMyVendorProfile() {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["my-vendor-profile", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vendor_profiles")
-        .select("*")
-        .eq("user_id", user!.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => getMyVendorProfile(supabase, user!.id),
     enabled: !!user,
   });
 }
@@ -350,15 +329,7 @@ export function useBidMessages(bidId: string | undefined) {
   // Subscribe to realtime
   const query = useQuery({
     queryKey: ["messages", bidId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("bid_id", bidId!)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => listBidMessages(supabase, bidId!),
     enabled: !!bidId,
   });
 
@@ -391,15 +362,7 @@ export function useSendMessage() {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async (msg: Omit<InsertTables<"messages">, "sender_id">) => {
-      const { data, error } = await supabase
-        .from("messages")
-        .insert({ ...msg, sender_id: user!.id })
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    },
+    mutationFn: (msg: Omit<InsertTables<"messages">, "sender_id">) => sendMessage(supabase, user!.id, msg),
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["messages", vars.bid_id] });
     },
@@ -527,15 +490,7 @@ export function useMarkMessagesRead() {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async (bidId: string) => {
-      const { error } = await supabase
-        .from("messages")
-        .update({ status: "read" as const })
-        .eq("bid_id", bidId)
-        .eq("recipient_id", user!.id)
-        .neq("status", "read");
-      if (error) throw error;
-    },
+    mutationFn: (bidId: string) => markMessagesRead(supabase, user!.id, bidId),
     onSuccess: (_, bidId) => {
       qc.invalidateQueries({ queryKey: ["messages", bidId] });
       qc.invalidateQueries({ queryKey: ["inbox-threads"] });
@@ -547,12 +502,7 @@ export function useMarkNotificationsRead() {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async (id?: string) => {
-      let q = supabase.from("notifications").update({ read: true }).eq("user_id", user!.id);
-      if (id) q = q.eq("id", id);
-      const { error } = await q;
-      if (error) throw error;
-    },
+    mutationFn: (id?: string) => markNotificationsRead(supabase, user!.id, id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
 }
@@ -561,10 +511,7 @@ export function useUpdateMyVendorProfile() {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async (patch: UpdateTables<"vendor_profiles">) => {
-      const { error } = await supabase.from("vendor_profiles").update(patch).eq("user_id", user!.id);
-      if (error) throw error;
-    },
+    mutationFn: (patch: UpdateTables<"vendor_profiles">) => updateMyVendorProfile(supabase, user!.id, patch),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-vendor-profile"] });
       qc.invalidateQueries({ queryKey: ["vendor-profiles"] });
@@ -662,16 +609,7 @@ export function useNotifications() {
 
   const query = useQuery({
     queryKey: ["notifications", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => listNotifications(supabase, user!.id),
     enabled: !!user,
   });
 

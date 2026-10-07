@@ -1,17 +1,13 @@
 import "react-native-url-polyfill/auto";
 import { AppState } from "react-native";
-import * as SecureStore from "expo-secure-store";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@bosun/shared/database.types";
 import { chunkedStore } from "./chunkedStore";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, supabaseMissing } from "./env";
+import { secureStore } from "./secureStore";
 
 // The session lives in the iOS Keychain (expo-secure-store), not AsyncStorage.
-const secure = chunkedStore({
-  get: (k) => SecureStore.getItemAsync(k),
-  set: (k, v) => SecureStore.setItemAsync(k, v),
-  remove: (k) => SecureStore.deleteItemAsync(k),
-});
+const secure = chunkedStore(secureStore);
 
 export const supabase = createClient<Database>(SUPABASE_URL || "https://unconfigured.invalid", SUPABASE_ANON_KEY || "anon", {
   auth: {

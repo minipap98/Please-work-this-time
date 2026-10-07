@@ -17,6 +17,15 @@ import { LOCATION_KEYS, isMissingColumn, withoutKeys } from "@/lib/optionalColum
 import type { PickedLocation } from "@shared/geo";
 import { VENDOR_SPECIALTIES, VENDOR_CERTIFICATIONS } from "@/data/onboardingData";
 import { createVendorProfileFromOnboarding, saveCustomVendorProfile } from "@/data/vendorProfileUtils";
+import { initials } from "@shared/people";
+import {
+  hasBoatDetails,
+  ownerBoatRow,
+  ownerProfilePatch,
+  vendorProfilePatch,
+  vendorProfileRow,
+  type VendorOnboardingForm,
+} from "@shared/onboarding";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -104,45 +113,24 @@ export default function Onboarding() {
     setFinishing(true);
     try {
       if (isVendor) {
-        const initials = businessName
-          .split(" ")
-          .map((w) => w[0]?.toUpperCase() ?? "")
-          .join("")
-          .slice(0, 2);
+        const form: VendorOnboardingForm = {
+          businessName, phone: vendorPhone, yearsInBusiness, insured, licensed,
+          specialties, certifications, serviceArea, bio, serviceRadiusMiles: radius,
+        };
 
         if (!supabaseMissing && authUser) {
-          const vendorRow = {
-            user_id: authUser.id,
-            business_name: businessName.trim(),
-            initials,
-            years_in_business: parseInt(yearsInBusiness) || 0,
-            insured,
-            licensed,
-            specialties,
-            certifications,
-            service_area: serviceArea.trim(),
-            bio: bio.trim(),
-            phone: vendorPhone.trim() || null,
-            service_radius_miles: radius,
-            ...(place ? { lat: place.lat, lng: place.lng, place_id: place.placeId } : {}),
-          };
+          const vendorRow = vendorProfileRow(authUser.id, form, place);
           let { data, error } = await supabase.from("vendor_profiles").insert(vendorRow).select("id").single();
           if (isMissingColumn(error)) {
             ({ data, error } = await supabase.from("vendor_profiles").insert(withoutKeys(vendorRow, LOCATION_KEYS)).select("id").single());
           }
           if (error) throw error;
           if (data?.id) setVendorMode(data.id);
-          await updateProfile({
-            name: businessName.trim(),
-            initials,
-            ...(place ? { location: place.label, location_lat: place.lat, location_lng: place.lng, location_place_id: place.placeId } : {}),
-            phone: vendorPhone.trim() || null,
-            onboarding_complete: true,
-          });
+          await updateProfile(vendorProfilePatch(form, place));
         } else {
           const localProfile = createVendorProfileFromOnboarding({
             name: businessName.trim(),
-            initials,
+            initials: initials(businessName),
             yearsInBusiness: parseInt(yearsInBusiness) || 0,
             insured,
             licensed,
@@ -155,21 +143,9 @@ export default function Onboarding() {
           setVendorMode(businessName.trim());
         }
       } else {
-        const hasBoat = boat.make || boat.model || boat.name;
+        const hasBoat = hasBoatDetails(boat);
         if (hasBoat && !supabaseMissing && authUser) {
-          const boatRow = {
-            owner_id: authUser.id,
-            name: boat.name || "My Boat",
-            make: boat.make || "Unknown",
-            model: boat.model || "Unknown",
-            year: boat.year || String(new Date().getFullYear()),
-            engine_type: (boat.engineType || null) as "Outboard" | "Inboard" | "I/O (Sterndrive)" | null,
-            engine_make: boat.engineMake || null,
-            engine_model: boat.engineModel || null,
-            engine_count: Math.max(1, ["Single", "Twin", "Triple", "Quad", "Quint", "Sextuple"].indexOf(boat.engineCount) + 1),
-            home_port: location.trim() || null,
-            ...(place ? { home_port_lat: place.lat, home_port_lng: place.lng, home_port_place_id: place.placeId } : {}),
-          };
+          const boatRow = ownerBoatRow(authUser.id, boat, location, place);
           let { data: newBoat, error: boatError } = await supabase.from("boats").insert(boatRow).select("id").single();
           if (isMissingColumn(boatError)) {
             ({ data: newBoat, error: boatError } = await supabase.from("boats").insert(withoutKeys(boatRow, LOCATION_KEYS)).select("id").single());
@@ -204,16 +180,8 @@ export default function Onboarding() {
           localStorage.setItem("my_boat", JSON.stringify(savedBoat));
           if (photo) localStorage.setItem("hero_image", photo);
         }
-        if (location.trim()) {
-          localStorage.setItem("user_location", location.trim());
-          await updateProfile({
-            location: location.trim(),
-            ...(place ? { location_lat: place.lat, location_lng: place.lng, location_place_id: place.placeId } : {}),
-            onboarding_complete: true,
-          });
-        } else {
-          await updateProfile({ onboarding_complete: true });
-        }
+        if (location.trim()) localStorage.setItem("user_location", location.trim());
+        await updateProfile(ownerProfilePatch(location, place));
         setOwnerMode();
       }
 

@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useNavigate } from "react-router-dom";
 import { postLoginPath } from "@shared/api";
+import { safeNextPath } from "@shared/auth";
 import { supabaseMissing } from "@/lib/supabase";
 import Index from "./pages/Index";
 import Inbox from "./pages/Inbox";
@@ -138,8 +139,7 @@ function OnboardingGuard() {
 }
 
 function safeNext(): string | null {
-  const next = new URLSearchParams(window.location.search).get("next");
-  return next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+  return safeNextPath(new URLSearchParams(window.location.search).get("next"));
 }
 
 function PublicOnlyGuard() {

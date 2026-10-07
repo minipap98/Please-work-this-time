@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { supabaseMissing } from "@/lib/supabase";
 import { BosunLogo } from "@/components/marketing/BosunLogo";
+import { safeNextPath, signupProblem } from "@shared/auth";
 
 const PROMISES = [
   "Every service on your boat in one log, verified by the shop that did it",
@@ -57,17 +58,12 @@ export default function AuthPage() {
         if (err) {
           setError(err);
         } else {
-          const next = searchParams.get("next");
-          navigate(next && next.startsWith("/") && !next.startsWith("//") ? next : "/app");
+          navigate(safeNextPath(searchParams.get("next")) ?? "/app");
         }
       } else {
-        if (!name.trim()) {
-          setError("Please enter your name.");
-          setLoading(false);
-          return;
-        }
-        if (password.length < 6) {
-          setError("Password must be at least 6 characters.");
+        const problem = signupProblem({ name, password });
+        if (problem) {
+          setError(problem);
           setLoading(false);
           return;
         }

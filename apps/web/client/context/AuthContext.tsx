@@ -3,6 +3,7 @@ import type { User, Session } from "@supabase/supabase-js";
 import { supabase, supabaseMissing } from "@/lib/supabase";
 import { persistDemoMode } from "@/lib/demoMode";
 import { LOCATION_KEYS, isMissingColumn, withoutKeys } from "@/lib/optionalColumns";
+import { signUpOptions } from "@shared/auth";
 import type { Tables } from "@/lib/database.types";
 
 interface AuthContextValue {
@@ -81,10 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { name, role },
-        emailRedirectTo: `${window.location.origin}/login`,
-      },
+      options: signUpOptions(name, role, `${window.location.origin}/login`),
     });
     return { error: error?.message ?? null };
   };

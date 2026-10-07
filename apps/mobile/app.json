@@ -16,13 +16,18 @@
     "ios": {
       "bundleIdentifier": "app.getbosun.ios",
       "supportsTablet": false,
-      "associatedDomains": ["applinks:getbosun.app", "webcredentials:getbosun.app"],
+      "associatedDomains": [
+        "applinks:getbosun.app",
+        "webcredentials:getbosun.app"
+      ],
       "infoPlist": {
         "NSCameraUsageDescription": "Take photos of the work your boat needs so shops can bid accurately.",
         "NSPhotoLibraryUsageDescription": "Attach photos of your boat to a job.",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "config": { "usesNonExemptEncryption": false }
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "app.getbosun.android",
@@ -36,23 +41,57 @@
         {
           "action": "VIEW",
           "autoVerify": true,
-          "data": [{ "scheme": "https", "host": "getbosun.app", "pathPrefix": "/" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "https",
+              "host": "getbosun.app",
+              "pathPrefix": "/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
-    "web": { "favicon": "./assets/favicon.png" },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      ["expo-notifications", { "color": "#052443" }],
-      ["expo-image-picker", { "photosPermission": "Attach photos of your boat to a job.", "cameraPermission": "Take photos of the work your boat needs." }],
-      ["expo-splash-screen", { "backgroundColor": "#052443", "image": "./assets/splash-icon.png", "imageWidth": 160 }],
-      "expo-dev-client"
+      [
+        "expo-notifications",
+        {
+          "color": "#052443"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Attach photos of your boat to a job.",
+          "cameraPermission": "Take photos of the work your boat needs."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#052443",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160
+        }
+      ],
+      "expo-dev-client",
+      "./plugins/withSceneDelegate"
     ],
-    "experiments": { "typedRoutes": true },
+    "experiments": {
+      "typedRoutes": true
+    },
     "extra": {
-      "eas": { "projectId": "" }
+      "eas": {
+        "projectId": ""
+      }
     }
   }
 }

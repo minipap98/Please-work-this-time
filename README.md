@@ -44,6 +44,8 @@ eas build --profile development --platform ios # simulator build (eas.json → d
 pnpm start                                     # Metro; the dev build connects to it
 ```
 
+`apps/mobile/plugins/withSceneDelegate.js` adopts the UIScene life cycle iOS 27 requires at launch; it runs during prebuild and can be removed once Expo's template does the same.
+
 Push notifications need a physical device, an EAS project id, the APNs key on EAS, and `PUSH_WEBHOOK_SECRET` set on the server (see `supabase/migrations/20261025_push_webhook.sql`). The simulator shows everything else.
 
 What's in the app (v1): sign up / sign in, onboarding, post a job with camera or library photos, bids and accepting one, messaging, notifications, the shop's "Jobs near you" feed, bidding, My bids, shop profile, crew, push notifications, and universal links from getbosun.app. Boats, Boat Log, maintenance schedules, Shop OS and billing stay on the web.

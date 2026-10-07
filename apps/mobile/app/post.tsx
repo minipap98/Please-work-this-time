@@ -1,46 +1,34 @@
 import { useEffect, useState } from "react";
 import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
-import { useRouter } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { approximate } from "@bosun/shared/geo";
 import { JOB_CATEGORIES, WORK_LOCATIONS } from "@bosun/shared/marketplace/catalog";
+import { boatTitle } from "@bosun/shared/boats/boats";
 import { useAuth } from "@/lib/auth";
+import { useMyBoats } from "@/lib/boats";
 import { pickFromLibrary, preparePhoto, takePhoto, type PickedPhoto } from "@/lib/photos";
 import { useCreateProject } from "@/lib/queries";
-import { supabase } from "@/lib/supabase";
 import { colors, radius, space } from "@/lib/theme";
 import { Button, Chip, ErrorText, Field, Muted, Row, Screen, Title } from "@/ui";
-
-function useMyBoats() {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["boats", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("boats").select("*").eq("owner_id", user!.id).order("created_at");
-      if (error) throw error;
-      return data ?? [];
-    },
-    enabled: !!user,
-  });
-}
 
 export default function PostJob() {
   const { profile } = useAuth();
   const router = useRouter();
-  const { data: boats = [] } = useMyBoats();
+  const { boat: boatParam } = useLocalSearchParams<{ boat?: string }>();
+  const { boats, active } = useMyBoats();
   const create = useCreateProject();
   const [category, setCategory] = useState<string>("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [boatId, setBoatId] = useState<string>("");
+  const [boatId, setBoatId] = useState<string>(boatParam ?? "");
   const [workLocation, setWorkLocation] = useState<string>("");
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!boatId && boats[0]) setBoatId(boats[0].id);
-  }, [boats, boatId]);
+    if (!boatId && active) setBoatId(active.id);
+  }, [active, boatId]);
 
   const boat = boats.find((b) => b.id === boatId);
 
@@ -79,7 +67,7 @@ export default function PostJob() {
       setDescription("");
       setPhotos([]);
       setCategory("");
-      router.push({ pathname: "/project/[id]", params: { id: project.id } });
+      router.replace({ pathname: "/project/[id]", params: { id: project.id } });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not post the job.");
     } finally {
@@ -115,8 +103,8 @@ export default function PostJob() {
         <>
           <Text style={styles.label}>Which boat?</Text>
           <View style={styles.wrap}>
-            {boats.map((b) => (
-              <Chip key={b.id} label={[b.name, b.make, b.model].filter(Boolean).join(" · ")} selected={boatId === b.id} onPress={() => setBoatId(b.id)} />
+            {[...boats].reverse().map((b) => (
+              <Chip key={b.id} label={boatTitle(b)} selected={boatId === b.id} onPress={() => setBoatId(b.id)} />
             ))}
           </View>
         </>

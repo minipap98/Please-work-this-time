@@ -2,8 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { supabase, supabaseMissing } from "@/lib/supabase";
 import { isDemoMode, useDemoMode } from "@/lib/demoMode";
-import type { Json } from "@/lib/database.types";
-import { normalizePlan, type EngineRequest, type PlanRecord, type PlanTask, type ServicePlan } from "@shared/servicePlan";
+import { normalizePlan, type EngineRequest, type PlanTask, type ServicePlan } from "@shared/servicePlan";
+import { getServicePlan, requestIntervals, saveServicePlan } from "@shared/maintenance/plan";
+import { api } from "@/lib/api";
 
 const DEMO_KEY = "bosun_demo_service_plan_v1";
 
@@ -24,19 +25,7 @@ export function useServicePlan(boatId: string | undefined) {
     queryFn: async (): Promise<ServicePlan | null> => {
       if (demo) return readDemo();
       if (supabaseMissing || !boatId) return null;
-      const { data, error } = await supabase.from("boat_service_plans").select("*").eq("boat_id", boatId).maybeSingle();
-      if (error) {
-        // Table not created yet (migration not run): behave as "no plan".
-        if (/boat_service_plans|relation .* does not exist|schema cache/i.test(error.message)) return null;
-        throw error;
-      }
-      if (!data) return null;
-      return {
-        engineLabel: data.engine_label,
-        tasks: normalizePlan({ tasks: data.tasks }),
-        records: (Array.isArray(data.records) ? data.records : []) as unknown as PlanRecord[],
-        source: data.source === "manual" ? "manual" : "claude",
-      };
+      return getServicePlan(supabase, boatId);
     },
     enabled: demo || !!boatId,
   });
@@ -68,19 +57,7 @@ export function useRequestIntervals() {
         await new Promise((r) => setTimeout(r, 1200));
         return demoTasks();
       }
-      const { data: sess } = await supabase.auth.getSession();
-      const res = await fetch("/api/maintenance/intervals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sess.session?.access_token ?? ""}` },
-        body: JSON.stringify(engine),
-      });
-      const json = (await res.json().catch(() => ({}))) as { tasks?: unknown; error?: string; code?: string };
-      if (res.ok && json.tasks) return normalizePlan({ tasks: json.tasks });
-      throw new Error(
-        json.code === "not_configured"
-          ? "Service interval lookup isn't switched on yet."
-          : json.error ?? `Schedule lookup failed (server error ${res.status}).`
-      );
+      return requestIntervals(api, engine);
     },
   });
 }
@@ -95,21 +72,7 @@ export function useSaveServicePlan(boatId: string | undefined) {
         return;
       }
       if (!user || !boatId) throw new Error("Add your boat first.");
-      const { error } = await supabase.from("boat_service_plans").upsert({
-        boat_id: boatId,
-        owner_id: user.id,
-        engine_label: plan.engineLabel,
-        tasks: plan.tasks as unknown as Json,
-        records: plan.records as unknown as Json,
-        source: plan.source,
-        updated_at: new Date().toISOString(),
-      });
-      if (error) {
-        if (/boat_service_plans|does not exist|schema cache/i.test(error.message)) {
-          throw new Error("Saving schedules needs a quick database update (20261014_service_plans.sql).");
-        }
-        throw error;
-      }
+      await saveServicePlan(supabase, user.id, boatId, plan);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["service-plan"] }),
   });

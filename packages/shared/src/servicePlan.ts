@@ -1,7 +1,7 @@
 // A boat's maintenance schedule, generated for its engines and confirmed by the owner.
 // The server asks Claude for PLAN_SCHEMA; normalizePlan() validates whatever comes back.
 
-import { LOG_CATEGORY_VALUES, type InvoiceCategory } from "./invoice.js";
+import { LOG_CATEGORY_VALUES, type InvoiceCategory } from "./invoice";
 
 export interface PlanTask {
   id: string;

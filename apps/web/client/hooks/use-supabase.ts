@@ -1,4 +1,3 @@
-import { LOCATION_KEYS, isMissingColumn, withoutKeys } from "@/lib/optionalColumns";
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -6,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import type { Database, InsertTables, UpdateTables } from "@/lib/database.types";
 import { listBidMessages, listNotifications, markMessagesRead, markNotificationsRead, sendMessage } from "@shared/marketplace/messages";
 import { getMyVendorProfile, getVendorProfile, listVendorProfiles, updateMyVendorProfile } from "@shared/vendors/profile";
+import { createBoat, deleteBoat, listBoats, updateBoat } from "@shared/boats/boats";
 
 // ============================================================
 // BOATS
@@ -14,15 +14,7 @@ export function useBoats() {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["boats", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("boats")
-        .select("*")
-        .eq("owner_id", user!.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => listBoats(supabase, user!.id),
     enabled: !!user,
   });
 }
@@ -31,14 +23,7 @@ export function useCreateBoat() {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async (boat: Omit<InsertTables<"boats">, "owner_id">) => {
-      const insert = (row: typeof boat) =>
-        supabase.from("boats").insert({ ...row, owner_id: user!.id }).select().single();
-      let { data, error } = await insert(boat);
-      if (isMissingColumn(error)) ({ data, error } = await insert(withoutKeys(boat, LOCATION_KEYS)));
-      if (error) throw error;
-      return data;
-    },
+    mutationFn: (boat: Omit<InsertTables<"boats">, "owner_id">) => createBoat(supabase, user!.id, boat),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["boats"] }),
   });
 }
@@ -46,11 +31,7 @@ export function useCreateBoat() {
 export function useUpdateBoat() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...patch }: UpdateTables<"boats"> & { id: string }) => {
-      let { error } = await supabase.from("boats").update(patch).eq("id", id);
-      if (isMissingColumn(error)) ({ error } = await supabase.from("boats").update(withoutKeys(patch, LOCATION_KEYS)).eq("id", id));
-      if (error) throw error;
-    },
+    mutationFn: ({ id, ...patch }: UpdateTables<"boats"> & { id: string }) => updateBoat(supabase, id, patch),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["boats"] }),
   });
 }
@@ -58,10 +39,7 @@ export function useUpdateBoat() {
 export function useDeleteBoat() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("boats").delete().eq("id", id);
-      if (error) throw error;
-    },
+    mutationFn: (id: string) => deleteBoat(supabase, id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["boats"] }),
   });
 }

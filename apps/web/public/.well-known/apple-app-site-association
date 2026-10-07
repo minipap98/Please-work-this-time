@@ -2,19 +2,77 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["TEAMID.app.getbosun.ios"],
+        "appIDs": [
+          "TEAMID.app.getbosun.ios"
+        ],
         "components": [
-          { "/": "/project/*", "comment": "A job and its bids" },
-          { "/": "/inbox", "comment": "Messages" },
-          { "/": "/app", "comment": "Owner home" },
-          { "/": "/vendor-dashboard", "comment": "Shop home" },
-          { "/": "/vendor-rfps", "comment": "Jobs near you" },
-          { "/": "/vendor-my-bids", "comment": "My bids" },
-          { "/": "/login", "comment": "Auth email links" },
-          { "/": "/history/*", "comment": "Shared service history" }
+          {
+            "/": "/project/*",
+            "comment": "A job and its bids"
+          },
+          {
+            "/": "/inbox",
+            "comment": "Messages"
+          },
+          {
+            "/": "/app",
+            "comment": "Owner home"
+          },
+          {
+            "/": "/vendor-dashboard",
+            "comment": "Shop home"
+          },
+          {
+            "/": "/vendor-rfps",
+            "comment": "Jobs near you"
+          },
+          {
+            "/": "/vendor-my-bids",
+            "comment": "My bids"
+          },
+          {
+            "/": "/login",
+            "comment": "Auth email links"
+          },
+          {
+            "/": "/history/*",
+            "comment": "Shared service history"
+          },
+          {
+            "/": "/my-boats",
+            "comment": "My Boats"
+          },
+          {
+            "/": "/boat-log",
+            "comment": "Boat Log"
+          },
+          {
+            "/": "/maintenance",
+            "comment": "Maintenance"
+          },
+          {
+            "/": "/vendors",
+            "comment": "Find a shop"
+          },
+          {
+            "/": "/vendor/*",
+            "comment": "A shop's profile"
+          },
+          {
+            "/": "/settings",
+            "comment": "Settings"
+          },
+          {
+            "/": "/notifications",
+            "comment": "Notifications"
+          }
         ]
       }
     ]
   },
-  "webcredentials": { "apps": ["TEAMID.app.getbosun.ios"] }
+  "webcredentials": {
+    "apps": [
+      "TEAMID.app.getbosun.ios"
+    ]
+  }
 }

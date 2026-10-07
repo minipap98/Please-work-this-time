@@ -1,6 +1,6 @@
 // Owner boat logbook: every job on the boat, owner-logged or vendor-verified.
 
-import { lineAmount, toCsv, type LineKind } from "./shop.js";
+import { lineAmount, toCsv, type LineKind } from "./shop";
 
 export type LogSource = "owner" | "vendor" | "bosun-job";
 

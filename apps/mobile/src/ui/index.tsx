@@ -86,8 +86,8 @@ export function Badge({ children, tone = "sky" }: { children: ReactNode; tone?: 
   );
 }
 
-export function Muted({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
-  return <Text style={[styles.muted, style]}>{children}</Text>;
+export function Muted({ children, style, numberOfLines }: { children: ReactNode; style?: StyleProp<TextStyle>; numberOfLines?: number }) {
+  return <Text style={[styles.muted, style]} numberOfLines={numberOfLines}>{children}</Text>;
 }
 
 export function Empty({ title, body }: { title: string; body?: string }) {

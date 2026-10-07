@@ -48,7 +48,9 @@ pnpm start                                     # Metro; the dev build connects t
 
 Push notifications need a physical device, an EAS project id, the APNs key on EAS, and `PUSH_WEBHOOK_SECRET` set on the server (see `supabase/migrations/20261025_push_webhook.sql`). The simulator shows everything else.
 
-What's in the app (v1): sign up / sign in, onboarding, post a job with camera or library photos, bids and accepting one, messaging, notifications, the shop's "Jobs near you" feed, bidding, My bids, shop profile, crew, push notifications, and universal links from getbosun.app. Boats, Boat Log, maintenance schedules, Shop OS and billing stay on the web.
+What's in the app: sign up / sign in, onboarding, and the whole owner side: home (your boat, what's due, your jobs), posting a job with camera or library photos, bids and accepting one, messaging, notifications, My Boats (add/edit/photo/home port, model insights), the Boat Log (log work, import an invoice by camera/photo/PDF, emailed receipts, share links), Maintenance (what's due, mark done, the manufacturer schedule for your engines), Find a Shop (by distance, with reviews), reviewing a shop after a job, and settings. Shops get "Jobs near you", bidding, My bids, shop profile, crew and push notifications. Shop OS, billing, subscriptions, PDF/CSV exports and Google-verified marina pins stay on the web. Universal links from getbosun.app open the matching screen.
+
+After pulling a change that adds a native module (the owner build added `expo-document-picker` and `expo-location`), run `npx expo prebuild --platform ios --clean` and rebuild before `npx expo start`.
 
 ## Checks
 

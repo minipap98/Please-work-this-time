@@ -45,8 +45,9 @@ where noted; never commit secrets.
 - [ ] **TestFlight**: `eas build --profile production --platform ios` then `eas submit --platform ios`.
       Add an internal testing group; external groups need Beta App Review.
 - [ ] **App Privacy** (nutrition labels). Data collected and linked to the user: contact info (name, email,
-      phone), user content (photos, messages), identifiers (user ID), coarse location (home port / rounded job
-      coordinates), usage data. No tracking, no third-party advertising.
+      phone), user content (photos, messages, invoices and receipts the owner imports), identifiers (user ID),
+      coarse location (home port / rounded job coordinates), precise location only while "Near me" is on in
+      Find a Shop (never stored), usage data. No tracking, no third-party advertising.
 - [ ] **Sign-in for review**: a demo owner and a demo shop account on production (email + password), with at
       least one open job and one bid between them, in the "Sign-In Information" box.
 - [ ] **Review notes** (paste): "Bosun connects boat owners with marine repair shops. Owners post jobs and
@@ -57,7 +58,9 @@ where noted; never commit secrets.
       Settings."
 - [ ] **Age rating** questionnaire: none of the listed content → 4+.
 - [ ] **Screenshots**: 6.9" and 6.5" iPhone sets (the simulator's iPhone 16 Pro Max and iPhone 11 Pro Max
-      sizes). Suggested: Jobs list, Post a job, a job with bids, Jobs near you, a chat.
+      sizes). Suggested: Home (boat + what's due), Boat Log, Maintenance, a job with bids, Find a Shop, a chat.
+- [ ] **Review notes, AI**: the invoice import and the service schedule send the owner's own file or engine
+      details to the Bosun server, which reads them with Claude; nothing is trained on. Mention it if asked.
 - [ ] **Support URL** `https://getbosun.app`, **Privacy Policy URL** `https://getbosun.app/privacy`,
       **Terms** `https://getbosun.app/terms` (both pages exist on the web app).
 - [ ] **Export compliance**: the app uses only HTTPS; `ITSAppUsesNonExemptEncryption` is already `false` in

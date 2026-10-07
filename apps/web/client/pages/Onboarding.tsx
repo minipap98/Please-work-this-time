@@ -1,0 +1,766 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { BosunLogo } from "@/components/marketing/BosunLogo";
+import { useRole } from "@/context/RoleContext";
+import { useAuth } from "@/context/AuthContext";
+import { supabase, supabaseMissing } from "@/lib/supabase";
+import { toast } from "sonner";
+import BoatMakeModelFields from "@/components/BoatMakeModelFields";
+import { ENGINE_DATA, ENGINE_TYPES, OUTBOARD_COUNTS, type EngineType } from "@/data/engineData";
+import EngineModelField from "@/components/EngineModelField";
+import { uploadBoatPhoto } from "@/hooks/use-my-boat";
+import { resizePhoto } from "@/lib/photoUtils";
+import LocationPicker from "@/components/LocationPicker";
+import { ServiceScheduleEditor } from "@/components/boats/ServiceIntervalsDialog";
+import type { ServicePlan } from "@shared/servicePlan";
+import { LOCATION_KEYS, isMissingColumn, withoutKeys } from "@/lib/optionalColumns";
+import type { PickedLocation } from "@shared/geo";
+import { VENDOR_SPECIALTIES, VENDOR_CERTIFICATIONS } from "@/data/onboardingData";
+import { createVendorProfileFromOnboarding, saveCustomVendorProfile } from "@/data/vendorProfileUtils";
+import { initials } from "@shared/people";
+import {
+  hasBoatDetails,
+  ownerBoatRow,
+  ownerProfilePatch,
+  vendorProfilePatch,
+  vendorProfileRow,
+  type VendorOnboardingForm,
+} from "@shared/onboarding";
+
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+type OwnerStep = "welcome" | "location" | "boat" | "schedule" | "photo" | "done";
+type VendorStep = "welcome" | "business" | "services" | "area-bio" | "done";
+type Step = OwnerStep | VendorStep;
+
+const OWNER_STEPS: OwnerStep[] = ["welcome", "location", "boat", "schedule", "photo", "done"];
+const VENDOR_STEPS: VendorStep[] = ["welcome", "business", "services", "area-bio", "done"];
+
+interface BoatForm {
+  make: string; model: string; year: string; name: string;
+  engineType: string; engineMake: string; engineModel: string; engineCount: string;
+}
+
+const EMPTY_BOAT: BoatForm = {
+  make: "", model: "", year: "", name: "",
+  engineType: "", engineMake: "", engineModel: "", engineCount: "",
+};
+
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS = Array.from({ length: CURRENT_YEAR - 1969 }, (_, i) => String(CURRENT_YEAR - i));
+
+// ─── Main Component ─────────────────────────────────────────────────────────
+
+export default function Onboarding() {
+  const navigate = useNavigate();
+  const { setVendorMode, setOwnerMode } = useRole();
+  const { user: authUser, profile, updateProfile } = useAuth();
+  const isVendor = (profile?.role ?? "owner") === "vendor";
+  const user = {
+    name: profile?.name ?? authUser?.email ?? "",
+    role: profile?.role ?? "owner",
+  };
+  const steps: Step[] = isVendor ? VENDOR_STEPS : OWNER_STEPS;
+
+  const [stepIndex, setStepIndex] = useState(0);
+  const currentStep = steps[stepIndex];
+
+  // Owner state
+  // The verified home port (owner) or shop location (vendor); its label is the text location.
+  const [place, setPlace] = useState<PickedLocation | null>(null);
+  const [radius, setRadius] = useState(50);
+  const location = place?.label ?? "";
+  const [finishing, setFinishing] = useState(false);
+  const [photo, setPhoto] = useState<string | null>(null);
+  // Optional: the engines' service schedule with what's already been done.
+  const [plan, setPlan] = useState<ServicePlan | null>(null);
+  const [planProblem, setPlanProblem] = useState<string | null>(null);
+  const [boat, setBoat] = useState<BoatForm>({ ...EMPTY_BOAT });
+
+  // Vendor state
+  const [businessName, setBusinessName] = useState(user.name);
+  const [vendorPhone, setVendorPhone] = useState("");
+  const [yearsInBusiness, setYearsInBusiness] = useState("");
+  const [insured, setInsured] = useState(false);
+  const [licensed, setLicensed] = useState(false);
+  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [certifications, setCertifications] = useState<string[]>([]);
+  const [customCert, setCustomCert] = useState("");
+  const [serviceArea, setServiceArea] = useState("");
+  const [bio, setBio] = useState("");
+
+  function next() { setStepIndex((i) => Math.min(i + 1, steps.length - 1)); }
+  function back() { setStepIndex((i) => Math.max(i - 1, 0)); }
+
+  function toggleSpecialty(s: string) {
+    setSpecialties((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]);
+  }
+
+  function toggleCert(c: string) {
+    setCertifications((prev) => prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]);
+  }
+
+  function addCustomCert() {
+    const trimmed = customCert.trim();
+    if (trimmed && !certifications.includes(trimmed)) {
+      setCertifications((prev) => [...prev, trimmed]);
+    }
+    setCustomCert("");
+  }
+
+  async function handleComplete() {
+    if (finishing) return;
+    setFinishing(true);
+    try {
+      if (isVendor) {
+        const form: VendorOnboardingForm = {
+          businessName, phone: vendorPhone, yearsInBusiness, insured, licensed,
+          specialties, certifications, serviceArea, bio, serviceRadiusMiles: radius,
+        };
+
+        if (!supabaseMissing && authUser) {
+          const vendorRow = vendorProfileRow(authUser.id, form, place);
+          let { data, error } = await supabase.from("vendor_profiles").insert(vendorRow).select("id").single();
+          if (isMissingColumn(error)) {
+            ({ data, error } = await supabase.from("vendor_profiles").insert(withoutKeys(vendorRow, LOCATION_KEYS)).select("id").single());
+          }
+          if (error) throw error;
+          if (data?.id) setVendorMode(data.id);
+          await updateProfile(vendorProfilePatch(form, place));
+        } else {
+          const localProfile = createVendorProfileFromOnboarding({
+            name: businessName.trim(),
+            initials: initials(businessName),
+            yearsInBusiness: parseInt(yearsInBusiness) || 0,
+            insured,
+            licensed,
+            specialties,
+            certifications,
+            serviceArea: serviceArea.trim(),
+            bio: bio.trim(),
+          });
+          saveCustomVendorProfile(localProfile);
+          setVendorMode(businessName.trim());
+        }
+      } else {
+        const hasBoat = hasBoatDetails(boat);
+        if (hasBoat && !supabaseMissing && authUser) {
+          const boatRow = ownerBoatRow(authUser.id, boat, location, place);
+          let { data: newBoat, error: boatError } = await supabase.from("boats").insert(boatRow).select("id").single();
+          if (isMissingColumn(boatError)) {
+            ({ data: newBoat, error: boatError } = await supabase.from("boats").insert(withoutKeys(boatRow, LOCATION_KEYS)).select("id").single());
+          }
+          if (boatError) throw boatError;
+          if (plan && newBoat?.id) {
+            const { error: planError } = await supabase.from("boat_service_plans").insert({
+              boat_id: newBoat.id,
+              owner_id: authUser.id,
+              engine_label: plan.engineLabel,
+              tasks: plan.tasks as unknown as never,
+              records: plan.records as unknown as never,
+              source: plan.source,
+            });
+            if (planError) toast.error("Your boat is saved, but the service schedule didn't. Set it up again from Maintenance.");
+          }
+          if (photo && newBoat?.id) {
+            try {
+              const url = await uploadBoatPhoto(authUser.id, photo);
+              await supabase.from("boats").update({ photo_url: url }).eq("id", newBoat.id);
+            } catch {
+              toast.error("Your boat is saved, but the photo didn't upload. Add it again in Settings.");
+            }
+          }
+        } else if (hasBoat) {
+          const savedBoat = {
+            id: `boat-${Date.now()}`,
+            ...boat,
+            isPrimary: true,
+          };
+          localStorage.setItem("my_fleet", JSON.stringify([savedBoat]));
+          localStorage.setItem("my_boat", JSON.stringify(savedBoat));
+          if (photo) localStorage.setItem("hero_image", photo);
+        }
+        if (location.trim()) localStorage.setItem("user_location", location.trim());
+        await updateProfile(ownerProfilePatch(location, place));
+        setOwnerMode();
+      }
+
+      navigate(isVendor ? "/vendor-dashboard" : "/app");
+    } catch (err) {
+      const message = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : "";
+      toast.error(message || "Could not finish setup. Please try again.");
+    } finally {
+      setFinishing(false);
+    }
+  }
+
+  // ── Shared form classes ──────────────────────────────────────────────────
+  const inputCls = "w-full border border-border rounded-md px-3 py-2.5 text-sm text-foreground bg-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition";
+  const selectCls = inputCls;
+  const selectDisCls = `${inputCls} disabled:opacity-50 disabled:cursor-not-allowed`;
+
+  // ── Computed ─────────────────────────────────────────────────────────────
+  const engineMakes = boat.engineType ? Object.keys(ENGINE_DATA[boat.engineType as EngineType]) : [];
+
+  const totalContentSteps = steps.length - 1; // exclude "done" from count
+  const progressPercent = currentStep === "done" ? 100 : Math.round((stepIndex / totalContentSteps) * 100);
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      {/* ── Header with progress ───────────────────────────────── */}
+      <div className="bg-white border-b border-border px-4 py-4">
+        <div className="max-w-lg mx-auto">
+          <BosunLogo className="h-5" />
+          {currentStep !== "done" && (
+            <div className="mt-3">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
+                <span>Step {stepIndex + 1} of {totalContentSteps}</span>
+                <span>{progressPercent}%</span>
+              </div>
+              <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-sky-500 rounded-full transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Step content ───────────────────────────────────────── */}
+      <div className="flex-1 flex items-start justify-center px-4 py-8">
+        <div className="w-full max-w-lg">
+
+          {/* ── WELCOME ──────────────────────────────────────── */}
+          {currentStep === "welcome" && (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center mx-auto mb-6">
+                {isVendor ? (
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+                  </svg>
+                ) : (
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                )}
+              </div>
+              <h1 className="text-2xl font-bold text-foreground mb-2">
+                Welcome, {user.name.split(" ")[0]}!
+              </h1>
+              <p className="text-muted-foreground text-sm max-w-xs mx-auto mb-8">
+                {isVendor
+                  ? "Let's set up your business profile so boat owners can find and hire you."
+                  : "Let's set up your profile so you can start managing your boat and finding the right vendors."
+                }
+              </p>
+              <button
+                onClick={next}
+                className="px-8 py-3 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+              >
+                Get Started
+              </button>
+            </div>
+          )}
+
+          {/* ── OWNER: LOCATION ──────────────────────────────── */}
+          {currentStep === "location" && (
+            <div>
+              <h2 className="text-xl font-semibold text-foreground mb-1">Where's your home port?</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                This helps vendors in your area find you. You can always change it later.
+              </p>
+              <label className="block text-xs font-medium text-foreground mb-1.5">Marina / Location</label>
+              <LocationPicker
+                value={place}
+                onChange={setPlace}
+                placeholder="e.g. Rickenbacker Marina or Key Biscayne, FL"
+                confirmLabel="Yes, this is my home port"
+              />
+              <StepNav onBack={back} onNext={next} onSkip={next} />
+            </div>
+          )}
+
+          {/* ── OWNER: BOAT ──────────────────────────────────── */}
+          {currentStep === "boat" && (
+            <div>
+              <h2 className="text-xl font-semibold text-foreground mb-1">Add your first boat</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                We'll use this to match you with the right vendors and services. You can add more boats later.
+              </p>
+
+              {/* Boat details */}
+              <div className="space-y-4 mb-6">
+                <h3 className="text-sm font-semibold text-foreground">Boat Details</h3>
+                <BoatMakeModelFields
+                  make={boat.make}
+                  model={boat.model}
+                  onChange={(v) => setBoat({ ...boat, ...v })}
+                  selectClassName={selectCls}
+                  inputClassName={inputCls}
+                  labelClassName="block text-xs font-medium text-foreground mb-1.5"
+                />
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Year</label>
+                  <select value={boat.year} onChange={(e) => setBoat({ ...boat, year: e.target.value })} className={selectCls}>
+                    <option value="">Select a year…</option>
+                    {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">
+                    Boat Name <span className="text-muted-foreground font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={boat.name}
+                    onChange={(e) => setBoat({ ...boat, name: e.target.value })}
+                    placeholder="e.g. Serenity, Lady Luck"
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+
+              {/* Engine details */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-foreground">Engine Details</h3>
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Engine Type</label>
+                  <select value={boat.engineType} onChange={(e) => setBoat({ ...boat, engineType: e.target.value, engineMake: "", engineModel: "", engineCount: "" })} className={selectCls}>
+                    <option value="">Select engine type…</option>
+                    {ENGINE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                {boat.engineType === "Outboard" && (
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1.5">Number of Engines</label>
+                    <select value={boat.engineCount} onChange={(e) => setBoat({ ...boat, engineCount: e.target.value })} className={selectCls}>
+                      <option value="">Select count…</option>
+                      {OUTBOARD_COUNTS.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Engine Make</label>
+                  <select value={boat.engineMake} onChange={(e) => setBoat({ ...boat, engineMake: e.target.value, engineModel: "" })} disabled={!boat.engineType} className={selectDisCls}>
+                    <option value="">{boat.engineType ? "Select a make…" : "Select engine type first…"}</option>
+                    {engineMakes.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Engine Model</label>
+                  <EngineModelField
+                    key={`${boat.engineType}|${boat.engineMake}`}
+                    engineType={boat.engineType}
+                    engineMake={boat.engineMake}
+                    value={boat.engineModel}
+                    onChange={(m) => setBoat({ ...boat, engineModel: m })}
+                    selectClassName={selectDisCls}
+                  />
+                </div>
+              </div>
+
+              <StepNav onBack={back} onNext={next} onSkip={next} />
+            </div>
+          )}
+
+          {/* ── OWNER: SERVICE SCHEDULE ────────────────────────── */}
+          {currentStep === "schedule" && (
+            <div>
+              <h2 className="text-xl font-semibold text-foreground mb-1">What's been done on your engines?</h2>
+              <p className="text-sm text-muted-foreground mb-5">
+                We'll look up the manufacturer's service intervals so Bosun can remind you when things are due. Tick
+                anything that's already been done and when. Skip it and nothing shows as overdue.
+              </p>
+              {boat.engineMake && boat.engineModel ? (
+                <ServiceScheduleEditor
+                  compact
+                  engine={{
+                    engineMake: boat.engineMake,
+                    engineModel: boat.engineModel,
+                    engineType: boat.engineType || null,
+                    engineCount: Math.max(1, ["Single", "Twin", "Triple", "Quad", "Quint", "Sextuple"].indexOf(boat.engineCount) + 1),
+                    boatYear: boat.year || null,
+                    boatMake: boat.make || null,
+                    boatModel: boat.model || null,
+                  }}
+                  initialTasks={plan?.tasks ?? null}
+                  knownDone={plan?.records ?? []}
+                  onPlanChange={(p, why) => {
+                    setPlan(p);
+                    setPlanProblem(why);
+                  }}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground bg-muted/40 rounded-md p-4">
+                  Add your engine make and model on the previous step to get its service schedule, or skip this and set
+                  it up later from Maintenance.
+                </p>
+              )}
+              {planProblem && plan && <p className="mt-2 text-xs text-amber-700">{planProblem}</p>}
+              <StepNav
+                onBack={back}
+                onNext={() => (plan && planProblem ? toast.error(planProblem) : next())}
+                onSkip={() => { setPlan(null); next(); }}
+              />
+            </div>
+          )}
+
+          {/* ── OWNER: PHOTO ─────────────────────────────────── */}
+          {currentStep === "photo" && (
+            <div>
+              <h2 className="text-xl font-semibold text-foreground mb-1">Add a photo of your boat</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                It's the first thing you'll see on your dashboard. A side shot works best.
+              </p>
+              {!(boat.make || boat.model || boat.name) ? (
+                <p className="text-sm text-muted-foreground bg-muted/40 rounded-md p-4">
+                  Add your boat first (go back a step), or skip this and add a photo later in Settings.
+                </p>
+              ) : (
+                <label className="block cursor-pointer">
+                  <div className="w-full aspect-[2/1] rounded-md border-2 border-dashed border-border bg-muted/30 overflow-hidden flex items-center justify-center hover:border-primary/40 transition-colors">
+                    {photo ? (
+                      <img src={photo} alt="Your boat" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Tap to choose a photo</span>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!f) return;
+                      try {
+                        setPhoto(await resizePhoto(f, 1600, 0.85));
+                      } catch {
+                        toast.error("Couldn't read that image. Try a JPG or PNG.");
+                      }
+                    }}
+                  />
+                  {photo && <span className="mt-2 inline-block text-xs font-medium text-sky-700">Choose a different photo</span>}
+                </label>
+              )}
+              <StepNav onBack={back} onNext={next} onSkip={() => { setPhoto(null); next(); }} />
+            </div>
+          )}
+
+          {/* ── VENDOR: BUSINESS DETAILS ─────────────────────── */}
+          {currentStep === "business" && (
+            <div>
+              <h2 className="text-xl font-semibold text-foreground mb-1">Business details</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Tell us about your marine service business.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Business Name</label>
+                  <input
+                    type="text"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    placeholder="e.g. Smith Marine Services"
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Shop phone</label>
+                  <input
+                    type="tel"
+                    value={vendorPhone}
+                    onChange={(e) => setVendorPhone(e.target.value)}
+                    placeholder="So owners can reach you after they book"
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Years in Business</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={yearsInBusiness}
+                    onChange={(e) => setYearsInBusiness(e.target.value)}
+                    placeholder="e.g. 5"
+                    className={inputCls}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <ToggleCard
+                    label="Insured"
+                    description="Business liability insurance"
+                    active={insured}
+                    onToggle={() => setInsured((v) => !v)}
+                  />
+                  <ToggleCard
+                    label="Licensed"
+                    description="State or local trade license"
+                    active={licensed}
+                    onToggle={() => setLicensed((v) => !v)}
+                  />
+                </div>
+              </div>
+
+              <StepNav onBack={back} onNext={next} />
+            </div>
+          )}
+
+          {/* ── VENDOR: SERVICES & CERTIFICATIONS ────────────── */}
+          {currentStep === "services" && (
+            <div>
+              <h2 className="text-xl font-semibold text-foreground mb-1">Services & certifications</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Select the services you offer and any certifications you hold.
+              </p>
+
+              {/* Specialties */}
+              <div className="mb-6">
+                <label className="block text-xs font-semibold text-foreground mb-2 uppercase tracking-wide">Specialties</label>
+                <div className="flex flex-wrap gap-2">
+                  {VENDOR_SPECIALTIES.map((s) => {
+                    const active = specialties.includes(s);
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => toggleSpecialty(s)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                          active
+                            ? "bg-primary text-white border-primary"
+                            : "bg-white text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Certifications */}
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-2 uppercase tracking-wide">Certifications</label>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {VENDOR_CERTIFICATIONS.map((c) => {
+                    const active = certifications.includes(c);
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => toggleCert(c)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                          active
+                            ? "bg-primary text-white border-primary"
+                            : "bg-white text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    );
+                  })}
+                  {/* Show custom certs that aren't in the predefined list */}
+                  {certifications
+                    .filter((c) => !(VENDOR_CERTIFICATIONS as readonly string[]).includes(c))
+                    .map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => toggleCert(c)}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium bg-primary text-white border border-primary transition-colors"
+                      >
+                        {c}
+                      </button>
+                    ))}
+                </div>
+                {/* Custom cert input */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customCert}
+                    onChange={(e) => setCustomCert(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomCert(); } }}
+                    placeholder="Add a certification…"
+                    className={`flex-1 ${inputCls}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomCert}
+                    disabled={!customCert.trim()}
+                    className="px-4 py-2 rounded-md border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              <StepNav onBack={back} onNext={next} onSkip={next} />
+            </div>
+          )}
+
+          {/* ── VENDOR: SERVICE AREA & BIO ────────────────────── */}
+          {currentStep === "area-bio" && (
+            <div>
+              <h2 className="text-xl font-semibold text-foreground mb-1">Service area & bio</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Help boat owners know where you operate and what makes your business stand out.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Where's your shop?</label>
+                  <LocationPicker
+                    value={place}
+                    onChange={setPlace}
+                    placeholder="Search your shop's address"
+                    confirmLabel="Yes, this is my shop"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">How far will you travel for jobs?</label>
+                  <select value={radius} onChange={(e) => setRadius(Number(e.target.value))} className={selectCls}>
+                    {[10, 25, 50, 100, 200].map((m) => <option key={m} value={m}>Up to {m} miles</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Service area (how you describe it)</label>
+                  <input
+                    type="text"
+                    value={serviceArea}
+                    onChange={(e) => setServiceArea(e.target.value)}
+                    placeholder="e.g. Miami · Fort Lauderdale · Dania Beach"
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">About Your Business</label>
+                  <textarea
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    rows={5}
+                    placeholder="Tell boat owners about your experience, equipment, and what sets you apart…"
+                    className={`${inputCls} resize-none`}
+                  />
+                </div>
+              </div>
+
+              <StepNav onBack={back} onNext={next} onSkip={next} />
+            </div>
+          )}
+
+          {/* ── DONE ─────────────────────────────────────────── */}
+          {currentStep === "done" && (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h1 className="text-2xl font-bold text-foreground mb-2">You're all set!</h1>
+              <p className="text-muted-foreground text-sm max-w-xs mx-auto mb-8">
+                {isVendor
+                  ? "Your business profile is ready. Start browsing open projects and landing your first job."
+                  : "Your profile is set up. Start posting projects and finding the right vendors for your boat."
+                }
+              </p>
+              <button
+                onClick={handleComplete}
+                disabled={finishing}
+                className="px-8 py-3 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60"
+              >
+                {finishing ? "Saving…" : isVendor ? "Go to Vendor Dashboard" : "Go to Dashboard"}
+              </button>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sub-components ─────────────────────────────────────────────────────────
+
+function StepNav({
+  onBack,
+  onNext,
+  onSkip,
+}: {
+  onBack?: () => void;
+  onNext: () => void;
+  onSkip?: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between mt-8 pt-4 border-t border-border">
+      <div>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-3">
+        {onSkip && (
+          <button
+            onClick={onSkip}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Skip
+          </button>
+        )}
+        <button
+          onClick={onNext}
+          className="px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+        >
+          Continue
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ToggleCard({
+  label,
+  description,
+  active,
+  onToggle,
+}: {
+  label: string;
+  description: string;
+  active: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`flex flex-col items-center gap-1 py-4 px-3 rounded-lg border text-center transition-colors ${
+        active
+          ? "border-primary bg-primary text-white"
+          : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+      }`}
+    >
+      <span className="text-sm font-semibold">{label}</span>
+      <span className={`text-[10px] ${active ? "text-white/70" : "text-muted-foreground"}`}>{description}</span>
+      <div className={`mt-1 w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+        active ? "border-white" : "border-border"
+      }`}>
+        {active && (
+          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+      </div>
+    </button>
+  );
+}

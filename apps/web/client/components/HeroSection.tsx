@@ -1,0 +1,1059 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { ENGINE_DATA, type EngineType } from "@/data/engineData";
+import { type ProjectBoat } from "@/data/projectData";
+import { bannerRatio, heroFrameStyle, photoFrameFor, useMyBoats } from "@/hooks/use-my-boat";
+import type { Tables } from "@/lib/database.types";
+import BoatSwitcher from "@/components/boats/BoatSwitcher";
+import { cn } from "@/lib/utils";
+import { DEMO_BOAT } from "@/data/demoBoat";
+import { approximate } from "@shared/geo";
+import { useAuth } from "@/context/AuthContext";
+import { useDemoMode } from "@/lib/demoMode";
+import { useCreateMarketplaceProject } from "@/hooks/use-marketplace";
+import { JOB_CATEGORIES, type JobCategory } from "@shared/marketplace/catalog";
+import { toast } from "sonner";
+
+// ─── Icons ───────────────────────────────────────────────────
+function SvgIcon({ d, d2, className = "w-5 h-5" }: { d: string; d2?: string; className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={d} />
+      {d2 && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={d2} />}
+    </svg>
+  );
+}
+
+// Heroicons-style paths
+const ICONS = {
+  engine: {
+    d: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z",
+    d2: "M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+  },
+  sparkles: {
+    d: "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z",
+  },
+  layers: {
+    d: "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
+  },
+  bolt: {
+    d: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z",
+  },
+  monitor: {
+    d: "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
+  },
+  anchor: {
+    d: "M12 2a3 3 0 110 6 3 3 0 010-6zm0 4v12M5 11h14M5 18c1.5 2 3.5 3 7 3s5.5-1 7-3",
+  },
+  tool: {
+    d: "M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z",
+  },
+  sliders: {
+    d: "M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4",
+  },
+  paint: {
+    d: "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01",
+  },
+  snowflake: {
+    d: "M12 3v18M3 12h18M6.34 6.34l11.32 11.32M17.66 6.34L6.34 17.66",
+  },
+  battery: {
+    d: "M21 10h1a1 1 0 011 1v2a1 1 0 01-1 1h-1M3 6h14a2 2 0 012 2v8a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2zm4 3v6m4-6v6",
+  },
+};
+
+// The categories themselves are shared with the mobile app; only the icons are the web's.
+const CATEGORY_ICONS: Record<JobCategory, keyof typeof ICONS> = {
+  "Engine Service": "engine",
+  "Detailing & Waxing": "sparkles",
+  "Decking & Upholstery": "layers",
+  "Electrical": "bolt",
+  "Electronics & AV": "monitor",
+  "Hull & Gelcoat": "anchor",
+  "Mechanical": "tool",
+  "Other / Custom": "sliders",
+};
+
+const PROJECT_CATEGORIES: {
+  icon: keyof typeof ICONS;
+  label: string;
+  description: string;
+}[] = JOB_CATEGORIES.map((c) => ({ icon: CATEGORY_ICONS[c.label], label: c.label, description: c.description }));
+
+const PROJECT_TEMPLATES: {
+  icon: keyof typeof ICONS;
+  label: string;
+  title: string;
+  description: string;
+}[] = [
+  { icon: "engine",    label: "Annual Service", title: "Annual Engine Service",         description: "Annual engine service including oil & filter change, spark plugs, gear lube, impeller check, and multi-point inspection." },
+  { icon: "paint",     label: "Bottom Paint",   title: "Bottom Paint & Antifouling",    description: "Full hull cleaning, light sanding, and application of antifouling bottom paint to prevent marine growth." },
+  { icon: "snowflake", label: "Winterization",  title: "Engine Winterization",          description: "Full winterization service including fogging, fuel stabilizer, coolant flush, and outdoor storage prep." },
+  { icon: "sparkles",  label: "Full Detail",    title: "Full Boat Detail & Wax",        description: "Complete hull and interior detail including clay bar treatment, compound, polish, and carnauba wax seal." },
+  { icon: "monitor",   label: "Electronics",    title: "Chartplotter Installation",     description: "Install and configure new GPS/chartplotter unit with transducer mounting and NMEA 2000 network integration." },
+  { icon: "battery",   label: "Battery Upgrade",title: "Battery System Upgrade",        description: "Replace aging battery bank, upgrade to AGM or lithium, and inspect all electrical connections and charging system." },
+];
+
+const DEFAULT_HERO = "/hero-default.jpg";
+
+const EMPTY_BOAT = {
+  id: "",
+  make: "",
+  model: "",
+  year: "",
+  name: "",
+  engineType: "Outboard" as EngineType,
+  engineMake: "",
+  engineModel: "",
+  engineCount: "Single",
+  isPrimary: true,
+};
+
+type BoatInfo = typeof EMPTY_BOAT;
+function boatInfoFrom(boat: Tables<"boats">): BoatInfo {
+  return {
+    id: boat.id,
+    make: boat.make,
+    model: boat.model,
+    year: boat.year,
+    name: boat.name,
+    engineType: (boat.engine_type as EngineType) || "Outboard",
+    engineMake: boat.engine_make ?? "",
+    engineModel: boat.engine_model ?? "",
+    engineCount: ["Single", "Twin", "Triple", "Quad", "Quint", "Sextuple"][(boat.engine_count ?? 1) - 1] ?? `${boat.engine_count}×`,
+    isPrimary: true,
+  };
+}
+
+interface BoatEquipmentItem {
+  id: string;
+  boatId: string;
+  category: string;
+  manufacturer: string;
+  model: string;
+  serialNumber: string;
+  purchaseDate: string;
+  warrantyExpiry: string;
+  dealer: string;
+  notes: string;
+  createdAt: string;
+}
+
+function getEquipmentWarrantyStatus(warrantyExpiry: string): "active" | "expiring" | "expired" {
+  if (!warrantyExpiry) return "expired";
+  const now = Date.now();
+  const expiryTime = new Date(warrantyExpiry).getTime();
+  if (expiryTime < now) return "expired";
+  const ninetyDays = 90 * 24 * 60 * 60 * 1000;
+  if (expiryTime - now < ninetyDays) return "expiring";
+  return "active";
+}
+
+const EQUIPMENT_CATEGORY_LABELS: Record<string, string> = {
+  engine: "Engine",
+  mfd: "MFD",
+  radar: "Radar",
+  fishfinder: "Fishfinder",
+  vhf_radio: "VHF Radio",
+  autopilot: "Autopilot",
+  trolling_motor: "Trolling Motor",
+  generator: "Generator",
+  air_conditioning: "Air Conditioning",
+  windlass: "Windlass",
+  thruster: "Thruster",
+  watermaker: "Watermaker",
+  refrigeration: "Refrigeration",
+  stereo: "Stereo",
+  lighting: "Lighting",
+  battery: "Battery",
+  charger_inverter: "Charger/Inverter",
+  other: "Other",
+};
+
+type Step = "category" | "engine" | "details";
+
+interface HeroSectionProps {
+  onProjectPosted?: () => void;
+}
+
+export default function HeroSection({ onProjectPosted }: HeroSectionProps = {}) {
+  const navigate = useNavigate();
+  const { demo } = useDemoMode();
+  const { profile } = useAuth();
+  // Live accounts read their own boat from Supabase; browser storage only backs the demo.
+  const { primary, boats } = useMyBoats();
+  const createProject = useCreateMarketplaceProject();
+  const [open, setOpen] = useState(false);
+  const [posting, setPosting] = useState(false);
+  // Width ÷ height of the loaded photo; the banner adopts it (floored at 1.6:1) so the photo isn't cropped.
+  const [heroRatio, setHeroRatio] = useState<number | null>(null);
+  const [heroImageRatio, setHeroImageRatio] = useState(0);
+  const [heroImage, setHeroImage] = useState<string | null>(
+    () => (demo ? localStorage.getItem("hero_image") ?? DEFAULT_HERO : null)
+  );
+  const [boatInfo, setBoatInfo] = useState(() => {
+    if (!demo) return EMPTY_BOAT;
+    try {
+      const stored = localStorage.getItem("my_boat");
+      return stored ? JSON.parse(stored) : DEMO_BOAT;
+    } catch {
+      return EMPTY_BOAT;
+    }
+  });
+  const [location, setLocation] = useState<string>(
+    () => (demo ? localStorage.getItem("user_location") ?? "" : "")
+  );
+  const [step, setStep] = useState<Step>("category");
+  const [projectTitle, setProjectTitle] = useState("");
+  const [projectDescription, setProjectDescription] = useState("");
+  const [projectPhotos, setProjectPhotos] = useState<string[]>([]);
+  const [postSubmitted, setPostSubmitted] = useState(false);
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>("");
+  const [isWarrantyClaim, setIsWarrantyClaim] = useState(false);
+  const [workLocation, setWorkLocation] = useState<string>("");
+  const [haulOutRequired, setHaulOutRequired] = useState(false);
+  const [haulOutArrangedBy, setHaulOutArrangedBy] = useState<string>("");
+  const [marinaCOIRequired, setMarinaCOIRequired] = useState(false);
+
+  useEffect(() => {
+    if (!demo) return;
+    const onFocus = () => {
+      setHeroImage(localStorage.getItem("hero_image") ?? DEFAULT_HERO);
+      setLocation(localStorage.getItem("user_location") ?? "");
+      try {
+        const stored = localStorage.getItem("my_boat");
+        setBoatInfo(stored ? JSON.parse(stored) : DEMO_BOAT);
+      } catch {}
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [demo]);
+
+  useEffect(() => {
+    if (demo) return;
+    setLocation(profile?.location || primary?.home_port || "");
+    const boat = primary;
+    setHeroImage(boat?.photo_url ?? null);
+    if (!boat) {
+      setBoatInfo(EMPTY_BOAT);
+      return;
+    }
+    setBoatInfo(boatInfoFrom(boat));
+  }, [demo, primary, profile?.location]);
+
+  // Which boat the job being posted is for: the active boat unless the owner picks another.
+  const [jobBoatId, setJobBoatId] = useState<string | null>(null);
+  const jobBoat = (!demo && boats.find((b) => b.id === jobBoatId)) || null;
+  const jobBoatInfo: BoatInfo = jobBoat ? boatInfoFrom(jobBoat) : boatInfo;
+
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [engineType, setEngineType] = useState<EngineType | null>(null);
+  const [make, setMake] = useState<string | null>(null);
+  const [model, setModel] = useState<string | null>(null);
+
+  function handleClose() {
+    setJobBoatId(null);
+    setOpen(false);
+    setTimeout(() => {
+      setStep("category");
+      setSelectedCategory("");
+      setEngineType(null);
+      setMake(null);
+      setModel(null);
+      setProjectTitle("");
+      setProjectDescription("");
+      setProjectPhotos([]);
+      setPostSubmitted(false);
+      setSelectedEquipmentId("");
+      setIsWarrantyClaim(false);
+      setWorkLocation("");
+      setHaulOutRequired(false);
+      setHaulOutArrangedBy("");
+      setMarinaCOIRequired(false);
+    }, 200);
+  }
+
+  function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (ev.target?.result) {
+          setProjectPhotos((prev) => [...prev, ev.target!.result as string]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Auto-select equipment when category matches registered gear
+  function autoSelectEquipment(categoryLabel: string) {
+    const categoryMap: Record<string, string[]> = {
+      "Engine Service": ["engine"],
+      "Electronics & AV": ["mfd", "radar", "fishfinder", "vhf_radio", "autopilot", "stereo"],
+      "Electrical": ["battery", "charger_inverter", "lighting"],
+      "Mechanical": ["windlass", "thruster", "trolling_motor"],
+    };
+    const matchCategories = categoryMap[categoryLabel];
+    if (matchCategories && boatEquipment.length > 0) {
+      const match = boatEquipment.find((e) => matchCategories.includes(e.category));
+      if (match) {
+        setSelectedEquipmentId(match.id);
+        return;
+      }
+    }
+  }
+
+  // Rounded job location so shops can match by distance without seeing the exact slip.
+  function jobCoords(): { lat?: number; lng?: number } {
+    if (demo) return {};
+    const src =
+      primary && primary.home_port_lat != null && primary.home_port_lng != null
+        ? { lat: primary.home_port_lat, lng: primary.home_port_lng }
+        : profile && profile.location_lat != null && profile.location_lng != null
+          ? { lat: profile.location_lat, lng: profile.location_lng }
+          : null;
+    return src ? { lat: approximate(src.lat), lng: approximate(src.lng) } : {};
+  }
+
+  // The boat profile already says what engine it has; only ask when it doesn't.
+  const knownEngine = !!(boatInfo?.engineMake && boatInfo?.engineModel);
+
+  function handleSelectCategory(label: string) {
+    setSelectedCategory(label);
+    autoSelectEquipment(label);
+    if (label === "Engine Service" && !knownEngine) {
+      setStep("engine");
+    } else {
+      setStep("details");
+    }
+  }
+
+  function handleSelectTemplate(template: typeof PROJECT_TEMPLATES[0]) {
+    setSelectedCategory(template.label);
+    setProjectTitle(template.title);
+    setProjectDescription(template.description);
+    autoSelectEquipment(template.label);
+    setStep("details");
+  }
+
+  function handleEngineTypeSelect(type: EngineType) {
+    setEngineType(type);
+    setMake(null);
+    setModel(null);
+  }
+
+  function handleMakeSelect(selectedMake: string) {
+    setMake(selectedMake);
+    setModel(null);
+  }
+
+  const availableMakes = engineType ? Object.keys(ENGINE_DATA[engineType]) : [];
+  const availableModels = engineType && make ? ENGINE_DATA[engineType][make] : [];
+  const canSubmit = engineType && make && model;
+
+  // Load registered equipment for this boat
+  const [boatEquipment, setBoatEquipment] = useState<BoatEquipmentItem[]>([]);
+  useEffect(() => {
+    if (boatInfo?.id) {
+      try {
+        const stored = localStorage.getItem(`bosun_boat_equipment_${boatInfo.id}`);
+        setBoatEquipment(stored ? JSON.parse(stored) : []);
+      } catch {
+        setBoatEquipment([]);
+      }
+    }
+  }, [boatInfo?.id]);
+
+  const selectedEquipment = boatEquipment.find((e) => e.id === selectedEquipmentId) ?? null;
+  const selectedWarrantyStatus = selectedEquipment
+    ? getEquipmentWarrantyStatus(selectedEquipment.warrantyExpiry)
+    : null;
+  const showWarrantyClaimOption =
+    selectedEquipment && (selectedWarrantyStatus === "active" || selectedWarrantyStatus === "expiring");
+
+  const { fit: heroFit, ...heroFrame } = photoFrameFor(primary, demo);
+  const engineModel = boatInfo?.engineModel?.replace(/\s*\([\d–\-]+.*?\)$/, "") || null;
+  const engineDisplay = [
+    boatInfo?.engineType === "Outboard" ? boatInfo?.engineCount || null : null,
+    boatInfo?.engineMake || null,
+    engineModel,
+  ].filter(Boolean).join(" ");
+
+  return (
+    <section className={cn("rounded-xl border border-border bg-white shadow-card overflow-hidden", heroImage && "md:grid md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]")}>
+      {/* The banner is exactly the shape the Settings editor shows (bannerRatio), full width on
+          phones and beside the details on wider screens, so the framing chosen there is what shows.
+          "Show the whole photo" (Settings) pads instead of filling. */}
+      <div
+        className={
+          heroImage
+            ? heroFit === "contain"
+              ? "relative bg-white p-4 md:self-center md:border-r md:border-border/60"
+              : "relative w-full overflow-hidden bg-white md:self-center md:border-r md:border-border/60"
+            : "relative h-[200px] sm:h-[260px] overflow-hidden"
+        }
+        style={heroImage && heroFit !== "contain" ? { aspectRatio: String(heroRatio ?? 1.6) } : undefined}
+      >
+        {heroImage ? (
+          <img
+            src={heroImage}
+            alt="Your boat"
+            onLoad={(e) => {
+              const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+              setHeroRatio(bannerRatio(w, h));
+              setHeroImageRatio(w && h ? w / h : 0);
+            }}
+            className={
+              heroFit === "contain"
+                ? "block w-auto h-auto max-w-full max-h-[220px] md:max-h-[320px] mx-auto"
+                : "block"
+            }
+            style={heroFit === "contain" ? undefined : heroFrameStyle(heroFrame, heroImageRatio, heroRatio ?? 1.6)}
+          />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-sky-50 to-white text-center px-6">
+            <svg className="w-10 h-10 text-sky-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 17h18l-2 3H5l-2-3zm2-2l2-7h10l2 7M12 3v5" />
+            </svg>
+            <p className="text-sm text-slate-600">{boatInfo?.id ? "Add a photo of your boat" : "Add your boat to get started"}</p>
+            <button
+              onClick={() => navigate(boatInfo?.id ? "/settings" : "/my-boats")}
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90"
+            >
+              {boatInfo?.id ? "Upload photo" : "Add boat"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Boat info + actions */}
+      <div className={cn("px-5 pt-4 pb-5 flex flex-col gap-4", heroImage ? "md:justify-center md:py-6" : "lg:flex-row lg:items-end lg:justify-between")}>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <h1 className="text-xl md:text-2xl font-bold text-foreground leading-tight">
+            {boatInfo?.name ||
+              (boatInfo?.make
+                ? [boatInfo.year, boatInfo.make, boatInfo.model].filter(Boolean).join(" ")
+                : "My Boat")}
+          </h1>
+          <BoatSwitcher compact className="hidden md:inline-flex text-xs" />
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+          {boatInfo?.name && (boatInfo.make || boatInfo.year) && (
+            <p className="text-sm text-muted-foreground">
+              {[boatInfo.year, boatInfo.make, boatInfo.model].filter(Boolean).join(" ")}
+              {engineDisplay && ` · ${engineDisplay}`}
+            </p>
+          )}
+          {!boatInfo?.name && engineDisplay && (
+            <p className="text-sm text-muted-foreground">{engineDisplay}</p>
+          )}
+          {location && (
+            <p className="flex items-center gap-1 text-xs text-muted-foreground min-w-0 max-w-full">
+              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span className="truncate">{location.split(",")[0]}</span>
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* CTA buttons */}
+      <div className={cn("flex flex-col gap-2 sm:gap-3 shrink-0", heroImage ? "sm:flex-row md:flex-col" : "sm:flex-row")}>
+        <button
+          onClick={() => setOpen(true)}
+          className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-3 sm:py-2.5 rounded-lg text-sm font-semibold hover:bg-brand-600 transition-colors"
+        >
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+            <path d="M12 4v16m8-8H4" />
+          </svg>
+          Start a New Project
+        </button>
+        <button
+          onClick={() => navigate("/vendors")}
+          className="flex items-center justify-center gap-2 border border-border bg-white text-foreground px-4 py-3 sm:py-2.5 rounded-lg text-sm font-semibold hover:bg-muted transition-colors"
+        >
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Browse Vendors
+        </button>
+      </div>
+      </div>
+
+      <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+
+          {/* Step 1: Category selection */}
+          {step === "category" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Start a New Project</DialogTitle>
+                <DialogDescription>
+                  Choose a template or select a category to get started.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="pt-2">
+                {!demo && boats.length > 1 && (
+                  <label className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                    <span className="text-muted-foreground shrink-0">This job is for</span>
+                    <select
+                      value={jobBoatInfo.id}
+                      onChange={(e) => setJobBoatId(e.target.value)}
+                      className="min-w-0 flex-1 rounded-md border border-border bg-white px-2 py-1 text-sm font-medium text-foreground"
+                    >
+                      {boats.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} · {b.year} {b.make} {b.model}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Quick Templates
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-5">
+                  {PROJECT_TEMPLATES.map((t) => (
+                    <button
+                      key={t.label}
+                      onClick={() => handleSelectTemplate(t)}
+                      className="flex items-center gap-2 text-left p-2.5 rounded-md border border-border hover:border-primary/30 hover:bg-muted/50 transition-colors group"
+                    >
+                      <div className="w-7 h-7 rounded flex items-center justify-center bg-muted flex-shrink-0 group-hover:bg-muted">
+                        <SvgIcon d={ICONS[t.icon].d} d2={(ICONS[t.icon] as { d: string; d2?: string }).d2} className="w-4 h-4 text-foreground/70" />
+                      </div>
+                      <span className="text-xs font-semibold text-foreground leading-tight">
+                        {t.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Browse Categories
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {PROJECT_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.label}
+                      className="flex items-center gap-3 text-left px-3 py-2.5 rounded-md border border-border hover:border-primary/30 hover:bg-muted/50 transition-colors group"
+                      onClick={() => handleSelectCategory(cat.label)}
+                    >
+                      <div className="w-8 h-8 rounded flex items-center justify-center bg-muted flex-shrink-0">
+                        <SvgIcon d={ICONS[cat.icon].d} d2={(ICONS[cat.icon] as { d: string; d2?: string }).d2} className="w-4 h-4 text-foreground/70" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-foreground">
+                          {cat.label}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5 leading-snug truncate">
+                          {cat.description}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Step 2: Engine configuration */}
+          {step === "engine" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Engine Service</DialogTitle>
+                <DialogDescription>
+                  Tell us about your engine so we can match you with the right technician.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-5 pt-1">
+                {/* Shortcut: use registered engine */}
+                {boatEquipment.filter((e) => e.category === "engine").length > 0 && (
+                  <div className="border border-sky-200 bg-blue-50 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-blue-800 mb-2">Your registered engine{boatEquipment.filter((e) => e.category === "engine").length > 1 ? "s" : ""}</p>
+                    <div className="space-y-2">
+                      {boatEquipment.filter((e) => e.category === "engine").map((eng) => (
+                        <button
+                          key={eng.id}
+                          onClick={() => {
+                            setSelectedEquipmentId(eng.id);
+                            setSelectedCategory("Engine Service");
+                            setProjectTitle("");
+                            setProjectDescription("");
+                            setStep("details");
+                          }}
+                          className="w-full flex items-center justify-between gap-2 p-2.5 rounded-md bg-white border border-sky-200 hover:border-blue-400 transition-colors text-left"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{eng.manufacturer} {eng.model}</p>
+                            <p className="text-[10px] text-muted-foreground">S/N: {eng.serialNumber}</p>
+                          </div>
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0 ${
+                            getEquipmentWarrantyStatus(eng.warrantyExpiry) === "active"
+                              ? "text-green-600 bg-green-50"
+                              : getEquipmentWarrantyStatus(eng.warrantyExpiry) === "expiring"
+                              ? "text-amber-600 bg-amber-50"
+                              : "text-red-600 bg-red-50"
+                          }`}>
+                            {getEquipmentWarrantyStatus(eng.warrantyExpiry) === "active" ? "Warranty Active" : getEquipmentWarrantyStatus(eng.warrantyExpiry) === "expiring" ? "Expiring Soon" : "Warranty Expired"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-blue-600 mt-2">Click to skip engine selection and go straight to project details</p>
+                  </div>
+                )}
+
+                {/* Engine Type — manual selection */}
+                <div>
+                  <p className="text-sm font-semibold text-foreground mb-2">Engine Type</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(Object.keys(ENGINE_DATA) as EngineType[]).map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => handleEngineTypeSelect(type)}
+                        className={`px-3 py-2.5 rounded-md border text-center text-sm font-medium transition-colors ${
+                          engineType === type
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border hover:border-primary/30 text-foreground"
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Make */}
+                {engineType && (
+                  <div>
+                    <p className="text-sm font-semibold text-foreground mb-2">Make</p>
+                    <div className="flex flex-wrap gap-2">
+                      {availableMakes.map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => handleMakeSelect(m)}
+                          className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
+                            make === m
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border hover:border-primary/30 text-foreground"
+                          }`}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Model */}
+                {make && (
+                  <div>
+                    <p className="text-sm font-semibold text-foreground mb-2">Model</p>
+                    <select
+                      value={model ?? ""}
+                      onChange={(e) => setModel(e.target.value || null)}
+                      className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <option value="">Select a model…</option>
+                      {availableModels.map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    onClick={() => {
+                      setStep("category");
+                      setEngineType(null);
+                      setMake(null);
+                      setModel(null);
+                    }}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    disabled={!canSubmit}
+                    onClick={() => setStep("details")}
+                    className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Step 3: Project details */}
+          {step === "details" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Project Details</DialogTitle>
+                <DialogDescription>
+                  Describe what you need so vendors can give you an accurate quote.
+                </DialogDescription>
+              </DialogHeader>
+              {!postSubmitted && (boatInfo?.make || engineDisplay) && (
+                <p className="-mt-1 text-xs text-muted-foreground">
+                  For {[[boatInfo?.year, boatInfo?.make, boatInfo?.model].filter(Boolean).join(" "), engineDisplay].filter(Boolean).join(" · ")}.{" "}
+                  <button onClick={() => navigate("/my-boats")} className="font-medium text-sky-700 hover:underline">
+                    Not right? Update My Boats
+                  </button>
+                </p>
+              )}
+
+              {postSubmitted ? (
+                <div className="py-8 flex flex-col items-center gap-3 text-center">
+                  <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-base font-semibold text-foreground">Project Posted</p>
+                  <p className="text-sm text-muted-foreground">
+                    Verified vendors in your area will review your project and submit bids.
+                  </p>
+                  <button
+                    onClick={handleClose}
+                    className="mt-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4 pt-1">
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-1.5">Project Title</label>
+                    <input
+                      type="text"
+                      value={projectTitle}
+                      onChange={(e) => setProjectTitle(e.target.value)}
+                      placeholder="e.g. Annual Engine Service"
+                      className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-1.5">Description</label>
+                    <textarea
+                      value={projectDescription}
+                      onChange={(e) => setProjectDescription(e.target.value)}
+                      placeholder="Describe the work needed, any issues you've noticed, your timeline, and any special requirements…"
+                      rows={4}
+                      className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-1.5">
+                      Photos <span className="text-muted-foreground font-normal">(optional)</span>
+                    </label>
+                    <label className="flex flex-col items-center justify-center w-full border border-dashed border-border rounded-md p-4 cursor-pointer hover:border-primary/30 hover:bg-muted/30 transition-colors">
+                      <svg className="w-5 h-5 text-muted-foreground mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-xs text-muted-foreground">Click to upload photos</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    {projectPhotos.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {projectPhotos.map((src, i) => (
+                          <div key={i} className="relative">
+                            <img src={src} className="w-16 h-16 rounded-md object-cover border border-border" />
+                            <button
+                              onClick={() => setProjectPhotos((prev) => prev.filter((_, j) => j !== i))}
+                              className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary text-primary-foreground rounded-full text-[10px] flex items-center justify-center"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Work Location & Logistics */}
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-2">Where should the work be done?</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { value: "at_marina", label: "At My Marina" },
+                        { value: "vendor_facility", label: "Vendor's Shop" },
+                        { value: "mobile", label: "Mobile / On-Site" },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setWorkLocation(opt.value)}
+                          className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-colors ${
+                            workLocation === opt.value
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground hover:border-primary/50"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Marina COI requirement */}
+                    {workLocation === "at_marina" && (
+                      <label className="flex items-center gap-2 mt-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={marinaCOIRequired}
+                          onChange={(e) => setMarinaCOIRequired(e.target.checked)}
+                          className="rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        <div>
+                          <span className="text-xs font-semibold text-amber-800">My marina requires vendor insurance (COI)</span>
+                          <p className="text-[10px] text-amber-600 mt-0.5">Vendors will need a Certificate of Insurance on file</p>
+                        </div>
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Haul-out */}
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={haulOutRequired}
+                        onChange={(e) => {
+                          setHaulOutRequired(e.target.checked);
+                          if (!e.target.checked) setHaulOutArrangedBy("");
+                        }}
+                        className="rounded border-border text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm font-semibold text-foreground">This project requires haul-out</span>
+                    </label>
+
+                    {haulOutRequired && (
+                      <div className="ml-6 mt-2 space-y-2">
+                        <div className="flex gap-2">
+                          {([
+                            { value: "owner", label: "I'll arrange the haul" },
+                            { value: "vendor", label: "Vendor to arrange" },
+                          ] as const).map((opt) => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setHaulOutArrangedBy(opt.value)}
+                              className={`flex-1 px-3 py-2 rounded-lg border text-xs font-semibold transition-colors ${
+                                haulOutArrangedBy === opt.value
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border text-muted-foreground hover:border-primary/50"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Auto-suggest for hull work */}
+                    {selectedCategory === "Hull & Gelcoat" && !haulOutRequired && (
+                      <div className="mt-2 p-2.5 rounded-lg bg-blue-50 border border-sky-200">
+                        <p className="text-xs text-blue-800">
+                          <span className="font-semibold">Tip:</span> Hull & gelcoat work typically requires haul-out.{" "}
+                          <button
+                            type="button"
+                            onClick={() => setHaulOutRequired(true)}
+                            className="text-blue-600 font-semibold underline"
+                          >
+                            Add haul-out requirement
+                          </button>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Link Equipment */}
+                  {boatEquipment.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-semibold text-foreground mb-1.5">
+                        Link Equipment <span className="text-muted-foreground font-normal">(optional)</span>
+                      </label>
+                      <select
+                        value={selectedEquipmentId}
+                        onChange={(e) => {
+                          setSelectedEquipmentId(e.target.value);
+                          if (!e.target.value) setIsWarrantyClaim(false);
+                        }}
+                        className="w-full border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-1 focus:ring-primary/30"
+                      >
+                        <option value="">None / Not applicable</option>
+                        {boatEquipment.map((eq) => (
+                          <option key={eq.id} value={eq.id}>
+                            {eq.manufacturer} {eq.model} — {EQUIPMENT_CATEGORY_LABELS[eq.category] || eq.category}
+                          </option>
+                        ))}
+                      </select>
+
+                      {selectedEquipment && selectedWarrantyStatus && (
+                        <div className="mt-2 border border-border rounded-md p-3 bg-muted/30">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-semibold text-foreground">
+                              {selectedEquipment.manufacturer} {selectedEquipment.model}
+                            </span>
+                            <span className="text-[10px] font-medium text-muted-foreground bg-background px-1.5 py-0.5 rounded border border-border">
+                              {EQUIPMENT_CATEGORY_LABELS[selectedEquipment.category] || selectedEquipment.category}
+                            </span>
+                            {selectedWarrantyStatus === "active" && (
+                              <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
+                                Active ✅
+                              </span>
+                            )}
+                            {selectedWarrantyStatus === "expiring" && (
+                              <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                                Expiring ⚠️
+                              </span>
+                            )}
+                            {selectedWarrantyStatus === "expired" && (
+                              <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                                Expired ❌
+                              </span>
+                            )}
+                          </div>
+                          {selectedEquipment.warrantyExpiry && (
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                              Warranty expires {new Date(selectedEquipment.warrantyExpiry).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Warranty claim toggle */}
+                      {showWarrantyClaimOption && (
+                        <div className="mt-2">
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isWarrantyClaim}
+                              onChange={(e) => setIsWarrantyClaim(e.target.checked)}
+                              className="mt-0.5 rounded border-border"
+                            />
+                            <span className="text-xs text-foreground font-medium">
+                              This may be covered under warranty
+                            </span>
+                          </label>
+                          {isWarrantyClaim && (
+                            <p className="text-[11px] text-muted-foreground mt-1 ml-5">
+                              The accepted vendor will receive equipment details to help file a warranty claim.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      onClick={() => setStep("category")}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      disabled={!projectTitle.trim() || posting}
+                      onClick={async () => {
+                        // Build propulsion from stored engine info
+                        // Use the boat's saved engine; fall back to what they picked in the engine step.
+                        const engineModelClean =
+                          (jobBoatInfo.engineModel || model)?.replace(/\s*\([\d–\-]+.*?\)$/, "") || null;
+                        const propulsion = [
+                          (jobBoatInfo.engineMake ? jobBoatInfo.engineType : engineType) === "Outboard"
+                            ? jobBoatInfo.engineCount || null
+                            : null,
+                          jobBoatInfo.engineMake || make || null,
+                          engineModelClean,
+                        ]
+                          .filter(Boolean)
+                          .join(" ") || jobBoatInfo.engineType || engineType || "Unknown";
+
+                        const boat: ProjectBoat = {
+                          name: jobBoatInfo.name || "My Boat",
+                          make: jobBoatInfo.make || "",
+                          model: jobBoatInfo.model || "",
+                          year: jobBoatInfo.year || "",
+                          propulsion,
+                        };
+
+                        setPosting(true);
+                        try {
+                          await createProject.mutateAsync({
+                            title: projectTitle.trim(),
+                            description: projectDescription.trim(),
+                            category: selectedCategory || undefined,
+                            location: location || undefined,
+                            ...jobCoords(),
+                            boatId: jobBoatInfo.id || undefined,
+                            photos: projectPhotos,
+                            metadata: {
+                              workLocation: workLocation || undefined,
+                              haulOutRequired,
+                              haulOutArrangedBy: haulOutRequired ? haulOutArrangedBy : undefined,
+                              marinaCOIRequired,
+                              isWarrantyClaim: Boolean(selectedEquipment && isWarrantyClaim),
+                              linkedEquipmentId: selectedEquipment?.id,
+                              linkedEquipment: selectedEquipment
+                                ? {
+                                    manufacturer: selectedEquipment.manufacturer,
+                                    model: selectedEquipment.model,
+                                    category: EQUIPMENT_CATEGORY_LABELS[selectedEquipment.category] || selectedEquipment.category,
+                                    serialNumber: selectedEquipment.serialNumber,
+                                    warrantyExpiry: selectedEquipment.warrantyExpiry,
+                                    warrantyStatus: selectedWarrantyStatus || "expired",
+                                    dealer: selectedEquipment.dealer,
+                                  }
+                                : undefined,
+                              boat,
+                            },
+                          });
+                          setPostSubmitted(true);
+                          onProjectPosted?.();
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Could not post this job.");
+                        } finally {
+                          setPosting(false);
+                        }
+                      }}
+                      className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      {posting ? "Posting…" : "Post Project"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@bosun/shared",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Pure TypeScript shared by the Bosun web app, server and mobile app: types, validation, pricing, geo and shop logic. No React, no DOM, no env access.",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.100.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.2.1",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

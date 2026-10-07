@@ -1,0 +1,26 @@
+{
+  "cli": { "version": ">= 16.0.0", "appVersionSource": "remote" },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": { "simulator": true },
+      "env": { "EXPO_PUBLIC_API_URL": "https://getbosun.app" }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "env": { "EXPO_PUBLIC_API_URL": "https://getbosun.app" }
+    },
+    "production": {
+      "autoIncrement": true,
+      "channel": "production",
+      "env": { "EXPO_PUBLIC_API_URL": "https://getbosun.app" }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": { "appleTeamId": "", "ascAppId": "" }
+    }
+  }
+}

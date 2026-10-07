@@ -27,3 +27,10 @@ dist-ssr
 .env
 .env.local
 .env.production
+
+# Turborepo cache
+.turbo
+
+# Playwright
+apps/web/test-results
+apps/web/playwright-report

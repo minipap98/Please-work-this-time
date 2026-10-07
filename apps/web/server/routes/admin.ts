@@ -1,8 +1,8 @@
 import type { Request, RequestHandler, Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
-import { PROSPECT_TRADES, areaName, type AdminAction, type AdminPerson, type DemandProject, type Prospect } from "../../shared/admin.js";
-import { summarizeAiUsage, type AiKind, type AiLimit, type AiStatus, type AiUsageRow } from "../../shared/aiUsage.js";
+import { PROSPECT_TRADES, areaName, type AdminAction, type AdminPerson, type DemandProject, type Prospect } from "../../../../packages/shared/src/admin.js";
+import { summarizeAiUsage, type AiKind, type AiLimit, type AiStatus, type AiUsageRow } from "../../../../packages/shared/src/aiUsage.js";
 import { consumeQuota, recordUsage, usageOf } from "../lib/ai-usage.js";
 
 /* ── Auth: the caller must be signed in and have profiles.is_admin ─────────── */

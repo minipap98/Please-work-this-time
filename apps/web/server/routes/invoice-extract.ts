@@ -1,7 +1,7 @@
 import type { RequestHandler } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
-import { INVOICE_PROMPT, INVOICE_SCHEMA, normalizeInvoice, type ExtractedInvoice } from "../../shared/invoice.js";
+import { INVOICE_PROMPT, INVOICE_SCHEMA, normalizeInvoice, type ExtractedInvoice } from "../../../../packages/shared/src/invoice.js";
 import { cachedResult, consumeQuota, fileHash, recordUsage, serviceDb, usageOf } from "../lib/ai-usage.js";
 import { countPdfPages } from "../lib/pdf.js";
 

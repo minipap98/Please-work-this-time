@@ -2,11 +2,11 @@ import type { RequestHandler } from "express";
 import type Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 import { timingSafeEqual } from "node:crypto";
-import { normalizeInvoice, type ExtractedInvoice } from "../../shared/invoice.js";
+import { normalizeInvoice, type ExtractedInvoice } from "../../../../packages/shared/src/invoice.js";
 import { INVOICE_MODEL, parseJsonObject, readWithClaude, sourceFor, type Source } from "./invoice-extract.js";
 import { cachedResult, consumeQuota, fileHash, recordUsage, usageOf } from "../lib/ai-usage.js";
 import { handleInboundPartsEmail } from "./inbound-email.js";
-import { inboundTokenFromAddress } from "../../shared/shop.js";
+import { inboundTokenFromAddress } from "../../../../packages/shared/src/shop.js";
 
 function safeEqual(a: string, b: string): boolean {
   const x = Buffer.from(a);

@@ -1,7 +1,7 @@
 import type { RequestHandler } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
-import { PLAN_SCHEMA, normalizePlan, planPrompt, type EngineRequest } from "../../shared/servicePlan.js";
+import { PLAN_SCHEMA, normalizePlan, planPrompt, type EngineRequest } from "../../../../packages/shared/src/servicePlan.js";
 import { consumeQuota, recordUsage, serviceDb, usageOf } from "../lib/ai-usage.js";
 
 const MODEL = "claude-opus-5-5";

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { estimateAiCost, quotaMessage, type AiKind, type AiTokenUsage } from "../../shared/aiUsage.js";
+import { estimateAiCost, quotaMessage, type AiKind, type AiTokenUsage } from "../../../../packages/shared/src/aiUsage.js";
 
 /**
  * Per-account guard around every Claude call. Each call reserves a row in ai_usage through

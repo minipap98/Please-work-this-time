@@ -161,7 +161,8 @@ export function useCreateMarketplaceProject() {
           category: input.category,
           boat,
           bids: [],
-          photos: input.photos?.length ? input.photos : undefined,
+          // The demo keeps data URLs; the web never hands it raw bytes.
+          photos: input.photos?.length ? input.photos.filter((p): p is string => typeof p === "string") : undefined,
           linkedEquipmentId: (meta.linkedEquipmentId as string | undefined) ?? undefined,
           isWarrantyClaim: Boolean(meta.isWarrantyClaim),
           workLocation: (meta.workLocation as Project["workLocation"]) || undefined,

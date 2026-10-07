@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatProjectDate, mapBid, mapProject, type ProjectRow } from "./marketplace";
+import { formatProjectDate, mapBid, mapProject, type ProjectRow } from "./map";
 
 describe("formatProjectDate", () => {
   it("returns empty string for missing dates", () => {

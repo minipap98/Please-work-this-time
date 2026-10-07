@@ -5,7 +5,8 @@ import { useMyVendorProfile } from "@/hooks/use-supabase";
 import { useDemoMode } from "@/lib/demoMode";
 import { VENDOR_PROFILES } from "@/data/vendorData";
 import { DEMO_CITY_COORDS } from "@/data/demoLocations";
-import { distanceMiles, formatMiles, hasCoords } from "@shared/geo";
+import { formatMiles } from "@shared/geo";
+import { DEFAULT_SERVICE_RADIUS_MILES, rankOpenJobs } from "@shared/marketplace/rfpFeed";
 import type { Tables } from "@/lib/database.types";
 import { Shield, Anchor, MapPin } from "lucide-react";
 import { useRole } from "@/context/RoleContext";
@@ -59,23 +60,21 @@ export default function VendorRFPs() {
   const shop = demo
     ? demoShop?.lat != null && demoShop?.lng != null ? { lat: demoShop.lat, lng: demoShop.lng } : null
     : mine && mine.lat != null && mine.lng != null ? { lat: mine.lat, lng: mine.lng } : null;
-  const serviceRadius = demo ? 25 : mine?.service_radius_miles ?? 50;
+  const serviceRadius = demo ? 25 : mine?.service_radius_miles ?? DEFAULT_SERVICE_RADIUS_MILES;
   // null = any distance. Defaults to the shop's own service radius once we know where it is.
   const [maxMiles, setMaxMiles] = useState<number | null | undefined>(undefined);
   const limit = maxMiles === undefined ? (shop ? serviceRadius : null) : maxMiles;
 
-  const openProjects = useMemo(() => {
-    const open = allProjects
-      .filter((p) => p.status === "gathering" || p.status === "bidding" || p.status === "active")
-      .map((p) => {
-        const at = hasCoords(p) ? { lat: p.lat!, lng: p.lng! } : demo && p.location ? DEMO_CITY_COORDS[p.location] : undefined;
-        return { p, miles: shop && at ? distanceMiles(shop, at) : null };
-      });
-    // Jobs without a verified location stay in the list (after the ones we can place).
-    return open
-      .filter(({ miles }) => limit == null || miles == null || miles <= limit)
-      .sort((a, b) => (a.miles ?? Infinity) - (b.miles ?? Infinity));
-  }, [allProjects, demo, shop?.lat, shop?.lng, limit]);
+  const openProjects = useMemo(
+    () =>
+      rankOpenJobs(allProjects, {
+        shop,
+        limitMiles: limit,
+        // Demo jobs only name a town; place them so the demo can show distances.
+        fallbackCoords: demo ? (p) => (p.location ? DEMO_CITY_COORDS[p.location] : undefined) : undefined,
+      }),
+    [allProjects, demo, shop?.lat, shop?.lng, limit],
+  );
   const milesById = new Map(openProjects.map(({ p, miles }) => [p.id, miles]));
 
   const dialogProject = dialogProjectId

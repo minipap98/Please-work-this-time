@@ -1,7 +1,8 @@
 import { PageContainer, PageHeader } from "@/components/app/Page";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import type { BidMessage, Bid, Project } from "@/data/projectData";
+import type { BidMessage, Project } from "@/data/projectData";
+import { buildThreads as buildSharedThreads, type InboxThread } from "@shared/marketplace/inbox";
 import { useOwnerMarketplaceProjects, useVendorBidProjects } from "@/hooks/use-marketplace";
 import { useRole } from "@/context/RoleContext";
 import { useAuth } from "@/context/AuthContext";
@@ -36,44 +37,15 @@ function formatMessageTime(dateStr: string) {
   }
 }
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-interface InboxThread {
-  bid: Bid;
-  project: Project;
-  lastMessage: BidMessage;
-  unreadCount: number;
-}
-
 // ─── Build thread list from project data ────────────────────────────────────
 
+// How far into each thread this browser has read (per-browser until messages.status drives it).
+function readCount(bidId: string): number {
+  return parseInt(localStorage.getItem(`msg_read_${bidId}`) ?? "0", 10);
+}
+
 function buildThreads(projects: Project[]): InboxThread[] {
-  const threads: InboxThread[] = [];
-
-  for (const project of projects) {
-    for (const bid of project.bids) {
-      if (bid.thread.length === 0) continue;
-      const lastRead = parseInt(localStorage.getItem(`msg_read_${bid.id}`) ?? "0", 10);
-      const unread = bid.thread.filter((m, i) => m.from === "vendor" && i >= lastRead).length;
-      threads.push({
-        bid,
-        project,
-        lastMessage: bid.thread[bid.thread.length - 1],
-        unreadCount: unread,
-      });
-    }
-  }
-
-  // Sort by most recent message first
-  threads.sort((a, b) => {
-    try {
-      return new Date(b.lastMessage.time).getTime() - new Date(a.lastMessage.time).getTime();
-    } catch {
-      return 0;
-    }
-  });
-
-  return threads;
+  return buildSharedThreads(projects, { readCount });
 }
 
 // ─── Quote Card ─────────────────────────────────────────────────────────────

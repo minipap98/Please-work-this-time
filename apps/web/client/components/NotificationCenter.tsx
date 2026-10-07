@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotifications, useMarkNotificationsRead } from "@/hooks/use-supabase";
 import { useAuth } from "@/context/AuthContext";
+import { notificationRoute, relativeTime } from "@shared/notifications/route";
 
 type NotificationType =
   | "project_update"
@@ -79,15 +80,6 @@ const TYPE_COLORS: Record<string, string> = {
   system: "text-muted-foreground bg-muted",
 };
 
-function relativeTime(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const minutes = Math.max(0, Math.floor(diff / 60000));
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
 export default function NotificationCenter() {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -108,12 +100,7 @@ export default function NotificationCenter() {
   const notifications: Notification[] =
     user && rows.length
       ? rows.map((n) => {
-          const data = n.data ?? {};
-          const href = data.project_id
-            ? `/project/${data.project_id}`
-            : profile?.role === "vendor"
-              ? "/vendor-my-bids"
-              : "/inbox";
+          const href = notificationRoute(n.data, profile?.role);
           return {
             id: n.id,
             type: n.type as NotificationType,

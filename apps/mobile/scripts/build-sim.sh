@@ -19,9 +19,8 @@ if [ ! -d ios ]; then
 fi
 
 # Everything below goes through `xcrun simctl`, which comes with Xcode's command line tools and
-# works without the Simulator window. The window (Simulator.app) is only opened when it exists;
-# Xcode 27 no longer ships it inside Xcode.app, and a booted device shows up fine in previews
-# without it.
+# works without a window. The window is opened when one exists: Simulator.app in older Xcodes,
+# DeviceHub.app in Xcode 27 (where the simulator screens live now).
 if ! xcrun simctl list runtimes 2>/dev/null | grep -q '^iOS'; then
   if [ ! -d /Applications/Xcode.app ]; then
     echo "Xcode isn't installed, and the iOS Simulator comes with it." >&2
@@ -36,10 +35,13 @@ if ! xcrun simctl list runtimes 2>/dev/null | grep -q '^iOS'; then
   exit 1
 fi
 
-for sim_app in "$(xcode-select -p 2>/dev/null)/Applications/Simulator.app" \
-               /Applications/Xcode.app/Contents/Applications/Simulator.app; do
+xcode_app="$(xcode-select -p 2>/dev/null | sed -E 's|/Contents/Developer/?$||')"
+for sim_app in "$xcode_app/Contents/Developer/Applications/Simulator.app" \
+               "$xcode_app/Contents/Applications/DeviceHub.app" \
+               /Applications/Xcode.app/Contents/Developer/Applications/Simulator.app \
+               /Applications/Xcode.app/Contents/Applications/DeviceHub.app; do
   if [ -d "$sim_app" ]; then
-    echo "» Opening the Simulator"
+    echo "» Opening $(basename "$sim_app" .app)"
     open -a "$sim_app" || true
     break
   fi

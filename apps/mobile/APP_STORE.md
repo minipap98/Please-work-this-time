@@ -5,10 +5,10 @@ where noted; never commit secrets.
 
 ## Apple Developer (developer.apple.com)
 
-- [ ] **Team ID.** Account → Membership. Put it in `apps/web/public/.well-known/apple-app-site-association`
-      (replace `TEAMID` in both places) and `eas.json` → `submit.production.ios.appleTeamId`. Redeploy the web
-      so the file is live at `https://getbosun.app/.well-known/apple-app-site-association` (Apple caches it via
-      its CDN; allow up to a day).
+- [x] **Team ID** `G7NPVGTN7R` (Account → Membership). Filled into
+      `apps/web/public/.well-known/apple-app-site-association` and `eas.json` → `submit.production.ios.appleTeamId`.
+      The web deploy makes it live at `https://getbosun.app/.well-known/apple-app-site-association` (Apple caches
+      it via its CDN; allow up to a day).
 - [ ] **App ID** `app.getbosun.ios` with capabilities **Push Notifications** and **Associated Domains**.
       (EAS creates it on the first build if you let it manage credentials.)
 - [ ] **APNs key** (Keys → +, "Apple Push Notifications service"). Upload it to EAS: `eas credentials` →

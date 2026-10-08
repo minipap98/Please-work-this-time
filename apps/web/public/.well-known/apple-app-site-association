@@ -3,7 +3,7 @@
     "details": [
       {
         "appIDs": [
-          "TEAMID.app.getbosun.ios"
+          "G7NPVGTN7R.app.getbosun.ios"
         ],
         "components": [
           {
@@ -72,7 +72,7 @@
   },
   "webcredentials": {
     "apps": [
-      "TEAMID.app.getbosun.ios"
+      "G7NPVGTN7R.app.getbosun.ios"
     ]
   }
 }

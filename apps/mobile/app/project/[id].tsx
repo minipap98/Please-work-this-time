@@ -5,6 +5,7 @@ import { BOOKING_TIME_OPTIONS, makeBooking, serviceWeekOptions } from "@bosun/sh
 import type { Bid, Project } from "@bosun/shared/marketplace/types";
 import { useAuth } from "@/lib/auth";
 import { useAcceptBid, useMarkBidsSeen, useMyVendorProfile, useProject, useSetBidRejected, useUpdateProjectStatus } from "@/lib/queries";
+import { useWorkOrders } from "@/lib/shop";
 import { colors, radius, space } from "@/lib/theme";
 import { ReviewCard } from "@/screens/ReviewCard";
 import { Badge, Button, Card, Chip, Field, Loading, Muted, Row, Screen, Title } from "@/ui";
@@ -29,6 +30,7 @@ export default function ProjectScreen() {
   const updateStatus = useUpdateProjectStatus();
   const isOwner = !!project && project.ownerId === user?.id;
   const isVendor = profile?.role === "vendor";
+  const { data: orders = [] } = useWorkOrders(isVendor ? (myShop?.id ?? null) : null);
 
   useEffect(() => {
     if (project && isOwner && project.bids.some((b) => b.seenAt === null)) markSeen.mutate(project.id);
@@ -90,6 +92,15 @@ export default function ProjectScreen() {
           {project.ownerContact.phone && <Text style={{ color: colors.sky600 }} onPress={() => Linking.openURL(`tel:${project.ownerContact!.phone}`)}>{project.ownerContact.phone}</Text>}
           {project.ownerContact.email && <Text style={{ color: colors.sky600 }} onPress={() => Linking.openURL(`mailto:${project.ownerContact!.email}`)}>{project.ownerContact.email}</Text>}
           {project.booking && <Muted style={{ marginTop: space.sm }}>Window: {String(project.booking.week)} · {String(project.booking.time)}</Muted>}
+          {(() => {
+            // The won job becomes a work order on the shop board; one per job.
+            const onBoard = orders.find((o) => o.projectId === project.id);
+            return onBoard ? (
+              <Button title={`Open work order ${onBoard.number}`} tone="secondary" style={{ marginTop: space.md }} onPress={() => router.push({ pathname: "/shop/order/[id]", params: { id: onBoard.id } })} />
+            ) : (
+              <Button title="Put it on the board" style={{ marginTop: space.md }} onPress={() => router.push({ pathname: "/shop/order/[id]", params: { id: "new", project: project.id } })} />
+            );
+          })()}
         </Card>
       )}
 

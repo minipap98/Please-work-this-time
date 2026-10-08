@@ -6,6 +6,7 @@
   "scripts": {
     "start": "expo start",
     "ios": "expo run:ios",
+    "ios:sim": "bash scripts/build-sim.sh",
     "android": "expo run:android",
     "prebuild": "expo prebuild",
     "typecheck": "tsc",

@@ -14,6 +14,7 @@
     "typecheck": "turbo run typecheck",
     "format.fix": "prettier --write .",
     "dev:mobile": "pnpm --filter @bosun/mobile start",
+    "ios:sim": "pnpm --filter @bosun/mobile ios:sim",
     "export:ios": "pnpm --filter @bosun/mobile export:ios"
   },
   "devDependencies": {

@@ -3,7 +3,7 @@ import { FlatList, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { buildThreads } from "@bosun/shared/marketplace/inbox";
 import { useAuth } from "@/lib/auth";
-import { useMyVendorProfile, useOwnerProjects, useVendorBidProjects } from "@/lib/queries";
+import { useMyVendorProfile, useOwnerProjects, useRealtimeInbox, useVendorBidProjects } from "@/lib/queries";
 import { colors, space } from "@/lib/theme";
 import { Badge, Card, Empty, Loading, Muted, Screen, Title } from "@/ui";
 
@@ -11,6 +11,7 @@ export default function InboxScreen() {
   const { user, profile } = useAuth();
   const router = useRouter();
   const vendor = profile?.role === "vendor";
+  useRealtimeInbox();
   const { data: mine } = useMyVendorProfile();
   const owner = useOwnerProjects();
   const shop = useVendorBidProjects(vendor ? mine?.id : null);

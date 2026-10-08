@@ -343,8 +343,33 @@ export function useSendMessage() {
     mutationFn: (msg: Omit<InsertTables<"messages">, "sender_id">) => sendMessage(supabase, user!.id, msg),
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["messages", vars.bid_id] });
+      // The Inbox and job pages render threads from the project rows, not from ["messages"].
+      qc.invalidateQueries({ queryKey: ["marketplace-projects"] });
+      qc.invalidateQueries({ queryKey: ["marketplace-project"] });
     },
   });
+}
+
+/** Refresh the thread lists when a message to or from me lands, so the Inbox doesn't wait for a reload. */
+export function useRealtimeInbox() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  useEffect(() => {
+    if (!user || !supabase) return;
+    const channel = supabase
+      .channel(`inbox:${user.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
+        const msg = payload.new as { sender_id?: string; recipient_id?: string; bid_id?: string };
+        if (msg.sender_id !== user.id && msg.recipient_id !== user.id) return;
+        qc.invalidateQueries({ queryKey: ["marketplace-projects"] });
+        qc.invalidateQueries({ queryKey: ["marketplace-project"] });
+        if (msg.bid_id) qc.invalidateQueries({ queryKey: ["messages", msg.bid_id] });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, qc]);
 }
 
 // ============================================================

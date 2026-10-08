@@ -6,7 +6,7 @@ import { buildThreads as buildSharedThreads, type InboxThread } from "@shared/ma
 import { useOwnerMarketplaceProjects, useVendorBidProjects } from "@/hooks/use-marketplace";
 import { useRole } from "@/context/RoleContext";
 import { useAuth } from "@/context/AuthContext";
-import { useMarkMessagesRead, useSendMessage } from "@/hooks/use-supabase";
+import { useMarkMessagesRead, useRealtimeInbox, useSendMessage } from "@/hooks/use-supabase";
 import { isDemoMode } from "@/lib/demoMode";
 import { toast } from "sonner";
 
@@ -96,6 +96,7 @@ export default function Inbox() {
   const { user } = useAuth();
   const sendMessage = useSendMessage();
   const markRead = useMarkMessagesRead();
+  useRealtimeInbox();
   const ownerQuery = useOwnerMarketplaceProjects();
   const vendorQuery = useVendorBidProjects(role === "vendor" ? vendorId : null);
   const liveProjects = (role === "vendor" ? vendorQuery.data : ownerQuery.data) ?? [];

@@ -10,9 +10,14 @@ export default defineConfig({
     ssr: true,
     target: "node20",
     rollupOptions: {
-      input: "server/node-build.ts",
+      // node-build: `pnpm start` (serves the SPA and the API on one port).
+      // vercel: the API alone, re-exported by api/index.js for the Vercel function.
+      input: {
+        "node-build": "server/node-build.ts",
+        vercel: "server/vercel.ts",
+      },
       output: {
-        entryFileNames: "node-build.mjs",
+        entryFileNames: "[name].mjs",
         format: "esm",
       },
     },

@@ -16,8 +16,9 @@ where noted; never commit secrets.
 
 ## Expo / EAS (expo.dev)
 
-- [ ] `npm i -g eas-cli`, `eas login`, then in `apps/mobile`: `eas init` (writes `extra.eas.projectId` into
-      `app.json`; commit that).
+- [x] Expo account `bosunapp`, project `bosun` (id `baed0c2f-f67d-4b57-85aa-c6e62365b868`, already in
+      `app.json` → `extra.eas.projectId`). `npm i -g eas-cli`, `eas login`, then in `apps/mobile`:
+      `eas init --id baed0c2f-f67d-4b57-85aa-c6e62365b868` to confirm the link.
 - [ ] If your Expo account enforces push security, create an access token and set `EXPO_ACCESS_TOKEN` on the
       web server (Vercel env) so `/api/v1/push/dispatch` can send.
 - [ ] `eas build --profile development --platform ios` for the simulator build; `--profile preview` for a

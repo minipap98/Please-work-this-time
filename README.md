@@ -32,7 +32,7 @@ pnpm install
 cp apps/mobile/.env.example apps/mobile/.env   # EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, EXPO_PUBLIC_API_URL
 cd apps/mobile
 pnpm ios:sim                                   # builds the development shell and installs it in the Simulator
-pnpm start                                     # Metro; press i to open the app
+pnpm dev:mobile                                # Metro (from the repo root); press i to open the app
 ```
 
 `pnpm ios:sim` (`apps/mobile/scripts/build-sim.sh`) runs `expo prebuild` when there is no `ios/` folder yet, then

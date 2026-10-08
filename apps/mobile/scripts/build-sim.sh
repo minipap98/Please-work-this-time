@@ -7,8 +7,9 @@
 #
 #   pnpm ios:sim          from the repo root, or `pnpm ios:sim` inside apps/mobile
 #
-# Afterwards run `pnpm start` and press i. Re-run this only after a change that adds a native
-# module or edits app.json; everything else arrives through Metro.
+# Afterwards run `pnpm dev:mobile` from the repo root (or `pnpm start` inside apps/mobile) and
+# press i. Re-run this only after a change that adds a native module or edits app.json;
+# everything else arrives through Metro.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -17,14 +18,36 @@ if [ ! -d ios ]; then
   npx expo prebuild --platform ios
 fi
 
+# The Simulator ships inside Xcode. `open -a Simulator` fails when Xcode isn't installed or the
+# command line points at the Command Line Tools instead of Xcode, so look where xcode-select says.
+dev_dir="$(xcode-select -p 2>/dev/null || true)"
+sim_app="$dev_dir/Applications/Simulator.app"
+if [ ! -d "$sim_app" ]; then
+  if [ -d /Applications/Xcode.app ]; then
+    echo "Xcode is installed but the command line isn't pointed at it. Run this once, then re-run:" >&2
+    echo "    sudo xcode-select -s /Applications/Xcode.app" >&2
+  else
+    echo "Xcode isn't installed, and the iOS Simulator comes with it." >&2
+    echo "Install Xcode from the Mac App Store (free, about 15 GB), open it once so it finishes setting up," >&2
+    echo "then run:  sudo xcode-select -s /Applications/Xcode.app  and re-run this." >&2
+  fi
+  exit 1
+fi
+
 echo "» Opening the Simulator"
-open -a Simulator
+open -a "$sim_app"
+if ! xcrun simctl list devices booted | grep -q Booted; then
+  udid="$(xcrun simctl list devices available | grep -m1 'iPhone' | grep -oE '[0-9A-F-]{36}' || true)"
+  if [ -n "$udid" ]; then
+    xcrun simctl boot "$udid" 2>/dev/null || true
+  fi
+fi
 for _ in $(seq 1 60); do
   xcrun simctl list devices booted | grep -q Booted && break
   sleep 1
 done
 if ! xcrun simctl list devices booted | grep -q Booted; then
-  echo "No simulator booted. In the Simulator app choose File → Open Simulator → an iPhone, then re-run." >&2
+  echo "No iPhone simulator is available. In Xcode: Settings → Components (or Platforms) → install an iOS Simulator runtime, then re-run." >&2
   exit 1
 fi
 
@@ -45,4 +68,4 @@ fi
 echo "» Installing in the booted simulator"
 xcrun simctl install booted "$app"
 xcrun simctl launch booted app.getbosun.ios >/dev/null || true
-echo "✔ Bosun is installed. Now run: pnpm start   (then press i)"
+echo "✔ Bosun is installed. Now start Metro from the repo root:  pnpm dev:mobile   (then press i)"

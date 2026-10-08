@@ -39,11 +39,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session?.user) fetchProfile(data.session.user.id).finally(() => setLoading(false));
-      else setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setSession(data.session);
+        if (data.session?.user) fetchProfile(data.session.user.id).finally(() => setLoading(false));
+        else setLoading(false);
+      })
+      // A Keychain failure must land on sign-in, not an endless spinner.
+      .catch(() => setLoading(false));
     // Same rule as the web: never await Supabase inside this callback (it holds the auth lock).
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);

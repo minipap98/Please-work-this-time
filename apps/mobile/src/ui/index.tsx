@@ -18,7 +18,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radius, space } from "@/lib/theme";
 
 export function Screen({ children, scroll = true, padded = true, style }: { children: ReactNode; scroll?: boolean; padded?: boolean; style?: StyleProp<ViewStyle> }) {
-  const inner = <View style={[padded && styles.padded, style]}>{children}</View>;
+  // Without a scroll view the content must fill the screen, or a list inside it can't scroll and a
+  // composer pinned to the bottom (the chat) ends up wherever the content happens to stop.
+  const inner = <View style={[padded && styles.padded, !scroll && styles.fill, style]}>{children}</View>;
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right", "bottom"]}>
       {scroll ? <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>{inner}</ScrollView> : inner}
@@ -128,6 +130,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
   scroll: { flexGrow: 1 },
   padded: { padding: space.lg, flex: 1 },
+  fill: { flex: 1 },
   title: { fontSize: 24, fontWeight: "700", color: colors.navy, letterSpacing: -0.3 },
   sub: { fontSize: 14, color: colors.muted, marginTop: 4 },
   card: { backgroundColor: colors.white, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: space.lg, marginBottom: space.md },

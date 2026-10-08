@@ -31,9 +31,17 @@ You need a Mac with Xcode and an iOS simulator (or a device), plus an Expo accou
 pnpm install
 cp apps/mobile/.env.example apps/mobile/.env   # EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, EXPO_PUBLIC_API_URL
 cd apps/mobile
-npx expo prebuild --platform ios               # generates the ios/ project (first time, and after changing app.json)
-npx expo run:ios                               # builds a development build and opens the simulator
+pnpm ios:sim                                   # builds the development shell and installs it in the Simulator
+pnpm dev:mobile                                # Metro (from the repo root); press i to open the app
 ```
+
+`pnpm ios:sim` (`apps/mobile/scripts/build-sim.sh`) runs `expo prebuild` when there is no `ios/` folder yet, then
+builds with `xcodebuild` straight for the Simulator, ad-hoc signed, so it never asks for an Apple certificate the
+way `npx expo run:ios` can when it decides to target a phone. It installs on the first booted simulator (set
+`IOS_SIM_UDID` to pick one) or boots an iPhone itself, and needs no Simulator window: Xcode 27 no longer ships
+`Simulator.app`, and `xcrun simctl` does the booting, installing and launching. The full build log is in
+`apps/mobile/build/xcodebuild.log`. Re-run it after a change that adds a native module or edits `app.json`;
+everything else arrives through Metro.
 
 Or build the dev client once in the cloud and reuse it:
 

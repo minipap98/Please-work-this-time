@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FlatList, KeyboardAvoidingView, Platform, Text, TextInput, View } from "react-native";
+import { Alert, FlatList, KeyboardAvoidingView, Platform, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
@@ -48,8 +48,13 @@ export default function Thread() {
     if (!text.trim() || !bidId || !other) return;
     const body = text.trim();
     setText("");
-    await send.mutateAsync({ bid_id: bidId, recipient_id: other, text: body });
-    setTimeout(() => list.current?.scrollToEnd({ animated: true }), 50);
+    try {
+      await send.mutateAsync({ bid_id: bidId, recipient_id: other, text: body });
+      setTimeout(() => list.current?.scrollToEnd({ animated: true }), 50);
+    } catch (e) {
+      setText(body);
+      Alert.alert("Message not sent", e instanceof Error ? e.message : String(e));
+    }
   }
 
   if (isLoading) return <Loading />;

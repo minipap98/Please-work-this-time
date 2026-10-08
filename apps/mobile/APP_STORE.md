@@ -5,10 +5,10 @@ where noted; never commit secrets.
 
 ## Apple Developer (developer.apple.com)
 
-- [ ] **Team ID.** Account → Membership. Put it in `apps/web/public/.well-known/apple-app-site-association`
-      (replace `TEAMID` in both places) and `eas.json` → `submit.production.ios.appleTeamId`. Redeploy the web
-      so the file is live at `https://getbosun.app/.well-known/apple-app-site-association` (Apple caches it via
-      its CDN; allow up to a day).
+- [x] **Team ID** `G7NPVGTN7R` (Account → Membership). Filled into
+      `apps/web/public/.well-known/apple-app-site-association` and `eas.json` → `submit.production.ios.appleTeamId`.
+      The web deploy makes it live at `https://getbosun.app/.well-known/apple-app-site-association` (Apple caches
+      it via its CDN; allow up to a day).
 - [ ] **App ID** `app.getbosun.ios` with capabilities **Push Notifications** and **Associated Domains**.
       (EAS creates it on the first build if you let it manage credentials.)
 - [ ] **APNs key** (Keys → +, "Apple Push Notifications service"). Upload it to EAS: `eas credentials` →
@@ -16,8 +16,9 @@ where noted; never commit secrets.
 
 ## Expo / EAS (expo.dev)
 
-- [ ] `npm i -g eas-cli`, `eas login`, then in `apps/mobile`: `eas init` (writes `extra.eas.projectId` into
-      `app.json`; commit that).
+- [x] Expo account `bosunapp`, project `bosun` (id `baed0c2f-f67d-4b57-85aa-c6e62365b868`, already in
+      `app.json` → `extra.eas.projectId`). `npm i -g eas-cli`, `eas login`, then in `apps/mobile`:
+      `eas init --id baed0c2f-f67d-4b57-85aa-c6e62365b868` to confirm the link.
 - [ ] If your Expo account enforces push security, create an access token and set `EXPO_ACCESS_TOKEN` on the
       web server (Vercel env) so `/api/v1/push/dispatch` can send.
 - [ ] `eas build --profile development --platform ios` for the simulator build; `--profile preview` for a

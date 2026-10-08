@@ -51,6 +51,19 @@ export default function RootLayout() {
             <Stack.Screen name="bid/[projectId]" options={{ title: "Place a bid", presentation: "modal" }} />
             <Stack.Screen name="thread/[bidId]" options={{ title: "Messages" }} />
             <Stack.Screen name="crew" options={{ title: "Crew" }} />
+            <Stack.Screen name="tech" options={{ title: "My jobs" }} />
+            <Stack.Screen name="shop/orders" options={{ title: "Work orders" }} />
+            <Stack.Screen name="shop/order/[id]" options={{ title: "Work order" }} />
+            <Stack.Screen name="shop/schedule" options={{ title: "Schedule" }} />
+            <Stack.Screen name="shop/customers" options={{ title: "Customers" }} />
+            <Stack.Screen name="shop/customer/[id]" options={{ title: "Customer" }} />
+            <Stack.Screen name="shop/inventory" options={{ title: "Inventory" }} />
+            <Stack.Screen name="shop/item/[id]" options={{ title: "Part" }} />
+            <Stack.Screen name="shop/parts" options={{ title: "Parts inbound" }} />
+            <Stack.Screen name="shop/shipment/[id]" options={{ title: "Shipment" }} />
+            <Stack.Screen name="shop/settings" options={{ title: "Shop settings" }} />
+            <Stack.Screen name="shop/insights" options={{ title: "Insights" }} />
+            <Stack.Screen name="shop/revenue" options={{ title: "Revenue" }} />
             <Stack.Screen name="settings" options={{ title: "Settings" }} />
             <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
             <Stack.Screen name="inbox" options={{ title: "Inbox" }} />

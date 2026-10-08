@@ -19,6 +19,21 @@ describe("appRouteForWebPath", () => {
     expect(appRouteForWebPath("/vendor/1234")).toBe("/vendor/1234");
     expect(appRouteForWebPath("/history/tok")).toBe("/history/tok");
   });
+
+  it("opens the shop screens the web keeps under /vendor-shop tabs", () => {
+    expect(appRouteForWebPath("/vendor-dashboard")).toBe("/(vendor)");
+    expect(appRouteForWebPath("/vendor-shop")).toBe("/(vendor)/shop");
+    expect(appRouteForWebPath("/vendor-shop?tab=orders")).toBe("/shop/orders");
+    expect(appRouteForWebPath("/vendor-shop?tab=orders&wo=abc")).toBe("/shop/order/abc");
+    expect(appRouteForWebPath("/vendor-shop?tab=orders&new=wo")).toBe("/shop/order/new");
+    expect(appRouteForWebPath("/vendor-shop?tab=schedule")).toBe("/shop/schedule");
+    expect(appRouteForWebPath("/vendor-shop?tab=parts")).toBe("/shop/parts");
+    expect(appRouteForWebPath("/vendor-shop?tab=quickbooks")).toBe("/(vendor)/shop");
+    expect(appRouteForWebPath("/vendor-insights?tab=insurance")).toBe("/shop/insights?tab=insurance");
+    expect(appRouteForWebPath("/vendor-revenue")).toBe("/shop/revenue");
+    expect(appRouteForWebPath("/tech")).toBe("/tech");
+    expect(appRouteForWebPath("/crew-shop")).toBe("/shop/orders");
+  });
 });
 
 describe("appRouteForUrl", () => {

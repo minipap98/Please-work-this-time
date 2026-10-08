@@ -1,26 +1,8 @@
 import type { InventoryItem, PartsShipment, WorkOrder } from "@shared/shop";
 
-export interface ShopSettings {
-  inboundEmailToken: string;
-  laborRate: number;
-  taxRate: number;
-  bays: string[];
-  techs: string[];
-  qbLaborItem: string;
-  qbPartsItem: string;
-  qbFeeItem: string;
-}
+import { DEFAULT_SHOP_SETTINGS, type ShopSettings } from "@shared/shop/settings";
 
-export const DEFAULT_SHOP_SETTINGS: ShopSettings = {
-  inboundEmailToken: "demo0shop0token",
-  laborRate: 145,
-  taxRate: 7,
-  bays: ["Bay 1", "Bay 2", "Haul-out", "Dockside"],
-  techs: ["Marco", "Jess", "Luis"],
-  qbLaborItem: "Marine Labor",
-  qbPartsItem: "Marine Parts",
-  qbFeeItem: "Shop Fees",
-};
+export { DEFAULT_SHOP_SETTINGS, type ShopSettings };
 
 function at(dayOffset: number, hour: number): string {
   const d = new Date();

@@ -36,7 +36,7 @@ export default function OwnerTabs() {
   const { user, profile, loading } = useAuth();
   if (loading) return <Loading />;
   if (!user) return <Redirect href="/login" />;
-  if (profile?.role === "vendor") return <Redirect href="/(vendor)/rfps" />;
+  if (profile?.role === "vendor") return <Redirect href="/(vendor)" />;
   return (
     <Tabs screenOptions={{ tabBarActiveTintColor: colors.navy, tabBarInactiveTintColor: colors.faint, headerTintColor: colors.navy, headerTitleStyle: { fontWeight: "600" }, headerRight: () => <HeaderButtons /> }}>
       <Tabs.Screen name="index" options={{ title: "Home", tabBarIcon: icon("home-outline") }} />

@@ -41,3 +41,6 @@ apps/mobile/dist
 apps/mobile/ios
 apps/mobile/android
 apps/mobile/expo-env.d.ts
+
+# Vercel CLI (`vercel build` / `vercel pull`)
+.vercel

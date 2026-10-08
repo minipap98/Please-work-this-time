@@ -7,17 +7,16 @@ import {
   advanceStatus,
   deriveRegistry,
   inventoryDelta,
-  type Carrier,
   type ShopBoat,
   type ShopCustomer,
   type InventoryItem,
-  type LineKind,
   type PartsShipment,
   type ShipmentStatus,
   type WorkOrder,
   type WorkOrderLine,
   type WorkOrderStatus,
 } from "@shared/shop";
+import { mapBoat, mapCustomer, mapInventory, mapSettings, mapShipment, mapWorkOrder, type WorkOrderRow } from "@shared/shop/data";
 import {
   inviteCrew,
   listCrew,
@@ -127,99 +126,6 @@ function newId(prefix: string) {
 function db() {
   if (supabaseMissing || !supabase) throw new Error("Supabase is not configured.");
   return supabase;
-}
-
-// ── Row mapping ──────────────────────────────────────────────────────────────
-
-type WorkOrderRow = Tables<"shop_work_orders"> & {
-  lines?: Tables<"shop_work_order_lines">[] | null;
-};
-
-function mapSettings(r: Tables<"shop_settings">): ShopSettings {
-  return {
-    inboundEmailToken: r.inbound_email_token,
-    laborRate: Number(r.labor_rate) || 0,
-    taxRate: Number(r.tax_rate) || 0,
-    bays: r.bays ?? [],
-    techs: r.techs ?? [],
-    qbLaborItem: r.qb_labor_item,
-    qbPartsItem: r.qb_parts_item,
-    qbFeeItem: r.qb_fee_item,
-  };
-}
-
-function mapInventory(r: Tables<"shop_inventory">): InventoryItem {
-  return {
-    id: r.id,
-    sku: r.sku,
-    name: r.name,
-    category: r.category,
-    binLocation: r.bin_location,
-    qtyOnHand: Number(r.qty_on_hand) || 0,
-    reorderPoint: Number(r.reorder_point) || 0,
-    unitCost: Number(r.unit_cost) || 0,
-    unitPrice: Number(r.unit_price) || 0,
-    supplier: r.supplier,
-    updatedAt: r.updated_at,
-  };
-}
-
-function mapWorkOrder(r: WorkOrderRow): WorkOrder {
-  return {
-    id: r.id,
-    number: r.number,
-    title: r.title,
-    description: r.description,
-    status: r.status as WorkOrderStatus,
-    customerName: r.customer_name,
-    customerEmail: r.customer_email,
-    boatLabel: r.boat_label,
-    boatId: r.boat_id ?? null,
-    projectId: r.project_id,
-    assignedTo: r.assigned_to,
-    bay: r.bay,
-    scheduledStart: r.scheduled_start,
-    scheduledEnd: r.scheduled_end,
-    engineHours: r.engine_hours,
-    taxRate: Number(r.tax_rate) || 0,
-    completedAt: r.completed_at,
-    exportedAt: r.exported_at,
-    invoicedAt: r.invoiced_at ?? null,
-    paidAt: r.paid_at ?? null,
-    paymentMethod: r.payment_method ?? "",
-    createdAt: r.created_at,
-    lines: [...(r.lines ?? [])]
-      .sort((a, b) => a.sort_order - b.sort_order)
-      .map((l) => ({
-        id: l.id,
-        kind: l.kind as LineKind,
-        description: l.description,
-        quantity: Number(l.quantity) || 0,
-        unitPrice: Number(l.unit_price) || 0,
-        inventoryItemId: l.inventory_item_id,
-      })),
-  };
-}
-
-function mapShipment(r: Tables<"shop_parts_shipments">): PartsShipment {
-  return {
-    id: r.id,
-    supplier: r.supplier,
-    description: r.description,
-    carrier: r.carrier as Carrier,
-    trackingNumber: r.tracking_number,
-    status: r.status as ShipmentStatus,
-    eta: r.eta,
-    workOrderId: r.work_order_id,
-    boatLabel: r.boat_label ?? "",
-    customerName: r.customer_name ?? "",
-    inventoryItemId: r.inventory_item_id,
-    quantity: Number(r.quantity) || 0,
-    source: r.source as "manual" | "email",
-    emailSubject: r.email_subject,
-    receivedAt: r.received_at,
-    createdAt: r.created_at,
-  };
 }
 
 // ── Realtime ─────────────────────────────────────────────────────────────────
@@ -1002,25 +908,6 @@ export function useTechUpdateJob() {
 
 
 // ── Customers and boats on file ──────────────────────────────────────────────
-
-function mapCustomer(r: Tables<"shop_customers">): ShopCustomer {
-  return { id: r.id, name: r.name, email: r.email, phone: r.phone, notes: r.notes, createdAt: r.created_at };
-}
-
-function mapBoat(r: Tables<"shop_boats">): ShopBoat {
-  return {
-    id: r.id,
-    customerId: r.customer_id,
-    name: r.name,
-    year: r.year,
-    make: r.make,
-    model: r.model,
-    engine: r.engine,
-    hullId: r.hull_id,
-    slip: r.slip,
-    createdAt: r.created_at,
-  };
-}
 
 export function useCustomers(vendorId: string | null) {
   return useQuery({

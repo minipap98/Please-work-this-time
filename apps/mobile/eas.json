@@ -1,26 +1,43 @@
 {
-  "cli": { "version": ">= 16.0.0", "appVersionSource": "remote" },
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "ios": { "simulator": true },
-      "env": { "EXPO_PUBLIC_API_URL": "https://getbosun.app" }
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://getbosun.app"
+      },
+      "environment": "development"
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview",
-      "env": { "EXPO_PUBLIC_API_URL": "https://getbosun.app" }
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://getbosun.app"
+      },
+      "environment": "preview"
     },
     "production": {
       "autoIncrement": true,
       "channel": "production",
-      "env": { "EXPO_PUBLIC_API_URL": "https://getbosun.app" }
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://getbosun.app"
+      },
+      "environment": "production"
     }
   },
   "submit": {
     "production": {
-      "ios": { "appleTeamId": "", "ascAppId": "" }
+      "ios": {
+        "appleTeamId": "G7NPVGTN7R",
+        "ascAppId": "6820555034"
+      }
     }
   }
 }

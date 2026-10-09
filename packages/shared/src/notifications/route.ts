@@ -5,9 +5,14 @@ import type { AppRole } from "../api";
 export interface NotificationData {
   project_id?: string;
   bid_id?: string;
+  /** A boat transfer waiting for the buyer. */
+  transfer_token?: string;
+  boat_id?: string;
 }
 
 export function notificationRoute(data: NotificationData | null | undefined, role: AppRole | null | undefined): string {
+  if (data?.transfer_token) return `/transfer/${data.transfer_token}`;
+  if (data?.boat_id) return "/my-boats";
   if (data?.project_id) return `/project/${data.project_id}`;
   return role === "vendor" ? "/vendor-my-bids" : "/inbox";
 }

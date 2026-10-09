@@ -81,6 +81,8 @@ export default function RootLayout() {
             <Stack.Screen name="maintenance/plan" options={{ title: "Service schedule", presentation: "modal" }} />
             <Stack.Screen name="vendor/[id]" options={{ title: "Shop" }} />
             <Stack.Screen name="history/[token]" options={{ title: "Service history" }} />
+            <Stack.Screen name="transfer/[token]" options={{ title: "Boat transfer" }} />
+            <Stack.Screen name="boat/transfer" options={{ title: "Transfer boat" }} />
           </Stack>
         </AuthProvider>
       </QueryClientProvider>

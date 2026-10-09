@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { boatLabel, boatTitle, engineDisplay } from "@bosun/shared/boats/boats";
 import { useMyBoats } from "@/lib/boats";
+import { IncomingTransfers } from "@/screens/IncomingTransfers";
 import { colors, radius, space } from "@/lib/theme";
 import { Badge, Button, Card, Empty, Loading, Muted, Row, Screen } from "@/ui";
 
@@ -17,7 +18,12 @@ export default function MyBoats() {
         data={[...boats].reverse()}
         keyExtractor={(b) => b.id}
         refreshControl={<RefreshControl refreshing={false} onRefresh={refetch} />}
-        ListHeaderComponent={<Button title="Add a boat" tone="secondary" onPress={() => router.push("/boat/new")} style={{ marginBottom: space.md }} />}
+        ListHeaderComponent={
+          <View>
+            <IncomingTransfers />
+            <Button title="Add a boat" tone="secondary" onPress={() => router.push("/boat/new")} style={{ marginBottom: space.md }} />
+          </View>
+        }
         ListEmptyComponent={<Empty title="No boats yet" body="Add your boat to log its service, track maintenance and post jobs for it." />}
         renderItem={({ item: b }) => (
           <Card onPress={() => router.push({ pathname: "/boat/[id]", params: { id: b.id } })}>

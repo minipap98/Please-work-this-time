@@ -18,6 +18,7 @@ describe("appRouteForWebPath", () => {
     expect(appRouteForWebPath("/vendors")).toBe("/(owner)/shops");
     expect(appRouteForWebPath("/vendor/1234")).toBe("/vendor/1234");
     expect(appRouteForWebPath("/history/tok")).toBe("/history/tok");
+    expect(appRouteForWebPath("/transfer/tok")).toBe("/transfer/tok");
   });
 
   it("opens the shop screens the web keeps under /vendor-shop tabs", () => {

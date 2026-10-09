@@ -23,3 +23,10 @@ describe("relativeTime", () => {
     expect(relativeTime("2026-08-02T12:05:00Z", now)).toBe("0m ago");
   });
 });
+
+describe("boat transfer notifications", () => {
+  it("open the transfer link for the buyer and My Boats for the seller", () => {
+    expect(notificationRoute({ transfer_token: "tok" }, "owner")).toBe("/transfer/tok");
+    expect(notificationRoute({ boat_id: "b1", accepted: true } as never, "owner")).toBe("/my-boats");
+  });
+});

@@ -62,6 +62,11 @@ test.describe("public site", () => {
     await expect(page.getByText("Bosun isn’t configured")).toBeVisible();
   });
 
+  test("a boat-transfer link needs a login too", async ({ page }) => {
+    await page.goto("/transfer/abc");
+    await expect(page.getByText("Bosun isn’t configured")).toBeVisible();
+  });
+
   test("unknown routes 404 inside the app", async ({ page }) => {
     await page.goto("/definitely-not-a-page");
     await expect(page.getByText(/404|not found/i).first()).toBeVisible();

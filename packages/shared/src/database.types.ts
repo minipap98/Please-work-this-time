@@ -1140,6 +1140,42 @@ export interface Database {
           },
         ];
       };
+      boat_transfers: {
+        Row: {
+          id: string;
+          token: string;
+          boat_id: string;
+          from_owner_id: string;
+          to_email: string;
+          include_costs: boolean;
+          status: string;
+          created_at: string;
+          expires_at: string;
+          accepted_at: string | null;
+          accepted_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          token?: string;
+          boat_id: string;
+          from_owner_id: string;
+          to_email: string;
+          include_costs?: boolean;
+          status?: string;
+          created_at?: string;
+          expires_at?: string;
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+        };
+        Update: {
+          to_email?: string;
+          include_costs?: boolean;
+          status?: string;
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+        };
+        Relationships: [];
+      };
       boat_history_shares: {
         Row: {
           id: string;
@@ -1193,7 +1229,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update";
+          type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update" | "boat_transfer";
           title: string;
           body: string | null;
           data: Json | null;
@@ -1203,7 +1239,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update";
+          type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update" | "boat_transfer";
           title: string;
           body?: string | null;
           data?: Json | null;
@@ -1284,6 +1320,14 @@ export interface Database {
         Args: { pid: string };
         Returns: boolean;
       };
+      boat_transfer_preview: {
+        Args: { transfer_token: string };
+        Returns: Json;
+      };
+      accept_boat_transfer: {
+        Args: { transfer_token: string };
+        Returns: Json;
+      };
     };
     Enums: {
       user_role: "owner" | "vendor";
@@ -1295,7 +1339,7 @@ export interface Database {
       engine_type: "Outboard" | "Inboard" | "I/O (Sterndrive)";
       fee_tier_name: "Bronze" | "Silver" | "Gold";
       message_status: "sent" | "delivered" | "read";
-      notification_type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update";
+      notification_type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update" | "boat_transfer";
       payment_status: "pending" | "processing" | "completed" | "failed" | "refunded";
       document_type: "insurance" | "registration" | "warranty" | "survey" | "title" | "other";
     };

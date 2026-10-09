@@ -36,6 +36,7 @@ const DYNAMIC: [RegExp, (m: RegExpExecArray) => string][] = [
   [/^\/project\/([^/]+)$/, (m) => `/project/${m[1]}`],
   [/^\/vendor\/([^/]+)$/, (m) => `/vendor/${m[1]}`],
   [/^\/history\/([^/]+)$/, (m) => `/history/${m[1]}`],
+  [/^\/transfer\/([^/]+)$/, (m) => `/transfer/${m[1]}`],
 ];
 
 function shopRoute(query: string | undefined): string {

@@ -36,6 +36,7 @@ import PartsComingSoon from "./pages/PartsComingSoon";
 import BoatersPage from "./pages/marketing/BoatersPage";
 import ShopsPage from "./pages/marketing/ShopsPage";
 import AuthPage from "./pages/AuthPage";
+import ResetPassword from "@/pages/ResetPassword";
 import Onboarding from "./pages/Onboarding";
 import AdminPortal from "./pages/AdminPortal";
 import LandingPage from "./pages/LandingPage";
@@ -181,6 +182,8 @@ const App = () => (
                 <Route element={<PublicOnlyGuard />}>
                   <Route path="/login" element={<AuthPage />} />
                 </Route>
+                {/* Reached from the reset email with a recovery session, so it can't sit behind either guard. */}
+                <Route path="/reset-password" element={<ResetPassword />} />
 
                 <Route element={<LoginGuard />}>
                   <Route path="/tech" element={<TechToday />} />

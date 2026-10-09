@@ -22,6 +22,28 @@ export function signUpOptions(name: string, role: AppRole, emailRedirectTo?: str
   };
 }
 
+/** Where a password-reset email lands; the web page there lets the person choose a new password. */
+export const RESET_PASSWORD_PATH = "/reset-password";
+
+export function resetPasswordRedirect(siteUrl: string): string {
+  return `${siteUrl.replace(/\/$/, "")}${RESET_PASSWORD_PATH}`;
+}
+
+/** Shown after a reset request whether or not the address exists, so the form can't be used to look up accounts. */
+export const RESET_SENT_MESSAGE = "If there's a Bosun account for that email, a reset link is on its way. Check spam too.";
+
+/** Supabase refuses sign-in until the address is confirmed; the apps offer to resend the email on this error. */
+export function isUnconfirmedEmailError(message: string | null | undefined): boolean {
+  return /email not confirmed/i.test(message ?? "");
+}
+
+/** What's wrong with a new password (and its confirmation), or null when it can be saved. */
+export function passwordProblem(password: string, confirm?: string): string | null {
+  if (password.length < MIN_PASSWORD_LENGTH) return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+  if (confirm !== undefined && confirm !== password) return "The two passwords don't match.";
+  return null;
+}
+
 /** A post-login "next" path is honoured only when it stays on this site. */
 export function safeNextPath(next: string | null | undefined): string | null {
   return next && next.startsWith("/") && !next.startsWith("//") ? next : null;

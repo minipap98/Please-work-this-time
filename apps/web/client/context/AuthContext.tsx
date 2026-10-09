@@ -3,7 +3,7 @@ import type { User, Session } from "@supabase/supabase-js";
 import { supabase, supabaseMissing } from "@/lib/supabase";
 import { persistDemoMode } from "@/lib/demoMode";
 import { LOCATION_KEYS, isMissingColumn, withoutKeys } from "@/lib/optionalColumns";
-import { signUpOptions } from "@shared/auth";
+import { resetPasswordRedirect, signUpOptions } from "@shared/auth";
 import type { Tables } from "@/lib/database.types";
 
 interface AuthContextValue {
@@ -14,6 +14,12 @@ interface AuthContextValue {
   signUp: (email: string, password: string, name: string, role: "owner" | "vendor") => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  /** Emails a reset link that lands on /reset-password. Never says whether the address exists. */
+  resetPassword: (email: string) => Promise<{ error: string | null }>;
+  /** Sets a new password for the signed-in (or recovery) session. */
+  updatePassword: (password: string) => Promise<{ error: string | null }>;
+  /** Re-sends the sign-up confirmation email. */
+  resendConfirmation: (email: string) => Promise<{ error: string | null }>;
   updateProfile: (patch: Partial<Tables<"profiles">>) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -99,6 +105,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
   };
 
+  const resetPassword = async (email: string) => {
+    if (supabaseMissing) return { error: "Bosun is not configured. Missing Supabase keys." };
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: resetPasswordRedirect(window.location.origin) });
+    return { error: error?.message ?? null };
+  };
+
+  const updatePassword = async (password: string) => {
+    if (supabaseMissing) return { error: "Bosun is not configured. Missing Supabase keys." };
+    const { error } = await supabase.auth.updateUser({ password });
+    return { error: error?.message ?? null };
+  };
+
+  const resendConfirmation = async (email: string) => {
+    if (supabaseMissing) return { error: "Bosun is not configured. Missing Supabase keys." };
+    const { error } = await supabase.auth.resend({ type: "signup", email: email.trim(), options: { emailRedirectTo: `${window.location.origin}/login` } });
+    return { error: error?.message ?? null };
+  };
+
   const updateProfile = async (patch: Partial<Tables<"profiles">>) => {
     if (!user || supabaseMissing) return;
     let { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
@@ -110,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, session, loading, signUp, signIn, signOut, updateProfile, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, session, loading, signUp, signIn, signOut, resetPassword, updatePassword, resendConfirmation, updateProfile, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

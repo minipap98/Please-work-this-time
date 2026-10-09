@@ -43,6 +43,19 @@ test.describe("public site", () => {
     await expect(page.getByText("Supabase keys are missing")).toBeVisible();
   });
 
+  test("forgot-password asks for an email and the reset page explains a dead link", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByRole("button", { name: "Forgot password?" }).click();
+    await expect(page.getByRole("heading", { name: "Reset your password" })).toBeVisible();
+    await expect(page.locator("form input[type=email]")).toBeVisible();
+    await expect(page.locator("form input[type=password]")).toHaveCount(0);
+    await expect(page.locator("form").getByRole("button", { name: "Send reset link" })).toBeVisible();
+    await page.goto("/reset-password");
+    await expect(page.getByRole("heading", { name: "Reset your password" })).toBeVisible();
+    // Without Supabase keys the page says so instead of pretending the link worked.
+    await expect(page.getByText("Supabase keys are missing")).toBeVisible();
+  });
+
   test("signed-in pages need a login", async ({ page }) => {
     await page.goto("/inbox");
     // Without Supabase keys the guard shows the config screen instead of redirecting.

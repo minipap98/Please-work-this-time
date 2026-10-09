@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Alert, Share, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { isVerified, summarizeLog, type LogEntry } from "@bosun/shared/boatLog";
+import { isPreviousOwnerEntry, isVerified, spendByOwnership, summarizeLog, type LogEntry } from "@bosun/shared/boatLog";
 import { LOG_CATEGORIES } from "@bosun/shared/boatLog/records";
 import { historyShareUrl } from "@bosun/shared/boatLog/shares";
 import { boatTitle } from "@bosun/shared/boats/boats";
@@ -57,6 +57,11 @@ export default function BoatLogScreen() {
     );
   }
   const summary = summarizeLog(entries);
+  // Once a boat has changed hands, "spent" means two things.
+  const ownedSince = boat.owned_since ?? boat.created_at;
+  const spend = spendByOwnership(entries, ownedSince);
+  const changedHands = spend.previous.entries > 0;
+  const short = (n: number) => (n ? money(n).replace(/\.00$/, "") : "—");
 
   return (
     <Screen>
@@ -70,8 +75,16 @@ export default function BoatLogScreen() {
       <Row style={{ marginBottom: space.md }}>
         <StatTile label="Services" value={summary.entries} />
         <StatTile label="By shops" value={summary.verified} tone="green" />
-        <StatTile label="Spent" value={summary.totalSpent ? money(summary.totalSpent).replace(/\.00$/, "") : "—"} />
+        {changedHands ? (
+          <>
+            <StatTile label="Your spend" value={short(spend.mine.total)} />
+            <StatTile label="All owners" value={short(spend.allTime.total)} />
+          </>
+        ) : (
+          <StatTile label="Spent" value={short(summary.totalSpent)} />
+        )}
       </Row>
+      {changedHands && <Muted style={{ marginTop: -space.sm, marginBottom: space.md }}>Yours since {formatDate(spend.since)} · {spend.previous.entries} earlier entr{spend.previous.entries === 1 ? "y" : "ies"} from previous owners{spend.previous.unpriced ? `, ${spend.previous.unpriced} without a price` : ""}</Muted>}
       <Row style={{ marginBottom: space.md }}>
         <Button title="Log work" onPress={() => router.push({ pathname: "/log/new", params: { boat: boat.id } })} style={{ flex: 1 }} />
         <Button title="Import invoice" tone="secondary" onPress={() => router.push({ pathname: "/log/import", params: { boat: boat.id } })} style={{ flex: 1 }} />
@@ -111,6 +124,7 @@ export default function BoatLogScreen() {
               <Muted style={{ marginTop: 2 }}>{formatDate(e.date)}{e.vendorName ? ` · ${e.vendorName}` : " · Owner"}{e.engineHours != null ? ` · ${e.engineHours} hrs` : ""}</Muted>
               <Row style={{ marginTop: space.sm, flexWrap: "wrap" }}>
                 {isVerified(e) ? <Badge tone="green">Verified{e.source === "bosun-job" ? " · Bosun job" : " · shop"}</Badge> : <Badge tone="muted">Owner</Badge>}
+                {changedHands && isPreviousOwnerEntry(e, ownedSince) && <Badge tone="amber">Previous owner</Badge>}
                 {!!e.category && <Badge tone="sky">{e.category}</Badge>}
                 {!!e.invoicePath && <Badge tone="muted">Invoice</Badge>}
               </Row>

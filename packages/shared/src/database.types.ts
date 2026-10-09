@@ -84,6 +84,8 @@ export interface Database {
           hull_id: string | null;
           photo_url: string | null;
           photo_frame?: Json | null;
+          /** When the current owner took the boat on; the transfer sets it. */
+          owned_since?: string;
           created_at: string;
           updated_at: string;
           home_port_lat?: number | null;

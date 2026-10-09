@@ -22,6 +22,8 @@ export interface LogBoat {
   label: string;
   engine: string;
   hin?: string | null;
+  /** When the current owner took the boat on (ISO); earlier entries are previous owners'. */
+  ownedSince: string;
 }
 
 export const DEMO_LOG_BOAT: LogBoat = {
@@ -29,6 +31,7 @@ export const DEMO_LOG_BOAT: LogBoat = {
   name: "No Vacancy",
   label: "2020 Sea Ray SDX 250 OB",
   engine: "Mercury Verado 250",
+  ownedSince: "2020-01-01",
 };
 
 const DEMO_KEY = "bosun_demo_boat_log_v1";
@@ -124,6 +127,7 @@ export function useLogBoats() {
         engine: [b.engine_count && b.engine_count > 1 ? `${b.engine_count}×` : "", b.engine_make, b.engine_model]
           .filter(Boolean)
           .join(" "),
+        ownedSince: b.owned_since ?? b.created_at,
       }));
     },
     enabled: demo || (!!user && !supabaseMissing),

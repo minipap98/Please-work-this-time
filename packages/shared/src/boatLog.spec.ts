@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { historyHighlights, logToCsv, summarizeLog, toHistoryEntry, type LogEntry } from "./boatLog";
+import { historyHighlights, isPreviousOwnerEntry, logToCsv, spendByOwnership, summarizeLog, toHistoryEntry, type LogEntry } from "./boatLog";
 
 const entry = (p: Partial<LogEntry>): LogEntry => ({
   id: "e",
@@ -67,5 +67,31 @@ describe("shared service history", () => {
     });
     const priced = entries.map((e) => toHistoryEntry(e, true));
     expect(historyHighlights({ entries: priced, showCosts: true }).totalSpent).toBe(1895);
+  });
+});
+
+describe("spendByOwnership", () => {
+  const entry = (id: string, date: string, cost: number | null): LogEntry => ({
+    id, boatId: "b", title: id, category: null, date, engineHours: null, cost, laborHours: null, vendorName: null, notes: null, source: "owner", lines: [],
+  });
+  const log = [entry("old1", "2024-05-01", 800), entry("old2", "2025-02-10", null), entry("new1", "2026-03-03", 450.5), entry("new2", "2026-09-01", 120)];
+
+  it("splits the log at the day the current owner took the boat on", () => {
+    const s = spendByOwnership(log, "2026-01-15T14:00:00Z");
+    expect(s.since).toBe("2026-01-15");
+    expect(s.allTime).toEqual({ total: 1370.5, entries: 4, unpriced: 1 });
+    expect(s.mine).toEqual({ total: 570.5, entries: 2, unpriced: 0 });
+    expect(s.previous).toEqual({ total: 800, entries: 2, unpriced: 1 });
+  });
+
+  it("counts an entry on the handover day as the new owner's", () => {
+    expect(isPreviousOwnerEntry({ date: "2026-01-15" }, "2026-01-15T23:00:00Z")).toBe(false);
+    expect(isPreviousOwnerEntry({ date: "2026-01-14" }, "2026-01-15")).toBe(true);
+  });
+
+  it("has nothing in previous when the boat never changed hands", () => {
+    const s = spendByOwnership(log, "2020-01-01");
+    expect(s.previous.entries).toBe(0);
+    expect(s.mine.total).toBe(s.allTime.total);
   });
 });

@@ -32,6 +32,18 @@ export function isVerified(e: Pick<LogEntry, "source">): boolean {
   return e.source !== "owner";
 }
 
+/** An hours reading logged on its own (no work done): the meter, the date, nothing else. */
+export const HOURS_READING_TITLE = "Engine hours reading";
+
+export function isHoursReading(e: Pick<LogEntry, "title" | "source">): boolean {
+  return e.source === "owner" && e.title === HOURS_READING_TITLE;
+}
+
+/** Service entries only: readings are meter updates, not work. */
+export function workEntries<T extends Pick<LogEntry, "title" | "source">>(entries: T[]): T[] {
+  return entries.filter((e) => !isHoursReading(e));
+}
+
 export interface LogSummary {
   entries: number;
   verified: number;
@@ -43,6 +55,8 @@ export interface LogSummary {
 }
 
 export function summarizeLog(entries: LogEntry[]): LogSummary {
+  // Readings count toward the hours, never toward the services.
+  const work = workEntries(entries);
   const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date));
   const byYear = new Map<string, number>();
   const vendors = new Map<string, number>();
@@ -54,10 +68,10 @@ export function summarizeLog(entries: LogEntry[]): LogSummary {
     if (latestHours === null && e.engineHours != null) latestHours = e.engineHours;
   }
   return {
-    entries: entries.length,
-    verified: entries.filter(isVerified).length,
-    totalSpent: Math.round(entries.reduce((s, e) => s + (Number(e.cost) || 0), 0) * 100) / 100,
-    lastService: sorted[0]?.date ?? null,
+    entries: work.length,
+    verified: work.filter(isVerified).length,
+    totalSpent: Math.round(work.reduce((s, e) => s + (Number(e.cost) || 0), 0) * 100) / 100,
+    lastService: sorted.find((e) => !isHoursReading(e))?.date ?? null,
     latestEngineHours: latestHours,
     spentByYear: [...byYear.entries()]
       .sort((a, b) => b[0].localeCompare(a[0]))
@@ -107,9 +121,10 @@ function slice(entries: LogEntry[]): SpendSlice {
  */
 export function spendByOwnership(entries: LogEntry[], ownedSince: string): OwnershipSpend {
   const since = ownedSince.slice(0, 10);
-  const previous = entries.filter((e) => isPreviousOwnerEntry(e, since));
-  const mine = entries.filter((e) => !isPreviousOwnerEntry(e, since));
-  return { allTime: slice(entries), mine: slice(mine), previous: slice(previous), since };
+  const work = workEntries(entries);
+  const previous = work.filter((e) => isPreviousOwnerEntry(e, since));
+  const mine = work.filter((e) => !isPreviousOwnerEntry(e, since));
+  return { allTime: slice(work), mine: slice(mine), previous: slice(previous), since };
 }
 
 export function logToCsv(entries: LogEntry[]): string {

@@ -76,6 +76,7 @@ export default function RootLayout() {
             <Stack.Screen name="log/new" options={{ title: "Log work", presentation: "modal" }} />
             <Stack.Screen name="log/[id]" options={{ title: "Service" }} />
             <Stack.Screen name="log/import" options={{ title: "Import invoice", presentation: "modal" }} />
+            <Stack.Screen name="log/hours" options={{ title: "Engine hours", presentation: "modal" }} />
             <Stack.Screen name="receipts" options={{ title: "Emailed receipts" }} />
             <Stack.Screen name="maintenance" options={{ title: "Maintenance" }} />
             <Stack.Screen name="maintenance/plan" options={{ title: "Service schedule", presentation: "modal" }} />

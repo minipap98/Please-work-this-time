@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Alert, Share, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { isPreviousOwnerEntry, isVerified, spendByOwnership, summarizeLog, type LogEntry } from "@bosun/shared/boatLog";
+import { isHoursReading, isPreviousOwnerEntry, isVerified, spendByOwnership, summarizeLog, type LogEntry } from "@bosun/shared/boatLog";
 import { LOG_CATEGORIES } from "@bosun/shared/boatLog/records";
 import { historyShareUrl } from "@bosun/shared/boatLog/shares";
 import { boatTitle } from "@bosun/shared/boats/boats";
@@ -91,6 +91,12 @@ export default function BoatLogScreen() {
         <Button title={sharing ? "Close" : "Share"} tone="secondary" onPress={() => setSharing((s) => !s)} />
       </Row>
       {sharing && <ShareCard boatId={boat.id} />}
+      <LinkRow
+        icon="speedometer-outline"
+        title={summary.latestEngineHours != null ? `${summary.latestEngineHours} engine hours` : "Engine hours not recorded"}
+        sub="Tap to update the meter reading"
+        onPress={() => router.push({ pathname: "/log/hours", params: { boat: boat.id } })}
+      />
       {receipts.length > 0 && (
         <LinkRow icon="mail-unread-outline" title={`${receipts.length} emailed receipt${receipts.length === 1 ? "" : "s"} to review`} sub="Forwarded receipts, read and waiting for your OK." onPress={() => router.push("/receipts")} />
       )}
@@ -118,7 +124,7 @@ export default function BoatLogScreen() {
           {list.map((e) => (
             <Card key={e.id} onPress={() => router.push({ pathname: "/log/[id]", params: { id: e.id, boat: boat.id } })}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", gap: space.sm }}>
-                <Text style={{ fontWeight: "600", color: colors.text, flex: 1 }} numberOfLines={2}>{e.title}</Text>
+                <Text style={{ fontWeight: "600", color: colors.text, flex: 1 }} numberOfLines={2}>{isHoursReading(e) ? `Engine hours: ${e.engineHours ?? "—"}` : e.title}</Text>
                 <Text style={{ fontWeight: "700", color: colors.navy }}>{e.cost != null ? money(e.cost) : ""}</Text>
               </View>
               <Muted style={{ marginTop: 2 }}>{formatDate(e.date)}{e.vendorName ? ` · ${e.vendorName}` : " · Owner"}{e.engineHours != null ? ` · ${e.engineHours} hrs` : ""}</Muted>

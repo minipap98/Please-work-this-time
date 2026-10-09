@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { BosunLogo } from "@/components/marketing/BosunLogo";
 import { PageContainer, PageHeader, Panel, StatGrid, StatTile } from "@/components/app/Page";
 import LocationPicker from "@/components/LocationPicker";
+import CommunityTab from "@/components/admin/CommunityTab";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   useAdminAction, useAdminAiUsage, useAdminAudit, useAdminDemand, useAdminPeople, useAdminPersonDetail, useAdminProspects, useCreateProspect, useDraftOutreach, useSearchProspects, useUpdateProspect,
@@ -15,13 +16,14 @@ import { AI_ALERT_USD_30D, AI_KIND_LABELS, type AiStatus } from "@shared/aiUsage
 import type { PickedLocation } from "@shared/geo";
 import { cn } from "@/lib/utils";
 
-type Tab = "overview" | "people" | "shops" | "demand" | "prospects" | "ai" | "audit";
+type Tab = "overview" | "people" | "shops" | "demand" | "prospects" | "community" | "ai" | "audit";
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "people", label: "People" },
   { key: "shops", label: "Shops" },
   { key: "demand", label: "Demand" },
   { key: "prospects", label: "Prospects" },
+  { key: "community", label: "Community" },
   { key: "ai", label: "AI usage" },
   { key: "audit", label: "Audit log" },
 ];
@@ -86,6 +88,7 @@ export default function AdminPortal() {
         {tab === "shops" && <People mode="shops" />}
         {tab === "demand" && <Demand />}
         {tab === "prospects" && <Prospects />}
+        {tab === "community" && <CommunityTab />}
         {tab === "ai" && <AiUsage />}
         {tab === "audit" && <Audit />}
       </PageContainer>

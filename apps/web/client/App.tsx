@@ -33,6 +33,9 @@ import TechToday from "./pages/TechToday";
 import CrewShop from "./pages/CrewShop";
 import ServiceHistory from "./pages/ServiceHistory";
 import TransferAccept from "./pages/TransferAccept";
+import OwnersHome from "./pages/community/OwnersHome";
+import OwnersBoard from "./pages/community/OwnersBoard";
+import OwnersThread from "./pages/community/OwnersThread";
 import PartsComingSoon from "./pages/PartsComingSoon";
 import BoatersPage from "./pages/marketing/BoatersPage";
 import ShopsPage from "./pages/marketing/ShopsPage";
@@ -203,6 +206,10 @@ const App = () => (
                     <Route path="/my-boats" element={<MyBoats />} />
                     <Route path="/maintenance" element={<MaintenancePage />} />
                     <Route path="/boat-log" element={<BoatLog />} />
+                    <Route path="/owners" element={<OwnersHome />} />
+                    <Route path="/owners/post/:id" element={<OwnersThread />} />
+                    <Route path="/owners/:make" element={<OwnersBoard />} />
+                    <Route path="/owners/:make/:model" element={<OwnersBoard />} />
                   </Route>
                   <Route path="/inbox" element={<Inbox />} />
                   <Route path="/project/:id" element={<ProjectDetail />} />

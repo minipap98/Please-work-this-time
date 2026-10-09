@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { AdminAction, AdminPerson, DemandProject, Prospect } from "@shared/admin";
 import type { AiLimit, AiUsageRow, AiUsageSummary } from "@shared/aiUsage";
+import type { AdminCommunity, ModerationAction, ModerationKind } from "@shared/community/moderation";
 
 export interface AuditEntry {
   id: string;
@@ -109,6 +110,23 @@ export interface AiUsageReport {
 
 export function useAdminAiUsage() {
   return useQuery({ queryKey: ["admin", "ai-usage"], queryFn: () => adminFetch<AiUsageReport>("/api/admin/ai-usage"), refetchInterval: 60_000 });
+}
+
+export function useAdminCommunity() {
+  return useQuery({ queryKey: ["admin", "community"], queryFn: () => adminFetch<AdminCommunity>("/api/admin/community") });
+}
+
+export function useAdminCommunityAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ kind, id, action, reason }: { kind: ModerationKind; id: string; action: ModerationAction; reason?: string }) =>
+      adminFetch<{ ok: true }>(`/api/admin/community/${kind}/${id}/action`, { method: "POST", body: JSON.stringify({ action, reason }) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "community"] });
+      qc.invalidateQueries({ queryKey: ["admin", "audit"] });
+      qc.invalidateQueries({ queryKey: ["community"] });
+    },
+  });
 }
 
 export function useAdminAudit() {

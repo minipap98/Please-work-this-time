@@ -7,6 +7,10 @@ describe("appRouteForWebPath", () => {
     expect(appRouteForWebPath("/vendor-rfps")).toBe("/(vendor)/rfps");
     expect(appRouteForWebPath("/vendor-my-bids")).toBe("/(vendor)/my-bids");
     expect(appRouteForWebPath("/app")).toBe("/(owner)");
+    expect(appRouteForWebPath("/owners")).toBe("/owners");
+    expect(appRouteForWebPath("/owners/post/abc")).toBe("/owners/post/abc");
+    expect(appRouteForWebPath("/owners/pursuit")).toBe("/owners/board?make=pursuit");
+    expect(appRouteForWebPath("/owners/pursuit/dc-326")).toBe("/owners/board?make=pursuit&model=dc-326");
     expect(appRouteForWebPath("/inbox?bid=1")).toBe("/inbox?bid=1");
     expect(appRouteForWebPath("/something-else")).toBe("/(owner)");
   });

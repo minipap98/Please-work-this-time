@@ -1178,6 +1178,107 @@ export interface Database {
         };
         Relationships: [];
       };
+      community_posts: {
+        Row: {
+          id: string;
+          author_id: string;
+          boat_id: string | null;
+          make: string;
+          model: string | null;
+          make_key: string;
+          model_key: string | null;
+          title: string;
+          body: string;
+          photo_url: string | null;
+          pinned: boolean;
+          hidden_at: string | null;
+          hidden_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          author_id: string;
+          boat_id?: string | null;
+          make: string;
+          model?: string | null;
+          make_key?: string;
+          model_key?: string | null;
+          title: string;
+          body: string;
+          photo_url?: string | null;
+          pinned?: boolean;
+          hidden_at?: string | null;
+          hidden_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          boat_id?: string | null;
+          title?: string;
+          body?: string;
+          photo_url?: string | null;
+          pinned?: boolean;
+          hidden_at?: string | null;
+          hidden_reason?: string | null;
+        };
+        Relationships: [];
+      };
+      community_replies: {
+        Row: {
+          id: string;
+          post_id: string;
+          author_id: string;
+          body: string;
+          hidden_at: string | null;
+          hidden_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          post_id: string;
+          author_id: string;
+          body: string;
+          hidden_at?: string | null;
+          hidden_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          body?: string;
+          hidden_at?: string | null;
+          hidden_reason?: string | null;
+        };
+        Relationships: [];
+      };
+      community_reports: {
+        Row: {
+          id: string;
+          post_id: string | null;
+          reply_id: string | null;
+          reporter_id: string;
+          reason: string;
+          created_at: string;
+          resolved_at: string | null;
+          resolved_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          post_id?: string | null;
+          reply_id?: string | null;
+          reporter_id: string;
+          reason: string;
+          created_at?: string;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+        };
+        Update: {
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+        };
+        Relationships: [];
+      };
       boat_history_shares: {
         Row: {
           id: string;
@@ -1231,7 +1332,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update" | "boat_transfer";
+          type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update" | "boat_transfer" | "community_reply";
           title: string;
           body: string | null;
           data: Json | null;
@@ -1241,7 +1342,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update" | "boat_transfer";
+          type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update" | "boat_transfer" | "community_reply";
           title: string;
           body?: string | null;
           data?: Json | null;
@@ -1326,6 +1427,26 @@ export interface Database {
         Args: { transfer_token: string };
         Returns: Json;
       };
+      community_feed: {
+        Args: { p_make: string; p_model?: string | null; p_limit?: number };
+        Returns: Json;
+      };
+      community_thread: {
+        Args: { p_post: string };
+        Returns: Json;
+      };
+      community_my_groups: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      community_active_groups: {
+        Args: { p_limit?: number };
+        Returns: Json;
+      };
+      community_can_post: {
+        Args: { p_make: string; p_model: string | null };
+        Returns: boolean;
+      };
       accept_boat_transfer: {
         Args: { transfer_token: string };
         Returns: Json;
@@ -1341,7 +1462,7 @@ export interface Database {
       engine_type: "Outboard" | "Inboard" | "I/O (Sterndrive)";
       fee_tier_name: "Bronze" | "Silver" | "Gold";
       message_status: "sent" | "delivered" | "read";
-      notification_type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update" | "boat_transfer";
+      notification_type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update" | "boat_transfer" | "community_reply";
       payment_status: "pending" | "processing" | "completed" | "failed" | "refunded";
       document_type: "insurance" | "registration" | "warranty" | "survey" | "title" | "other";
     };

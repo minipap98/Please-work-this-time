@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Anchor, BarChart3, BookOpen, Briefcase, ChevronDown, ClipboardList, Compass, DollarSign, Home, LogOut,
-  MessageSquare, Settings, Store, Wrench, Zap, type LucideIcon,
+  MessageSquare, Settings, Store, Users, Wrench, Zap, type LucideIcon,
 } from "lucide-react";
 import { useRole } from "@/context/RoleContext";
 import { useAuth } from "@/context/AuthContext";
@@ -31,6 +31,7 @@ const OWNER_NAV: NavItem[] = [
   { to: "/boat-log", label: "Boat Log", icon: BookOpen },
   { to: "/maintenance", label: "Maintenance", icon: Wrench },
   { to: "/vendors", label: "Find a Shop", icon: Compass, match: ["/vendor/"] },
+  { to: "/owners", label: "Owners", icon: Users, match: ["/owners/"] },
   { to: "/inbox", label: "Inbox", icon: MessageSquare },
   { to: "/settings", label: "Settings", icon: Settings },
 ];

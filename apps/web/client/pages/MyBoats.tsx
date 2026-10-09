@@ -12,6 +12,7 @@ import EngineModelField from "@/components/EngineModelField";
 import BoatDocuments from "@/components/BoatDocuments";
 import BoatEquipment from "@/components/BoatEquipment";
 import ModelInsights from "@/components/boats/ModelInsights";
+import OwnersPanel from "@/components/boats/OwnersPanel";
 import LocationPicker from "@/components/LocationPicker";
 import type { PickedLocation } from "@shared/geo";
 import { DEMO_BOAT as DEFAULT_DEMO_BOAT } from "@/data/demoBoat";
@@ -507,6 +508,13 @@ function FleetView({
                       Get the service schedule for these engines →
                     </button>
                   )}
+                </div>
+              )}
+
+              {/* Owners of the same model */}
+              {boat.make && boat.model && (
+                <div className="border-t border-border px-5 py-3">
+                  <OwnersPanel boat={{ make: boat.make, model: boat.model }} />
                 </div>
               )}
 

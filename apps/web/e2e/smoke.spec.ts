@@ -62,6 +62,11 @@ test.describe("public site", () => {
     await expect(page.getByText("Bosun isn’t configured")).toBeVisible();
   });
 
+  test("the owners' community needs a login", async ({ page }) => {
+    await page.goto("/owners");
+    await expect(page.getByText("Bosun isn’t configured")).toBeVisible();
+  });
+
   test("a boat-transfer link needs a login too", async ({ page }) => {
     await page.goto("/transfer/abc");
     await expect(page.getByText("Bosun isn’t configured")).toBeVisible();
@@ -79,6 +84,19 @@ test.describe("demo mode (owner)", () => {
     await expect(page).toHaveURL(/\/app$/);
     await expect(page.getByRole("heading", { name: "Your jobs" })).toBeVisible();
     await expect(page.getByRole("link", { name: "My Boats" }).first()).toBeVisible();
+  });
+
+  test("owners' community shows the demo boat's groups and a thread", async ({ page }) => {
+    await enterDemo(page, "owner");
+    await page.goto("/owners");
+    await expect(page.getByRole("heading", { name: "Owners like you" })).toBeVisible();
+    await page.getByRole("link", { name: /Sea Ray SDX 250 OB owners/ }).click();
+    await expect(page).toHaveURL(/\/owners\/sea-ray\/sdx-250-ob$/);
+    await expect(page.getByRole("heading", { name: "Sea Ray SDX 250 OB owners" })).toBeVisible();
+    await page.getByRole("link", { name: /Power steering pump whine/ }).click();
+    await expect(page.getByRole("heading", { name: /Power steering pump whine/ })).toBeVisible();
+    await expect(page.getByText("Owns a 2020 Sea Ray SDX 250 OB").first()).toBeVisible();
+    await expect(page.getByText("3 replies")).toBeVisible();
   });
 
   test("opening a job shows its bids", async ({ page }) => {

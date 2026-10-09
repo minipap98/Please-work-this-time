@@ -12,7 +12,7 @@ interface AdminCtx {
   admin: User;
 }
 
-async function requireAdmin(req: Request, res: Response): Promise<AdminCtx | null> {
+export async function requireAdmin(req: Request, res: Response): Promise<AdminCtx | null> {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const anon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
   const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -40,11 +40,11 @@ async function requireAdmin(req: Request, res: Response): Promise<AdminCtx | nul
   return { db, admin: data.user };
 }
 
-async function audit(ctx: AdminCtx, action: string, targetId: string | null, targetLabel: string, detail: Record<string, unknown> = {}) {
+export async function audit(ctx: AdminCtx, action: string, targetId: string | null, targetLabel: string, detail: Record<string, unknown> = {}) {
   await ctx.db.from("admin_audit").insert({ admin_id: ctx.admin.id, action, target_id: targetId, target_label: targetLabel, detail });
 }
 
-function fail(res: Response, e: unknown) {
+export function fail(res: Response, e: unknown) {
   const msg = e instanceof Error ? e.message : String(e);
   res.status(500).json({ error: msg });
 }

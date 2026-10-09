@@ -22,6 +22,7 @@ import {
   handleAdminProspectUpdate,
   handleAdminProspects,
 } from "./routes/admin.js";
+import { handleAdminCommunity, handleAdminCommunityAction } from "./routes/admin-community.js";
 
 export function createServer() {
   const app = express();
@@ -69,6 +70,8 @@ export function createServer() {
   app.post("/api/admin/prospects/:id/draft", handleAdminProspectDraft);
   app.get("/api/admin/audit", handleAdminAudit);
   app.get("/api/admin/ai-usage", handleAdminAiUsage);
+  app.get("/api/admin/community", handleAdminCommunity);
+  app.post("/api/admin/community/:kind/:id/action", handleAdminCommunityAction);
 
   // v1: endpoints added for the mobile app. Existing /api/* routes keep their contracts.
   app.post("/api/v1/push/dispatch", handlePushDispatch);

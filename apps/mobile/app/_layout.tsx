@@ -73,6 +73,10 @@ export default function RootLayout() {
             <Stack.Screen name="boat/edit" options={{ title: "Edit boat" }} />
             <Stack.Screen name="boat/[id]" options={{ title: "Boat" }} />
             <Stack.Screen name="boat-log" options={{ title: "Boat Log" }} />
+            <Stack.Screen name="owners/index" options={{ title: "Owners" }} />
+            <Stack.Screen name="owners/board" options={{ title: "Owners" }} />
+            <Stack.Screen name="owners/post/[id]" options={{ title: "Thread" }} />
+            <Stack.Screen name="owners/new" options={{ title: "New thread", presentation: "modal" }} />
             <Stack.Screen name="log/new" options={{ title: "Log work", presentation: "modal" }} />
             <Stack.Screen name="log/[id]" options={{ title: "Service" }} />
             <Stack.Screen name="log/import" options={{ title: "Import invoice", presentation: "modal" }} />

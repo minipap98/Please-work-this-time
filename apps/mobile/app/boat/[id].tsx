@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { boatLabel, boatTitle, engineDisplay } from "@bosun/shared/boats/boats";
 import { isTransferLive, maskEmail } from "@bosun/shared/boats/transfer";
 import { patternScopeLabel, type InsightBoat } from "@bosun/shared/boats/insights";
+import { communityKey, isGroupable } from "@bosun/shared/community/community";
 import { summarizeLog } from "@bosun/shared/boatLog";
 import { dueSummary } from "@bosun/shared/maintenance/status";
 import { useBoatLog } from "@/lib/boatLog";
@@ -81,6 +82,9 @@ export default function BoatScreen() {
 
       <LinkRow icon="book-outline" title="Boat Log" sub={summary.entries ? `${summary.entries} service${summary.entries === 1 ? "" : "s"} on record · ${summary.verified} recorded by shops` : "Nothing logged yet"} onPress={() => router.push({ pathname: "/boat-log", params: { boat: boat.id } })} />
       <LinkRow icon="build-outline" title="Maintenance" sub={dueSummary(counts)} onPress={() => { if (!isActive) setActiveId(boat.id); router.push("/maintenance"); }} badge={counts.overdue + counts.dueSoon > 0 ? <Badge tone="amber">{counts.overdue + counts.dueSoon}</Badge> : undefined} />
+      {isGroupable(boat.make, boat.model) && (
+        <LinkRow icon="people-outline" title={`${boat.make} ${boat.model} owners`} sub="Threads from people who run the same boat" onPress={() => router.push({ pathname: "/owners/board", params: { make: communityKey(boat.make), model: communityKey(boat.model) } })} />
+      )}
       <LinkRow icon="construct-outline" title="Post a job for this boat" sub="Shops nearby send line-item bids" onPress={() => router.push({ pathname: "/post", params: { boat: boat.id } })} />
       <LinkRow
         icon="swap-horizontal-outline"

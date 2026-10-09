@@ -19,6 +19,7 @@ const EXACT: Record<string, string> = {
   "/crew-shop": "/shop/orders",
   "/settings": "/settings",
   "/notifications": "/notifications",
+  "/owners": "/owners",
 };
 
 /** The Shop OS tabs on the web (`/vendor-shop?tab=…`) are separate screens here. */
@@ -37,6 +38,9 @@ const DYNAMIC: [RegExp, (m: RegExpExecArray) => string][] = [
   [/^\/vendor\/([^/]+)$/, (m) => `/vendor/${m[1]}`],
   [/^\/history\/([^/]+)$/, (m) => `/history/${m[1]}`],
   [/^\/transfer\/([^/]+)$/, (m) => `/transfer/${m[1]}`],
+  [/^\/owners\/post\/([^/]+)$/, (m) => `/owners/post/${m[1]}`],
+  [/^\/owners\/([^/]+)\/([^/]+)$/, (m) => `/owners/board?make=${m[1]}&model=${m[2]}`],
+  [/^\/owners\/([^/]+)$/, (m) => `/owners/board?make=${m[1]}`],
 ];
 
 function shopRoute(query: string | undefined): string {

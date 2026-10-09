@@ -69,6 +69,12 @@ export default function OwnerHome() {
             sub={summary.entries ? `${summary.entries} service${summary.entries === 1 ? "" : "s"} on record · ${summary.verified} recorded by shops` : "Every job on your boat, in one place"}
             onPress={() => router.push("/boat-log")}
           />
+          <LinkRow
+            icon="people-outline"
+            title="Owners like you"
+            sub={`Threads from other ${active.make} ${active.model} owners`}
+            onPress={() => router.push("/owners")}
+          />
         </>
       )}
       {receipts.length > 0 && (

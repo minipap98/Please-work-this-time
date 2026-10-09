@@ -7,6 +7,10 @@ describe("notificationRoute", () => {
     expect(notificationRoute({ project_id: "p1", bid_id: "b" }, "vendor")).toBe("/project/p1");
   });
 
+  it("opens the thread when a reply came in", () => {
+    expect(notificationRoute({ post_id: "x1", make: "Pursuit" } as never, "owner")).toBe("/owners/post/x1");
+  });
+
   it("falls back by role", () => {
     expect(notificationRoute({ bid_id: "b" }, "vendor")).toBe("/vendor-my-bids");
     expect(notificationRoute(null, "owner")).toBe("/inbox");

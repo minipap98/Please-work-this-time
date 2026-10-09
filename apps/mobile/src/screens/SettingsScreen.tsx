@@ -8,7 +8,7 @@ import { receiptsAddress } from "@bosun/shared/boatLog/receipts";
 import { boatTitle } from "@bosun/shared/boats/boats";
 import { useAuth } from "@/lib/auth";
 import { useMyBoats, useSetBoatPhoto, useUpdateBoat } from "@/lib/boats";
-import { INBOUND_EMAIL_DOMAIN, SITE_URL } from "@/lib/env";
+import { SITE_URL } from "@/lib/env";
 import { lookupZip } from "@/lib/location";
 import { pickFromLibrary, preparePhoto, takePhoto } from "@/lib/photos";
 import { disablePush, enablePush } from "@/lib/push";
@@ -88,7 +88,7 @@ export default function SettingsScreen() {
     }
   }
 
-  const receipts = receiptsAddress(INBOUND_EMAIL_DOMAIN);
+  const receipts = receiptsAddress();
 
   return (
     <Screen>

@@ -43,6 +43,7 @@ export default function RootLayout() {
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="login" options={{ title: "Sign in", headerShown: false }} />
             <Stack.Screen name="signup" options={{ title: "Create account", headerShown: false }} />
+            <Stack.Screen name="forgot-password" options={{ title: "Reset password", headerShown: false }} />
             <Stack.Screen name="onboarding" options={{ title: "Set up", headerShown: false }} />
             {/* The tab groups draw their own headers; the title here is only what the back button on the next screen says. */}
             <Stack.Screen name="(owner)" options={{ title: "Home", headerShown: false }} />

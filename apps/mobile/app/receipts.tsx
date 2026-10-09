@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { receiptsAddress } from "@bosun/shared/boatLog/receipts";
 import { useAuth } from "@/lib/auth";
 import { useReceiptInbox, useResolveReceipt } from "@/lib/boatLog";
-import { INBOUND_EMAIL_DOMAIN } from "@/lib/env";
+
 import { colors, space } from "@/lib/theme";
 import { Badge, Button, Card, Empty, Loading, Muted, Row, Screen, Title } from "@/ui";
 import { money } from "@/ui/pickers";
@@ -14,7 +14,7 @@ export default function Receipts() {
   const { user } = useAuth();
   const { data, isLoading } = useReceiptInbox();
   const resolve = useResolveReceipt();
-  const address = receiptsAddress(INBOUND_EMAIL_DOMAIN);
+  const address = receiptsAddress();
   if (isLoading) return <Loading />;
   const rows = data ?? [];
   return (

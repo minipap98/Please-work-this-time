@@ -7,5 +7,5 @@ export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "https://getbosun.app
 export const SITE_URL = API_URL;
 
 export const supabaseMissing = !SUPABASE_URL || !SUPABASE_ANON_KEY;
-/** Domain owners forward receipts to (receipts@…); the parts inbox uses the same one. */
+/** Domain of the shops' parts inbox (parts+<token>@…). Receipts go to RECEIPTS_ADDRESS in shared. */
 export const INBOUND_EMAIL_DOMAIN = process.env.EXPO_PUBLIC_INBOUND_EMAIL_DOMAIN ?? "inbox.getbosun.app";

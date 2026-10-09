@@ -52,7 +52,13 @@ export function pickReceiptBoat<T extends { id: string; name: string | null; lab
   return boats.find((b) => b.id === activeId) ?? boats[0] ?? null;
 }
 
-/** The address owners forward receipts to, or null when inbound mail isn't set up. */
-export function receiptsAddress(inboundDomain: string | null | undefined): string | null {
-  return inboundDomain ? `receipts@${inboundDomain}` : null;
+/**
+ * The address owners forward receipts to. It lives on the inbox subdomain because the root domain
+ * is a real mailbox (iCloud); anything mailed to the subdomain that isn't a shop's
+ * parts+<token> address is filed as a receipt, so the local part is free to be memorable.
+ */
+export const RECEIPTS_ADDRESS = "upload@inbox.getbosun.app";
+
+export function receiptsAddress(): string {
+  return RECEIPTS_ADDRESS;
 }

@@ -6,9 +6,9 @@ import { useAddLogEntry, useLogBoats, useReceiptInbox, useResolveReceipt, type I
 import { useMyBoats } from "@/hooks/use-my-boat";
 import { useDemoMode } from "@/lib/demoMode";
 import { cn } from "@/lib/utils";
+import { RECEIPTS_ADDRESS } from "@shared/boatLog/receipts";
 
-const INBOUND_DOMAIN = import.meta.env.VITE_INBOUND_EMAIL_DOMAIN as string | undefined;
-export const RECEIPTS_ADDRESS = INBOUND_DOMAIN ? `receipts@${INBOUND_DOMAIN}` : null;
+export { RECEIPTS_ADDRESS };
 
 const when = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 

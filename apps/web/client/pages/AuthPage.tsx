@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { supabaseMissing } from "@/lib/supabase";
 import { BosunLogo } from "@/components/marketing/BosunLogo";
-import { safeNextPath, signupProblem } from "@shared/auth";
+import { RESET_SENT_MESSAGE, isUnconfirmedEmailError, safeNextPath, signupProblem } from "@shared/auth";
 
 const PROMISES = [
   "Every service on your boat in one log, verified by the shop that did it",
@@ -13,14 +13,14 @@ const PROMISES = [
   "Maintenance reminders built from your engine's own schedule",
 ];
 
-type Mode = "signin" | "signup";
+type Mode = "signin" | "signup" | "forgot";
 
 export default function AuthPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resetPassword, resendConfirmation } = useAuth();
 
-  const initialMode = searchParams.get("mode") === "signup" ? "signup" : "signin";
+  const initialMode = searchParams.get("mode") === "signup" ? "signup" : searchParams.get("mode") === "forgot" ? "forgot" : "signin";
   const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,6 +30,7 @@ export default function AuthPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resent, setResent] = useState(false);
 
   function resetForm() {
     setEmail("");
@@ -39,6 +40,7 @@ export default function AuthPage() {
     setError("");
     setSuccess("");
     setShowPassword(false);
+    setResent(false);
   }
 
   function switchMode(next: Mode) {
@@ -53,7 +55,12 @@ export default function AuthPage() {
     setLoading(true);
 
     try {
-      if (mode === "signin") {
+      if (mode === "forgot") {
+        const { error: err } = await resetPassword(email);
+        // Same message either way, so the form can't be used to find out who has an account.
+        if (err) setError(err);
+        else setSuccess(RESET_SENT_MESSAGE);
+      } else if (mode === "signin") {
         const { error: err } = await signIn(email, password);
         if (err) {
           setError(err);
@@ -80,6 +87,19 @@ export default function AuthPage() {
 
     setLoading(false);
   }
+
+  // Supabase refuses an unconfirmed address; offer the email again instead of a dead end.
+  async function resend() {
+    const { error: err } = await resendConfirmation(email);
+    if (err) setError(err);
+    else {
+      setError("");
+      setResent(true);
+      setSuccess("Confirmation email sent. Open the link in it, then sign in.");
+    }
+  }
+
+  const heading = mode === "forgot" ? "Reset your password" : null;
 
   return (
     <div className="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
@@ -126,8 +146,14 @@ export default function AuthPage() {
       <div className="w-full max-w-sm bg-white rounded-xl border border-border shadow-card">
 
         {/* Mode toggle */}
+        {heading ? (
+          <div className="px-6 pt-5">
+            <h1 className="text-lg font-bold text-foreground">{heading}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Enter the email on your account and we'll send a link to set a new one.</p>
+          </div>
+        ) : (
         <div className="flex border-b border-border">
-          {(["signin", "signup"] as Mode[]).map((m) => (
+          {(["signin", "signup"] as const).map((m) => (
             <button
               key={m}
               onClick={() => switchMode(m)}
@@ -142,6 +168,7 @@ export default function AuthPage() {
             </button>
           ))}
         </div>
+        )}
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {searchParams.get("next") === "/tech" && (
@@ -185,6 +212,7 @@ export default function AuthPage() {
           </div>
 
           {/* Password */}
+          {mode !== "forgot" && (
           <div>
             <label className="block text-xs font-medium text-foreground mb-1.5">
               Password
@@ -216,7 +244,15 @@ export default function AuthPage() {
                 )}
               </button>
             </div>
+            {mode === "signin" && (
+              <div className="mt-1.5 text-right">
+                <button type="button" onClick={() => switchMode("forgot")} className="text-xs font-semibold text-sky-700 hover:underline">
+                  Forgot password?
+                </button>
+              </div>
+            )}
           </div>
+          )}
 
           {/* Role selector — signup only */}
           {mode === "signup" && (
@@ -259,6 +295,11 @@ export default function AuthPage() {
               {error}
             </p>
           )}
+          {isUnconfirmedEmailError(error) && !resent && (
+            <button type="button" onClick={resend} className="w-full py-2 rounded-lg border border-border text-sm font-semibold hover:bg-muted">
+              Resend confirmation email
+            </button>
+          )}
 
           {/* Success */}
           {success && (
@@ -273,7 +314,7 @@ export default function AuthPage() {
             disabled={loading}
             className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {mode === "signin" ? "Sign In" : "Create Account"}
+            {mode === "signin" ? "Sign In" : mode === "signup" ? "Create Account" : "Send reset link"}
           </button>
 
           {mode === "signin" && (
@@ -287,7 +328,13 @@ export default function AuthPage() {
 
       {/* Mode switch link */}
       <p className="mt-5 text-sm text-muted-foreground">
-        {mode === "signin" ? (
+        {mode === "forgot" ? (
+          <>Remembered it?{" "}
+            <button onClick={() => switchMode("signin")} className="font-semibold text-sky-700 hover:underline">
+              Back to sign in
+            </button>
+          </>
+        ) : mode === "signin" ? (
           <>Don't have an account?{" "}
             <button onClick={() => switchMode("signup")} className="font-semibold text-sky-700 hover:underline">
               Sign up

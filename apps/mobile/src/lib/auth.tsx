@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Session, User } from "@supabase/supabase-js";
 import type { Tables } from "@bosun/shared/database.types";
 import type { AppRole } from "@bosun/shared/api";
-import { signUpOptions } from "@bosun/shared/auth";
+import { resetPasswordRedirect, signUpOptions } from "@bosun/shared/auth";
 import { LOCATION_KEYS, isMissingColumn, withoutKeys } from "@bosun/shared/db/optionalColumns";
 import { SITE_URL } from "./env";
 import { supabase, supabaseMissing } from "./supabase";
@@ -17,6 +17,9 @@ interface AuthValue {
   signIn: (email: string, password: string) => Promise<string | null>;
   signUp: (email: string, password: string, name: string, role: AppRole) => Promise<string | null>;
   signOut: () => Promise<void>;
+  /** Emails a reset link; it opens getbosun.app/reset-password, where the person picks a new password. */
+  resetPassword: (email: string) => Promise<string | null>;
+  resendConfirmation: (email: string) => Promise<string | null>;
   updateProfile: (patch: Partial<Profile>) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -81,6 +84,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut: async () => {
         if (!supabaseMissing) await supabase.auth.signOut();
         setProfile(null);
+      },
+      resetPassword: async (email) => {
+        if (supabaseMissing) return "Bosun isn't configured on this build.";
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: resetPasswordRedirect(SITE_URL) });
+        return error?.message ?? null;
+      },
+      resendConfirmation: async (email) => {
+        if (supabaseMissing) return "Bosun isn't configured on this build.";
+        const { error } = await supabase.auth.resend({ type: "signup", email: email.trim(), options: { emailRedirectTo: `${SITE_URL}/login` } });
+        return error?.message ?? null;
       },
       updateProfile: async (patch) => {
         if (!user) return;

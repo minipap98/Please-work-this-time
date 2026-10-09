@@ -22,7 +22,8 @@ import {
   type MaintenanceCategory,
   type NewLogEntry,
 } from "@/hooks/use-boat-log";
-import { isPreviousOwnerEntry, isVerified, logToCsv, spendByOwnership, summarizeLog, type LogEntry } from "@shared/boatLog";
+import { isHoursReading, isPreviousOwnerEntry, isVerified, logToCsv, spendByOwnership, summarizeLog, type LogEntry } from "@shared/boatLog";
+import { hoursReadingEntry, hoursReadingProblem } from "@shared/boatLog/records";
 import { lineAmount } from "@shared/shop";
 import { downloadFile, inputCls, labelCls, money } from "@/components/shop/shopUi";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,7 @@ export default function BoatLog() {
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
+  const [updatingHours, setUpdatingHours] = useState(false);
   const [importing, setImporting] = useState(false);
   const [sharing, setSharingState] = useState(params.get("share") === "1");
   const setSharing = (open: boolean) => {
@@ -200,7 +202,15 @@ export default function BoatLog() {
             <StatGrid className="mt-4">
               <StatTile label="Entries" value={summary.entries} sub={`${summary.verified} shop-verified`} />
               <StatTile label="Last service" value={summary.lastService ? longDate(summary.lastService) : "—"} />
-              <StatTile label="Engine hours" value={summary.latestEngineHours != null ? summary.latestEngineHours : "—"} sub="last recorded" />
+              <StatTile
+                label="Engine hours"
+                value={summary.latestEngineHours != null ? summary.latestEngineHours : "—"}
+                sub={
+                  <button type="button" onClick={() => setUpdatingHours(true)} className="text-sky-700 hover:underline font-semibold">
+                    Update hours
+                  </button>
+                }
+              />
               {changedHands ? (
                 <>
                   <StatTile label="Your spend" value={money(spend.mine.total)} sub={`since ${longDate(spend.since)}`} />
@@ -285,7 +295,7 @@ export default function BoatLog() {
                                 )}
                                 {e.category && <span className="text-[10px] text-muted-foreground">{e.category}</span>}
                               </div>
-                              <p className="text-sm font-semibold mt-1">{e.title}</p>
+                              <p className="text-sm font-semibold mt-1">{isHoursReading(e) ? `Engine hours: ${e.engineHours ?? "—"}` : e.title}</p>
                               <p className="text-xs text-muted-foreground mt-0.5">
                                 {[
                                   e.engineHours != null && `${e.engineHours} engine hrs`,
@@ -352,6 +362,22 @@ export default function BoatLog() {
       {boat && <ShareDialog open={sharing} onOpenChange={setSharing} boat={boat} entryCount={entries.length} />}
 
       {boat && (
+        <>
+          <HoursDialog
+            open={updatingHours}
+            onOpenChange={setUpdatingHours}
+            lastHours={summary.latestEngineHours}
+            saving={add.isPending}
+            onSave={(hours, date) =>
+              add.mutate(hoursReadingEntry(boat.id, hours, date), {
+                onSuccess: () => {
+                  setUpdatingHours(false);
+                  toast({ title: "Hours updated", description: `${hours} hours as of ${longDate(date)}` });
+                },
+                onError: (err) => toast({ title: "Couldn't save", description: err instanceof Error ? err.message : String(err), variant: "destructive" }),
+              })
+            }
+          />
         <AddEntryDialog
           open={adding}
           onOpenChange={setAdding}
@@ -368,6 +394,7 @@ export default function BoatLog() {
             })
           }
         />
+        </>
       )}
 
       {boat && (
@@ -400,6 +427,63 @@ export default function BoatLog() {
   );
 }
 
+
+/** Update the meter without logging work: one number and a date, into the log as a reading. */
+function HoursDialog({
+  open, onOpenChange, lastHours, saving, onSave,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  lastHours: number | null;
+  saving: boolean;
+  onSave: (hours: number, date: string) => void;
+}) {
+  const [hours, setHours] = useState("");
+  const [date, setDate] = useState(() => new Date().toLocaleDateString("en-CA"));
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (open) {
+      setHours("");
+      setDate(new Date().toLocaleDateString("en-CA"));
+      setError(null);
+    }
+  }, [open]);
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const n = parseFloat(hours.replace(/,/g, ""));
+    const problem = hoursReadingProblem(Number.isFinite(n) ? n : null, lastHours) ?? (date ? null : "Pick a date.");
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    setError(null);
+    onSave(n, date);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle>Engine hours</DialogTitle></DialogHeader>
+        <form onSubmit={submit} className="space-y-3">
+          <p className="text-sm text-muted-foreground">{lastHours != null ? `Last recorded: ${lastHours} hours.` : "Nothing recorded yet."} Maintenance uses the newest reading to tell you what's due.</p>
+          <div>
+            <label className={labelCls}>Hours on the meter</label>
+            <input className={inputCls} inputMode="decimal" autoFocus value={hours} onChange={(e) => setHours(e.target.value)} placeholder={lastHours != null ? String(lastHours) : "412"} />
+          </div>
+          <div>
+            <label className={labelCls}>As of</label>
+            <input className={inputCls} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</p>}
+          <button type="submit" disabled={saving || !hours.trim()} className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50">
+            {saving ? "Saving…" : "Save hours"}
+          </button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function AddEntryDialog({
   open, onOpenChange, boatId, lastHours, saving, onSave,

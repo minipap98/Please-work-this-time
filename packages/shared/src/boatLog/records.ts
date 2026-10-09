@@ -4,6 +4,7 @@
 import type { Db } from "../db/client";
 import type { Database, Tables } from "../database.types";
 import type { LogEntry, LogLine, LogSource } from "../boatLog";
+import { HOURS_READING_TITLE } from "../boatLog";
 
 export type MaintenanceCategory = Database["public"]["Enums"]["maintenance_category"];
 
@@ -64,6 +65,18 @@ export interface NewLogEntry {
 type LineItemsJson = Database["public"]["Tables"]["service_records"]["Insert"]["line_items"];
 
 const INVOICE_MIGRATION = "Invoice import needs a quick database update (20261011_invoice_import.sql). Ask your admin to run it.";
+
+/** The entry an "update hours" tap writes: just the meter and the date. */
+export function hoursReadingEntry(boatId: string, hours: number, date: string): NewLogEntry {
+  return { boatId, title: HOURS_READING_TITLE, category: null, date, engineHours: hours, cost: null, vendorName: null, notes: null };
+}
+
+/** What's wrong with an hours reading, or null. A reading below the last one is almost always a typo. */
+export function hoursReadingProblem(hours: number | null, lastHours: number | null): string | null {
+  if (hours == null || !Number.isFinite(hours) || hours < 0) return "Enter the hours shown on the meter.";
+  if (lastHours != null && hours < lastHours) return `The log already has ${lastHours} hours. Meters only go up; check the number.`;
+  return null;
+}
 
 export async function addLogEntry(client: Db, ownerId: string, entry: NewLogEntry): Promise<void> {
   const { error } = await client.from("service_records").insert({

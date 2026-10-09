@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { historyHighlights, isPreviousOwnerEntry, logToCsv, spendByOwnership, summarizeLog, toHistoryEntry, type LogEntry } from "./boatLog";
+import { HOURS_READING_TITLE, historyHighlights, isHoursReading, isPreviousOwnerEntry, logToCsv, spendByOwnership, summarizeLog, toHistoryEntry, type LogEntry } from "./boatLog";
 
 const entry = (p: Partial<LogEntry>): LogEntry => ({
   id: "e",
@@ -93,5 +93,27 @@ describe("spendByOwnership", () => {
     const s = spendByOwnership(log, "2020-01-01");
     expect(s.previous.entries).toBe(0);
     expect(s.mine.total).toBe(s.allTime.total);
+  });
+});
+
+describe("hours readings", () => {
+  const entry = (id: string, date: string, cost: number | null, extra: Partial<LogEntry> = {}): LogEntry => ({
+    id, boatId: "b", title: id, category: null, date, engineHours: null, cost, laborHours: null, vendorName: null, notes: null, source: "owner", lines: [], ...extra,
+  });
+  const reading = entry("r1", "2026-09-30", null, { title: HOURS_READING_TITLE, engineHours: 412 });
+  const log = [entry("job", "2026-06-01", 300, { engineHours: 380 }), reading];
+
+  it("count toward the hours but not the services or the spend", () => {
+    expect(isHoursReading(reading)).toBe(true);
+    const s = summarizeLog(log);
+    expect(s.entries).toBe(1);
+    expect(s.latestEngineHours).toBe(412);
+    expect(s.lastService).toBe("2026-06-01");
+    expect(s.totalSpent).toBe(300);
+    expect(spendByOwnership(log, "2020-01-01").allTime.entries).toBe(1);
+  });
+
+  it("a shop entry with the same title is still work", () => {
+    expect(isHoursReading({ title: HOURS_READING_TITLE, source: "vendor" })).toBe(false);
   });
 });

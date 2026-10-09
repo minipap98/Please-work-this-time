@@ -67,7 +67,7 @@ export default function TransferBoatDialog({
               {live.includeCosts ? " · costs included" : ""}
             </div>
             <p className="text-muted-foreground">Send them this link. They sign in with that email, or create an account with it, and accept.</p>
-            <code className="block rounded-lg border border-border bg-slate-50 px-3 py-2 text-xs break-all">{link}</code>
+            <code className="block min-w-0 rounded-lg border border-border bg-slate-50 px-3 py-2 text-xs break-all whitespace-normal">{link}</code>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"

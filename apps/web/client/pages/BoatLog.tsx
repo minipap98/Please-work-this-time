@@ -22,7 +22,7 @@ import {
   type MaintenanceCategory,
   type NewLogEntry,
 } from "@/hooks/use-boat-log";
-import { isVerified, logToCsv, summarizeLog, type LogEntry } from "@shared/boatLog";
+import { isPreviousOwnerEntry, isVerified, logToCsv, spendByOwnership, summarizeLog, type LogEntry } from "@shared/boatLog";
 import { lineAmount } from "@shared/shop";
 import { downloadFile, inputCls, labelCls, money } from "@/components/shop/shopUi";
 import { cn } from "@/lib/utils";
@@ -62,6 +62,10 @@ export default function BoatLog() {
   };
 
   const summary = useMemo(() => summarizeLog(entries), [entries]);
+  // Once a boat has changed hands, "spend" means two things: yours, and everything ever put into it.
+  const ownedSince = boat?.ownedSince ?? "1970-01-01";
+  const spend = useMemo(() => spendByOwnership(entries, ownedSince), [entries, ownedSince]);
+  const changedHands = spend.previous.entries > 0;
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -197,7 +201,18 @@ export default function BoatLog() {
               <StatTile label="Entries" value={summary.entries} sub={`${summary.verified} shop-verified`} />
               <StatTile label="Last service" value={summary.lastService ? longDate(summary.lastService) : "—"} />
               <StatTile label="Engine hours" value={summary.latestEngineHours != null ? summary.latestEngineHours : "—"} sub="last recorded" />
-              <StatTile label="Lifetime spend" value={money(summary.totalSpent)} sub={summary.spentByYear[0] ? `${money(summary.spentByYear[0].total)} in ${summary.spentByYear[0].year}` : undefined} />
+              {changedHands ? (
+                <>
+                  <StatTile label="Your spend" value={money(spend.mine.total)} sub={`since ${longDate(spend.since)}`} />
+                  <StatTile
+                    label="All owners"
+                    value={money(spend.allTime.total)}
+                    sub={`${spend.previous.entries} earlier entr${spend.previous.entries === 1 ? "y" : "ies"}${spend.previous.unpriced ? `, ${spend.previous.unpriced} without a price` : ""}`}
+                  />
+                </>
+              ) : (
+                <StatTile label="Lifetime spend" value={money(summary.totalSpent)} sub={summary.spentByYear[0] ? `${money(summary.spentByYear[0].total)} in ${summary.spentByYear[0].year}` : undefined} />
+              )}
             </StatGrid>
           </Panel>
         )}
@@ -256,10 +271,17 @@ export default function BoatLog() {
                                   <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
                                     ✓ Verified by {e.vendorName ?? "shop"}
                                   </span>
+                                ) : changedHands && isPreviousOwnerEntry(e, ownedSince) ? (
+                                  <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 rounded-full px-2 py-0.5">
+                                    {e.vendorName ? `Logged by a previous owner · ${e.vendorName}` : "Logged by a previous owner"}
+                                  </span>
                                 ) : (
                                   <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 rounded-full px-2 py-0.5">
                                     {e.vendorName ? `Logged by you · ${e.vendorName}` : "Logged by you"}
                                   </span>
+                                )}
+                                {changedHands && isPreviousOwnerEntry(e, ownedSince) && (
+                                  <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">Previous owner</span>
                                 )}
                                 {e.category && <span className="text-[10px] text-muted-foreground">{e.category}</span>}
                               </div>

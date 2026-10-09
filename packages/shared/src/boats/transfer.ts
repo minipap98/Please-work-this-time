@@ -2,6 +2,7 @@
 // link, and the buyer accepts from their own account. The database does the move (accept_boat_transfer).
 
 import type { Db } from "../db/client";
+import { uploadBoatPhoto } from "./boats";
 
 export type TransferStatus = "pending" | "accepted" | "cancelled" | "expired";
 
@@ -118,9 +119,34 @@ export async function previewBoatTransfer(client: Db, token: string): Promise<Tr
   return (data as unknown as TransferPreview | null) ?? null;
 }
 
-/** Accept: the database checks the email, moves the boat and tells the seller. Returns the boat's id. */
-export async function acceptBoatTransfer(client: Db, token: string): Promise<string> {
+/**
+ * Accept: the database checks the email, moves the boat and tells the seller. Then the photo is
+ * copied into the buyer's own folder, so it outlives anything the seller later deletes. Returns the boat's id.
+ */
+export async function acceptBoatTransfer(client: Db, token: string, buyerId: string): Promise<string> {
   const { data, error } = await client.rpc("accept_boat_transfer", { transfer_token: token });
   if (error) throw error;
-  return (data as unknown as { boatId: string }).boatId;
+  const boatId = (data as unknown as { boatId: string }).boatId;
+  try {
+    await adoptBoatPhoto(client, buyerId, boatId);
+  } catch {
+    // The seller's copy still shows through its public URL; a failed copy isn't worth failing the handover.
+  }
+  return boatId;
+}
+
+/** Re-upload a boat's photo under `ownerId` when it lives in someone else's folder. The crop (photo_frame) is kept. */
+export async function adoptBoatPhoto(client: Db, ownerId: string, boatId: string): Promise<boolean> {
+  const { data: boat, error } = await client.from("boats").select("photo_url").eq("id", boatId).single();
+  if (error) throw error;
+  const url = boat?.photo_url;
+  if (!url || url.includes(`/boat-photos/${ownerId}/`)) return false;
+  const res = await fetch(url);
+  if (!res.ok) return false;
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  const contentType = res.headers.get("content-type")?.split(";")[0] || "image/jpeg";
+  const copy = await uploadBoatPhoto(client, ownerId, { bytes, contentType });
+  const { error: updateError } = await client.from("boats").update({ photo_url: copy }).eq("id", boatId);
+  if (updateError) throw updateError;
+  return true;
 }

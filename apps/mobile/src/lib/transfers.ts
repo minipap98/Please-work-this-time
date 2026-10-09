@@ -32,6 +32,6 @@ export function useTransferActions() {
   return {
     create: useMutation({ mutationFn: (v: { boatId: string; toEmail: string; includeCosts: boolean }) => createBoatTransfer(supabase, user!.id, v), onSuccess: done }),
     cancel: useMutation({ mutationFn: (id: string) => cancelBoatTransfer(supabase, id), onSuccess: done }),
-    accept: useMutation({ mutationFn: (token: string) => acceptBoatTransfer(supabase, token), onSuccess: done }),
+    accept: useMutation({ mutationFn: (token: string) => acceptBoatTransfer(supabase, token, user!.id), onSuccess: done }),
   };
 }

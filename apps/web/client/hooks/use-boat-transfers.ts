@@ -82,11 +82,12 @@ export function useTransferPreview(token: string | undefined) {
 
 /** Returns the boat's id once it's on my account. */
 export function useAcceptTransfer() {
+  const { user } = useAuth();
   const done = useInvalidateTransfers();
   return useMutation({
     mutationFn: async (token: string): Promise<string> => {
       if (isDemoMode()) throw new Error(DEMO_ERROR);
-      return acceptBoatTransfer(supabase, token);
+      return acceptBoatTransfer(supabase, token, user!.id);
     },
     onSuccess: done,
   });

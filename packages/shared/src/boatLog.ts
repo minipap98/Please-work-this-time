@@ -69,6 +69,49 @@ export function summarizeLog(entries: LogEntry[]): LogSummary {
   };
 }
 
+/** Totals for one stretch of ownership: what was spent, how many entries, and how many carry no price. */
+export interface SpendSlice {
+  total: number;
+  entries: number;
+  /** Entries without a cost (a previous owner kept their prices, or none was logged). */
+  unpriced: number;
+}
+
+export interface OwnershipSpend {
+  allTime: SpendSlice;
+  /** Since the current owner took the boat on. */
+  mine: SpendSlice;
+  /** Before that: previous owners' entries. Empty when the boat never changed hands. */
+  previous: SpendSlice;
+  /** YYYY-MM-DD the current ownership started. */
+  since: string;
+}
+
+/** An entry logged before the current owner had the boat. */
+export function isPreviousOwnerEntry(e: Pick<LogEntry, "date">, ownedSince: string): boolean {
+  return e.date < ownedSince.slice(0, 10);
+}
+
+function slice(entries: LogEntry[]): SpendSlice {
+  return {
+    total: Math.round(entries.reduce((s, e) => s + (Number(e.cost) || 0), 0) * 100) / 100,
+    entries: entries.length,
+    unpriced: entries.filter((e) => e.cost == null).length,
+  };
+}
+
+/**
+ * Spend split at the handover: everything on the boat versus what the current owner has put in.
+ * `ownedSince` is the boat's owned_since (an ISO timestamp or YYYY-MM-DD); entries dated earlier
+ * belong to previous owners.
+ */
+export function spendByOwnership(entries: LogEntry[], ownedSince: string): OwnershipSpend {
+  const since = ownedSince.slice(0, 10);
+  const previous = entries.filter((e) => isPreviousOwnerEntry(e, since));
+  const mine = entries.filter((e) => !isPreviousOwnerEntry(e, since));
+  return { allTime: slice(entries), mine: slice(mine), previous: slice(previous), since };
+}
+
 export function logToCsv(entries: LogEntry[]): string {
   const rows: (string | number)[][] = [
     ["Date", "Service", "Category", "Performed by", "Verified", "Engine hours", "Labor hours", "Cost", "Line items", "Notes"],

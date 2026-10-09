@@ -53,10 +53,11 @@ export function pickReceiptBoat<T extends { id: string; name: string | null; lab
 }
 
 /**
- * The address owners forward receipts to. Anything mailed to the domain that isn't a shop's
+ * The address owners forward receipts to. It lives on the inbox subdomain because the root domain
+ * is a real mailbox (iCloud); anything mailed to the subdomain that isn't a shop's
  * parts+<token> address is filed as a receipt, so the local part is free to be memorable.
  */
-export const RECEIPTS_ADDRESS = "upload@getbosun.app";
+export const RECEIPTS_ADDRESS = "upload@inbox.getbosun.app";
 
 export function receiptsAddress(): string {
   return RECEIPTS_ADDRESS;

@@ -11,6 +11,7 @@ import { useDueTasks } from "@/lib/maintenance";
 import { useOwnerProjects } from "@/lib/queries";
 import { colors, space } from "@/lib/theme";
 import { HeroBanner } from "@/screens/HeroBanner";
+import { IncomingTransfers } from "@/screens/IncomingTransfers";
 import { Badge, Button, Card, Loading, Muted, Row } from "@/ui";
 import { LinkRow, SectionTitle, StatTile } from "@/ui/pickers";
 
@@ -37,6 +38,7 @@ export default function OwnerHome() {
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { refetch(); refetchProjects(); }} />}
     >
       {first ? <Text style={{ fontSize: 22, fontWeight: "700", color: colors.navy, marginBottom: space.md }}>Hi {first}</Text> : null}
+      <IncomingTransfers />
       <HeroBanner
         boat={active}
         boats={boats}

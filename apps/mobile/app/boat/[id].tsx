@@ -3,6 +3,7 @@
 import { Alert, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { boatLabel, boatTitle, engineDisplay } from "@bosun/shared/boats/boats";
+import { isTransferLive, maskEmail } from "@bosun/shared/boats/transfer";
 import { patternScopeLabel, type InsightBoat } from "@bosun/shared/boats/insights";
 import { summarizeLog } from "@bosun/shared/boatLog";
 import { dueSummary } from "@bosun/shared/maintenance/status";
@@ -10,6 +11,7 @@ import { useBoatLog } from "@/lib/boatLog";
 import { useModelInsights, useMyBoats, useSetBoatPhoto } from "@/lib/boats";
 import { useDueTasks } from "@/lib/maintenance";
 import { pickFromLibrary, preparePhoto, takePhoto } from "@/lib/photos";
+import { useOutgoingTransfers } from "@/lib/transfers";
 import { colors, radius, space } from "@/lib/theme";
 import { FramedPhoto } from "@/screens/HeroBanner";
 import { Badge, Button, Card, Loading, Muted, Row, Screen } from "@/ui";
@@ -25,6 +27,8 @@ export default function BoatScreen() {
   const setPhoto = useSetBoatPhoto();
   const insightBoat: InsightBoat | null = boat ? { make: boat.make, model: boat.model, engineMake: boat.engine_make, engineModel: boat.engine_model } : null;
   const insights = useModelInsights(insightBoat);
+  const { data: transfers = [] } = useOutgoingTransfers();
+  const pendingTransfer = transfers.find((t) => t.boatId === id && isTransferLive(t)) ?? null;
 
   if (isLoading) return <Loading />;
   if (!boat) return <Screen><Muted>That boat isn't on your account.</Muted></Screen>;
@@ -78,6 +82,13 @@ export default function BoatScreen() {
       <LinkRow icon="book-outline" title="Boat Log" sub={summary.entries ? `${summary.entries} service${summary.entries === 1 ? "" : "s"} on record · ${summary.verified} recorded by shops` : "Nothing logged yet"} onPress={() => router.push({ pathname: "/boat-log", params: { boat: boat.id } })} />
       <LinkRow icon="build-outline" title="Maintenance" sub={dueSummary(counts)} onPress={() => { if (!isActive) setActiveId(boat.id); router.push("/maintenance"); }} badge={counts.overdue + counts.dueSoon > 0 ? <Badge tone="amber">{counts.overdue + counts.dueSoon}</Badge> : undefined} />
       <LinkRow icon="construct-outline" title="Post a job for this boat" sub="Shops nearby send line-item bids" onPress={() => router.push({ pathname: "/post", params: { boat: boat.id } })} />
+      <LinkRow
+        icon="swap-horizontal-outline"
+        title="Transfer this boat"
+        sub={pendingTransfer ? `Transfer pending · ${maskEmail(pendingTransfer.toEmail)}` : "Hand it to the new owner with its history"}
+        onPress={() => router.push({ pathname: "/boat/transfer", params: { id: boat.id } })}
+        badge={pendingTransfer ? <Badge tone="amber">Pending</Badge> : undefined}
+      />
 
       {insightBoat && boat.make !== "Unknown" && boat.model !== "Unknown" && (
         <>

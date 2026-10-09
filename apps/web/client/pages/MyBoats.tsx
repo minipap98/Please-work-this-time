@@ -15,6 +15,10 @@ import ModelInsights from "@/components/boats/ModelInsights";
 import LocationPicker from "@/components/LocationPicker";
 import type { PickedLocation } from "@shared/geo";
 import { DEMO_BOAT as DEFAULT_DEMO_BOAT } from "@/data/demoBoat";
+import TransferBoatDialog from "@/components/boats/TransferBoatDialog";
+import IncomingTransfers from "@/components/boats/IncomingTransfers";
+import { useOutgoingTransfers } from "@/hooks/use-boat-transfers";
+import { isTransferLive, maskEmail } from "@shared/boats/transfer";
 
 const FLEET_STORAGE_KEY = "my_fleet";
 const BOAT_STORAGE_KEY = "my_boat"; // keep for backwards compat with HeroSection
@@ -290,6 +294,7 @@ function LiveMyBoats() {
         if (!window.confirm("Remove this boat and its documents and service log?")) return;
         remove.mutate(id, { onError: fail });
       }}
+      live
     />
   );
 }
@@ -347,6 +352,7 @@ function FleetView({
   onAdd,
   onSetPrimary,
   onDelete,
+  live = false,
 }: {
   fleet: SavedBoat[];
   loading?: boolean;
@@ -354,9 +360,15 @@ function FleetView({
   onAdd: (b: SavedBoat) => Promise<boolean>;
   onSetPrimary: (id: string) => void;
   onDelete: (id: string) => void;
+  /** Signed-in owners can hand a boat to its buyer; the demo's boats never leave the browser. */
+  live?: boolean;
 }) {
   const navigate = useNavigate();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [transferId, setTransferId] = useState<string | null>(null);
+  const { data: outgoing = [] } = useOutgoingTransfers();
+  const pendingFor = (id: string) => (live ? outgoing.find((t) => t.boatId === id && isTransferLive(t)) : undefined);
+  const transferBoat = transferId ? fleet.find((b) => b.id === transferId) : undefined;
   const [addingNew, setAddingNew] = useState(false);
   const [savedMsg, setSavedMsg] = useState(false);
 
@@ -386,6 +398,8 @@ function FleetView({
           actions={savedMsg && <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-full">Saved</span>}
         />
 
+        {live && <IncomingTransfers className="mb-4" />}
+
         {/* Fleet list */}
         <div className="space-y-4">
           {fleet.map((boat) => (
@@ -406,6 +420,11 @@ function FleetView({
                       {boat.isPrimary && (
                         <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full flex-shrink-0">
                           Primary
+                        </span>
+                      )}
+                      {pendingFor(boat.id) && (
+                        <span className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex-shrink-0">
+                          Transfer pending · {maskEmail(pendingFor(boat.id)!.toEmail)}
                         </span>
                       )}
                     </div>
@@ -445,6 +464,14 @@ function FleetView({
                   >
                     {editingId === boat.id ? "Cancel" : "Edit"}
                   </button>
+                  {live && (
+                    <button
+                      onClick={() => setTransferId(boat.id)}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Transfer
+                    </button>
+                  )}
                   <button
                     onClick={() => onDelete(boat.id)}
                     className="text-xs text-red-500 hover:opacity-70 transition-opacity"
@@ -526,6 +553,13 @@ function FleetView({
             </button>
           )}
         </div>
+        {transferBoat && (
+          <TransferBoatDialog
+            open
+            onOpenChange={(o) => !o && setTransferId(null)}
+            boat={{ id: transferBoat.id, label: transferBoat.name || [transferBoat.year, transferBoat.make, transferBoat.model].filter(Boolean).join(" ") || "this boat" }}
+          />
+        )}
       </PageContainer>
     </div>
   );

@@ -32,6 +32,7 @@ import BoatLog from "./pages/BoatLog";
 import TechToday from "./pages/TechToday";
 import CrewShop from "./pages/CrewShop";
 import ServiceHistory from "./pages/ServiceHistory";
+import TransferAccept from "./pages/TransferAccept";
 import PartsComingSoon from "./pages/PartsComingSoon";
 import BoatersPage from "./pages/marketing/BoatersPage";
 import ShopsPage from "./pages/marketing/ShopsPage";
@@ -187,6 +188,8 @@ const App = () => (
 
                 <Route element={<LoginGuard />}>
                   <Route path="/tech" element={<TechToday />} />
+                  {/* A buyer may be brand new: login first, then back here to accept. */}
+                  <Route path="/transfer/:token" element={<TransferAccept />} />
                   <Route path="/crew-shop" element={<CrewShop />} />
                 </Route>
 

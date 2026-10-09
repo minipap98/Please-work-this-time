@@ -5,6 +5,7 @@ import QuickStats from "@/components/QuickStats";
 import MaintenanceAlert from "@/components/MaintenanceAlert";
 import BoatLogStrip from "@/components/BoatLogStrip";
 import ReceiptInbox from "@/components/boatlog/ReceiptInbox";
+import IncomingTransfers from "@/components/boats/IncomingTransfers";
 import ProjectCard from "@/components/ProjectCard";
 import { cn } from "@/lib/utils";
 import { PageContainer } from "@/components/app/Page";
@@ -127,6 +128,8 @@ export default function Index() {
   return (
     <div className="min-h-full">
       <PageContainer wide className="space-y-4">
+        {/* A boat someone has handed to this account, waiting on a yes */}
+        {!demo && <IncomingTransfers />}
         {/* The boat; posting a job re-fetches so it appears right away */}
         <HeroSection onProjectPosted={() => refetch()} />
 

@@ -16,6 +16,9 @@ import { LinkRow, SectionTitle, StatTile, SwitchRow, formatDate, money } from "@
 
 type Filter = "all" | "verified" | "owner";
 
+/** Two tiles per row (the Row gap is space.sm, so 45% leaves room for it). */
+const halfTile = { flexBasis: "45%" as const, minWidth: 0 };
+
 export default function BoatLogScreen() {
   const { boat: boatParam } = useLocalSearchParams<{ boat?: string }>();
   const router = useRouter();
@@ -72,13 +75,14 @@ export default function BoatLogScreen() {
           ))}
         </Row>
       )}
-      <Row style={{ marginBottom: space.md }}>
-        <StatTile label="Services" value={summary.entries} />
-        <StatTile label="By shops" value={summary.verified} tone="green" />
+      {/* Four tiles don't fit one phone row: wrap into two rows of two so money never squeezes. */}
+      <Row style={{ marginBottom: space.md, flexWrap: changedHands ? "wrap" : "nowrap" }}>
+        <StatTile label="Services" value={summary.entries} style={changedHands && halfTile} />
+        <StatTile label="By shops" value={summary.verified} tone="green" style={changedHands && halfTile} />
         {changedHands ? (
           <>
-            <StatTile label="Your spend" value={short(spend.mine.total)} />
-            <StatTile label="All owners" value={short(spend.allTime.total)} />
+            <StatTile label="Your spend" value={short(spend.mine.total)} style={halfTile} />
+            <StatTile label="All owners" value={short(spend.allTime.total)} style={halfTile} />
           </>
         ) : (
           <StatTile label="Spent" value={short(summary.totalSpent)} />

@@ -68,6 +68,14 @@ describe("shared service history", () => {
     const priced = entries.map((e) => toHistoryEntry(e, true));
     expect(historyHighlights({ entries: priced, showCosts: true }).totalSpent).toBe(1895);
   });
+
+  it("counts an hours reading toward the meter, never as a service or the last service", () => {
+    const reading = entry({ id: "4", date: "2026-10-12", title: HOURS_READING_TITLE, cost: undefined, engineHours: 320 });
+    const shown = [...entries, reading].map((e) => toHistoryEntry(e, false));
+    expect(historyHighlights({ entries: shown, showCosts: false })).toMatchObject({
+      jobs: 3, verified: 2, lastService: "2026-08-14", latestEngineHours: 320,
+    });
+  });
 });
 
 describe("spendByOwnership", () => {

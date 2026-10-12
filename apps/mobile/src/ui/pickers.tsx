@@ -169,8 +169,9 @@ export function StatTile({ label, value, tone, onPress, style }: { label: string
   const fg = tone === "amber" ? colors.amber : tone === "green" ? colors.green : tone === "red" ? colors.red : colors.navy;
   return (
     <Pressable onPress={onPress} disabled={!onPress} style={({ pressed }) => [styles.tile, pressed && { opacity: 0.8 }, style]}>
-      <Text style={{ fontSize: 22, fontWeight: "700", color: fg }}>{value}</Text>
-      <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>{label}</Text>
+      {/* A dollar figure must never break mid-number: shrink it instead of wrapping. */}
+      <Text style={{ fontSize: 22, fontWeight: "700", color: fg }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{value}</Text>
+      <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }} numberOfLines={2}>{label}</Text>
     </Pressable>
   );
 }

@@ -177,18 +177,25 @@ export interface HistoryHighlights {
   totalSpent: number | null; // only when costs are shown
 }
 
+/** A shared entry that is only a meter reading (the owner logged hours, no work). */
+export function isHoursReadingEntry(e: Pick<HistoryEntry, "title" | "verified">): boolean {
+  return !e.verified && e.title === HOURS_READING_TITLE;
+}
+
 export function historyHighlights(h: Pick<SharedHistory, "entries" | "showCosts">): HistoryHighlights {
   const sorted = [...h.entries].sort((a, b) => b.date.localeCompare(a.date));
-  const shops = new Set(sorted.filter((e) => e.shop).map((e) => e.shop!.trim().toLowerCase()));
+  // Readings update the hours; they are not services and never the "last service".
+  const work = sorted.filter((e) => !isHoursReadingEntry(e));
+  const shops = new Set(work.filter((e) => e.shop).map((e) => e.shop!.trim().toLowerCase()));
   return {
-    jobs: sorted.length,
-    verified: sorted.filter((e) => e.verified).length,
+    jobs: work.length,
+    verified: work.filter((e) => e.verified).length,
     shops: shops.size,
-    firstYear: sorted.length ? sorted[sorted.length - 1].date.slice(0, 4) : null,
-    lastService: sorted[0]?.date ?? null,
+    firstYear: work.length ? work[work.length - 1].date.slice(0, 4) : null,
+    lastService: work[0]?.date ?? null,
     latestEngineHours: sorted.find((e) => e.engineHours != null)?.engineHours ?? null,
     totalSpent: h.showCosts
-      ? Math.round(sorted.reduce((s, e) => s + (Number(e.cost) || 0), 0) * 100) / 100
+      ? Math.round(work.reduce((s, e) => s + (Number(e.cost) || 0), 0) * 100) / 100
       : null,
   };
 }

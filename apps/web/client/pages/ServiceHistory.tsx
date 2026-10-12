@@ -74,7 +74,7 @@ export default function ServiceHistory() {
         {highlights && (
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Stat label="Services on record" value={String(highlights.jobs)} sub={highlights.firstYear ? `since ${highlights.firstYear}` : undefined} />
-            <Stat label="Done by a shop" value={String(highlights.verified)} sub="recorded by the shop" />
+            <Stat label="Contracted through Bosun" value={String(highlights.verified)} sub="recorded by the shop" />
             <Stat label="Last service" value={highlights.lastService ? longDate(highlights.lastService) : "—"} />
             <Stat
               label={highlights.totalSpent != null ? "Spent on service" : "Engine hours"}

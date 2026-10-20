@@ -951,6 +951,8 @@ export interface Database {
           estimate_approved_at: string | null;
           estimate_declined_at: string | null;
           estimate_note: string;
+          /** The owner's own boat (boats, not shop_boats) the customer filed this estimate job to. */
+          owner_boat_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -982,6 +984,7 @@ export interface Database {
           estimate_approved_at?: string | null;
           estimate_declined_at?: string | null;
           estimate_note?: string;
+          owner_boat_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1012,6 +1015,7 @@ export interface Database {
           estimate_approved_at?: string | null;
           estimate_declined_at?: string | null;
           estimate_note?: string;
+          owner_boat_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1476,6 +1480,18 @@ export interface Database {
       };
       respond_to_estimate: {
         Args: { p_token: string; p_approve: boolean; p_note?: string };
+        Returns: Json;
+      };
+      claim_estimate: {
+        Args: { p_token: string; p_boat: string };
+        Returns: Json;
+      };
+      claim_my_estimates: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+      pending_estimate_claims: {
+        Args: Record<string, never>;
         Returns: Json;
       };
     };

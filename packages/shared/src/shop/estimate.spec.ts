@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { shopAlerts, type WorkOrder } from "../shop";
 import { blankEstimate, draftFromOrder } from "./drafts";
 import { DEFAULT_SHOP_SETTINGS } from "./settings";
-import { estimateExpiry, estimateStep, estimateText, estimateUrl, publicEstimateState } from "./estimate";
+import { boatFormFromEstimateLabel, estimateClaimStep, estimateExpiry, estimateLoginPath, estimateStep, estimateText, estimateUrl, pendingClaimSummary, pickClaimBoat, publicEstimateState } from "./estimate";
 import { todayBoard } from "./today";
 
 const now = new Date(2026, 9, 20, 10, 0); // Oct 20, 2026
@@ -129,5 +129,56 @@ describe("estimates on the Today screen", () => {
     expect(alerts.find((a) => a.id === "approved-yes")?.action).toEqual({ label: "Schedule", tab: "orders", workOrderId: "yes" });
     expect(alerts.find((a) => a.id === "declined-no")?.text).toContain('"Too much for this year"');
     expect(alerts.find((a) => a.id === "estimates-out")?.text).toBe("2 estimates ($5,040) waiting on customers");
+  });
+});
+
+describe("keeping an estimate job with the owner's boat", () => {
+  const pub = (p: Partial<Parameters<typeof estimateClaimStep>[0]> = {}) => ({ approvedAt: null, status: "estimate", ownerBoatId: null, filed: null, ...p });
+
+  it("asks for approval first, then a login, then a boat", () => {
+    expect(estimateClaimStep(pub(), false)).toBe("approve-first");
+    expect(estimateClaimStep(pub(), true)).toBe("approve-first");
+    expect(estimateClaimStep(pub({ approvedAt: iso(2), status: "scheduled" }), false)).toBe("sign-in");
+    expect(estimateClaimStep(pub({ approvedAt: iso(2), status: "scheduled" }), true)).toBe("pick-boat");
+  });
+
+  it("a job the shop already completed by phone can be kept without an approval stamp", () => {
+    expect(estimateClaimStep(pub({ status: "completed" }), true)).toBe("pick-boat");
+    expect(estimateClaimStep(pub({ status: "invoiced" }), false)).toBe("sign-in");
+  });
+
+  it("once kept, says whether the log row is there yet", () => {
+    expect(estimateClaimStep(pub({ approvedAt: iso(2), status: "scheduled", ownerBoatId: "b1", filed: false }), true)).toBe("kept");
+    expect(estimateClaimStep(pub({ status: "completed", ownerBoatId: "b1", filed: true }), true)).toBe("filed");
+    // public_estimate() hides the boat from anyone but its owner, so a stranger still sees the plain state
+    expect(estimateClaimStep(pub({ approvedAt: iso(2), status: "scheduled" }), false)).toBe("sign-in");
+  });
+
+  it("login and signup both come back to the same estimate", () => {
+    expect(estimateLoginPath("abc123")).toBe("/login?next=%2Festimate%2Fabc123");
+    expect(estimateLoginPath("abc123", "signup")).toBe("/login?mode=signup&next=%2Festimate%2Fabc123");
+  });
+
+  it("prefills a new boat from the shop's label", () => {
+    expect(boatFormFromEstimateLabel("2019 Pursuit S 288 · Reel Time")).toMatchObject({ year: "2019", make: "Pursuit", model: "S 288", name: "Reel Time", engineType: "", homePort: null });
+    expect(boatFormFromEstimateLabel("Boston Whaler 280 Outrage")).toMatchObject({ year: "", make: "Boston Whaler", model: "280 Outrage", name: "" });
+    expect(boatFormFromEstimateLabel("")).toMatchObject({ year: "", make: "", model: "", name: "" });
+  });
+
+  it("summarises a pending job for the Boat Log strip", () => {
+    expect(pendingClaimSummary({ shopName: "Dean's Marine", boatLabel: "2019 Pursuit S 288", approvedAt: "2026-10-17T15:00:00Z", completedAt: null })).toBe("Dean's Marine · 2019 Pursuit S 288 · approved Oct 17, 2026");
+    expect(pendingClaimSummary({ shopName: "Dean's Marine", boatLabel: "", approvedAt: "2026-10-17T15:00:00Z", completedAt: "2026-10-19T15:00:00Z" })).toBe("Dean's Marine · completed Oct 19, 2026");
+  });
+
+  it("guesses the boat a pending job belongs to from the shop's label", () => {
+    const boats = [
+      { id: "a", name: "Reel Time", label: "2019 Pursuit S 288" },
+      { id: "b", name: "No Vacancy", label: "2020 Sea Ray SDX 250 OB" },
+    ];
+    expect(pickClaimBoat({ boatLabel: "2020 Sea Ray SDX 250 OB" }, boats, "a")?.id).toBe("b");
+    expect(pickClaimBoat({ boatLabel: "Reel Time" }, boats, "b")?.id).toBe("a");
+    expect(pickClaimBoat({ boatLabel: "2018 Grady-White Freedom" }, boats, "b")?.id).toBe("b");
+    expect(pickClaimBoat({ boatLabel: "" }, boats, null)?.id).toBe("a");
+    expect(pickClaimBoat({ boatLabel: "" }, [], null)).toBeNull();
   });
 });

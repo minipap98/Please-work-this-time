@@ -150,6 +150,15 @@ test.describe("demo mode (shop)", () => {
     await page.getByRole("button", { name: "Approve estimate" }).click();
     await expect(page.getByText(/You approved this estimate/)).toBeVisible();
 
+    // Once approved, the job can be kept with the customer's own boat. The demo's owner has
+    // one boat and no login, so it's a single click; live accounts log in or sign up first.
+    await expect(page.getByRole("heading", { name: "Keep this job with your boat" })).toBeVisible();
+    await expect(page.getByText("No Vacancy")).toBeVisible();
+    await page.getByRole("button", { name: "Keep with this boat" }).click();
+    await expect(page.getByText("Filed to your Boat Log")).toBeVisible();
+    await page.reload();
+    await expect(page.getByText("Filed to your Boat Log")).toBeVisible();
+
     // Back at the shop it's a booked job waiting for a date.
     await page.goto("/vendor-dashboard");
     await expect(page.getByText(/John Pappas approved WO-1044/)).toBeVisible();

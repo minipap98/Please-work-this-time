@@ -64,6 +64,8 @@ export interface WorkOrder {
   estimateDeclinedAt?: string | null;
   /** What the customer wrote back with their answer. */
   estimateNote?: string;
+  /** The owner's own boat (boats, not shop_boats) the customer filed this estimate job to; set by claim_estimate(), never from the editor. */
+  ownerBoatId?: string | null;
   createdAt: string;
   lines: WorkOrderLine[];
 }

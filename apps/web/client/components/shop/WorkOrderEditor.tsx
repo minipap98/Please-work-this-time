@@ -314,6 +314,11 @@ export default function WorkOrderEditor({
             Linked to a Bosun job. When you mark this completed, the itemized record is added to the owner's boat log.
           </p>
         )}
+        {!d.projectId && order?.ownerBoatId && (
+          <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+            The customer keeps this job in their Bosun Boat Log. When you mark it completed, the itemized record is filed there.
+          </p>
+        )}
 
         {(estStep || d.status === "estimate") && (
           <div className={`rounded-xl border p-3 ${estStep === "approved" ? "border-emerald-200 bg-emerald-50" : estStep === "declined" ? "border-red-200 bg-red-50" : "border-sky-200 bg-sky-50"}`}>

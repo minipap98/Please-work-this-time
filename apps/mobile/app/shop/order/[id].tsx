@@ -439,7 +439,7 @@ export default function WorkOrderEditor() {
           <Text style={{ fontWeight: "700", color: colors.navy }}>Billing</Text>
           {step === "not-done" && (
             <>
-              <Muted style={{ marginTop: 4, marginBottom: space.md }}>Mark the job complete to invoice it. Completed Bosun jobs go into the owner's Boat Log.</Muted>
+              <Muted style={{ marginTop: 4, marginBottom: space.md }}>{order.projectId || order.ownerBoatId ? "Mark the job complete to invoice it. The itemized record is filed to the owner's Bosun Boat Log." : "Mark the job complete to invoice it. Completed Bosun jobs go into the owner's Boat Log."}</Muted>
               <Button
                 title="Mark complete"
                 tone="secondary"

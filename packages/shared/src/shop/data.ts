@@ -83,6 +83,7 @@ export function mapWorkOrder(r: WorkOrderRow): WorkOrder {
     estimateApprovedAt: r.estimate_approved_at ?? null,
     estimateDeclinedAt: r.estimate_declined_at ?? null,
     estimateNote: r.estimate_note ?? "",
+    ownerBoatId: r.owner_boat_id ?? null,
     createdAt: r.created_at,
     lines: [...(r.lines ?? [])]
       .sort((a, b) => a.sort_order - b.sort_order)

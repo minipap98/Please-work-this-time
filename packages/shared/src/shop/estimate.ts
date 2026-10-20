@@ -2,7 +2,8 @@
 // approves or declines there with no account; approval moves the order to scheduled. Pure helpers
 // for both apps and the public page. The reads and writes live in shop/data.ts.
 
-import { workOrderTotals, type WorkOrder, type WorkOrderLine } from "../shop";
+import { parseBoatLabel, workOrderTotals, type WorkOrder, type WorkOrderLine } from "../shop";
+import { EMPTY_BOAT_FORM, type BoatForm } from "../boats/boats";
 import { money } from "./drafts";
 
 export const ESTIMATE_PATH = "/estimate/";
@@ -56,6 +57,13 @@ export interface PublicEstimate {
   note: string;
   shop: { name: string; phone: string | null; website: string | null; logoUrl: string | null; serviceArea: string | null };
   lines: WorkOrderLine[];
+  /**
+   * Set only for the signed-in owner who kept the job with their boat (public_estimate() answers
+   * null to everyone else): which of their boats, and whether the Boat Log row exists yet (it's
+   * written when the shop marks the order completed). Absent before 20261033 has run.
+   */
+  ownerBoatId?: string | null;
+  filed?: boolean | null;
 }
 
 export type PublicEstimateState = "open" | "approved" | "declined" | "expired";
@@ -84,4 +92,86 @@ export function estimateText(
     `Review and approve it here (good for ${ESTIMATE_VALID_DAYS} days):\n${link}\n\n` +
     `Reply to this email with any questions.\n\nThank you,\n${shopName}`;
   return { subject: `Estimate ${order.number} from ${shopName}`, body };
+}
+
+// ── Keeping the job with the owner's boat ────────────────────────────────────
+// After approving, the customer can file the job to one of their own boats (shop_work_orders.
+// owner_boat_id → boats). claim_estimate() does the write; once the shop completes the order the
+// same vendor-verified Boat Log row a Bosun job gets is written for that boat.
+
+export type EstimateClaimStep =
+  /** Nothing to keep yet: the estimate hasn't been approved and the job isn't done. */
+  | "approve-first"
+  /** Approved; the reader has no session, so offer login / signup that returns here. */
+  | "sign-in"
+  /** Signed in; pick one of my boats or add one. */
+  | "pick-boat"
+  /** Kept with a boat; the log row lands when the shop marks the job complete. */
+  | "kept"
+  /** Kept and the Boat Log row exists. */
+  | "filed";
+
+/** Where the "Keep this job with your boat" block stands for this reader. */
+export function estimateClaimStep(
+  e: Pick<PublicEstimate, "approvedAt" | "status" | "ownerBoatId" | "filed">,
+  signedIn: boolean,
+): EstimateClaimStep {
+  if (e.ownerBoatId) return e.filed ? "filed" : "kept";
+  if (!e.approvedAt && !isDoneStatus(e.status)) return "approve-first";
+  if (!signedIn) return "sign-in";
+  return "pick-boat";
+}
+
+function isDoneStatus(status: string): boolean {
+  return status === "completed" || status === "invoiced";
+}
+
+/** The login page that comes back to this estimate afterwards (`mode=signup` opens the sign-up tab). */
+export function estimateLoginPath(token: string, mode: "signin" | "signup" = "signin"): string {
+  const next = encodeURIComponent(`${ESTIMATE_PATH}${token}`);
+  return mode === "signup" ? `/login?mode=signup&next=${next}` : `/login?next=${next}`;
+}
+
+/**
+ * A new boat prefilled from the shop's label ("2019 Pursuit S 288 · Reel Time"): year, make, model
+ * and name when the label carries them; everything else blank for the owner to fill in later.
+ */
+export function boatFormFromEstimateLabel(label: string): BoatForm {
+  const p = parseBoatLabel(label ?? "");
+  return { ...EMPTY_BOAT_FORM, name: p.name, year: p.year ? String(p.year) : "", make: p.make, model: p.model };
+}
+
+/** What pending_estimate_claims() returns: approved or completed estimate jobs addressed to my email, not filed yet. */
+export interface PendingEstimateClaim {
+  token: string;
+  number: string;
+  title: string;
+  shopName: string;
+  boatLabel: string;
+  approvedAt: string | null;
+  completedAt: string | null;
+}
+
+/** One line under the job on the "waiting to be filed" strip: shop, the shop's boat label, and where it stands. */
+export function pendingClaimSummary(c: Pick<PendingEstimateClaim, "shopName" | "boatLabel" | "approvedAt" | "completedAt">): string {
+  const when = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const state = c.completedAt ? `completed ${when(c.completedAt)}` : c.approvedAt ? `approved ${when(c.approvedAt)}` : null;
+  return [c.shopName, c.boatLabel, state].filter(Boolean).join(" · ");
+}
+
+/**
+ * Which boat a pending job most likely belongs to: the one whose name or year/make/model the
+ * shop's label mentions, else the active boat, else the first.
+ */
+export function pickClaimBoat<T extends { id: string; name: string | null; label?: string }>(
+  c: Pick<PendingEstimateClaim, "boatLabel">,
+  boats: T[],
+  activeId: string | null | undefined,
+): T | null {
+  const label = (c.boatLabel ?? "").toLowerCase();
+  if (label) {
+    const hit = boats.find((b) => [b.name, b.label].some((s) => s && s.trim() && label.includes(s.toLowerCase())));
+    if (hit) return hit;
+  }
+  return boats.find((b) => b.id === activeId) ?? boats[0] ?? null;
 }

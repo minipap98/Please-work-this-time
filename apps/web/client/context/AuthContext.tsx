@@ -11,7 +11,8 @@ interface AuthContextValue {
   profile: Tables<"profiles"> | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, name: string, role: "owner" | "vendor") => Promise<{ error: string | null }>;
+  /** `next` is carried through the confirmation email so the person lands back where they started (e.g. an estimate link). */
+  signUp: (email: string, password: string, name: string, role: "owner" | "vendor", next?: string | null) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   /** Emails a reset link that lands on /reset-password. Never says whether the address exists. */
@@ -82,13 +83,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, [fetchProfile]);
 
-  const signUp = async (email: string, password: string, name: string, role: "owner" | "vendor") => {
+  const signUp = async (email: string, password: string, name: string, role: "owner" | "vendor", next?: string | null) => {
     if (supabaseMissing) return { error: "Bosun is not configured. Missing Supabase keys." };
     persistDemoMode(false);
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: signUpOptions(name, role, `${window.location.origin}/login`),
+      options: signUpOptions(name, role, `${window.location.origin}/login${next ? `?next=${encodeURIComponent(next)}` : ""}`),
     });
     return { error: error?.message ?? null };
   };

@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { BadgeCheck, Phone, Printer, Globe } from "lucide-react";
 import { BosunLogo } from "@/components/marketing/BosunLogo";
+import KeepWithBoat from "@/components/estimate/KeepWithBoat";
 import { usePublicEstimate, useRespondToEstimate } from "@/hooks/use-shop";
 import { workOrderTotals } from "@shared/shop";
 import { publicEstimateState } from "@shared/shop/estimate";
@@ -193,15 +194,7 @@ export default function EstimatePage() {
           {shop.website && <p className="inline-flex items-center gap-1.5 sm:ml-4"><Globe className="w-3.5 h-3.5" /> <a className="hover:underline" href={shop.website.startsWith("http") ? shop.website : `https://${shop.website}`} target="_blank" rel="noreferrer">{shop.website.replace(/^https?:\/\//, "")}</a></p>}
         </div>
 
-        <div className="print:hidden mt-10 rounded-2xl bg-[#052443] text-white p-6 text-center">
-          <p className="font-semibold">Keep this job with your boat</p>
-          <p className="mt-1 text-sm text-slate-300">
-            A free Bosun account keeps every service on record, reminds you what's due, and makes the history worth something when you sell.
-          </p>
-          <Link to="/boaters" className="mt-4 inline-block px-5 py-2.5 rounded-xl bg-white text-[#052443] text-sm font-semibold">
-            See how it works
-          </Link>
-        </div>
+        {token && <KeepWithBoat token={token} estimate={data} />}
       </main>
     </div>
   );

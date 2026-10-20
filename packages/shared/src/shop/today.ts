@@ -9,13 +9,13 @@ export interface BoardColumn {
   list: WorkOrder[];
 }
 
-/** Today's and tomorrow's jobs, invoiced ones dropped, in start order. */
+/** Today's and tomorrow's jobs, invoiced ones and unapproved estimates dropped, in start order. */
 export function todayBoard(orders: WorkOrder[], now: Date = new Date()): [BoardColumn, BoardColumn] {
   const todayKey = toLocalDateKey(now.toISOString());
   const tomorrow = new Date(now);
   tomorrow.setDate(now.getDate() + 1);
   const tomorrowKey = toLocalDateKey(tomorrow.toISOString());
-  const active = orders.filter((o) => o.status !== "invoiced");
+  const active = orders.filter((o) => o.status !== "invoiced" && o.status !== "estimate");
   const byStart = (a: WorkOrder, b: WorkOrder) => (a.scheduledStart ?? "").localeCompare(b.scheduledStart ?? "");
   return [
     { key: todayKey, label: "Today", list: active.filter((o) => occupiesDay(o, todayKey)).sort(byStart) },

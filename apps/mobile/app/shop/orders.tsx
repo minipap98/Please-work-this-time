@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { FlatList, RefreshControl, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { billingStep, partsProgress, workOrderTotals, type WorkOrder } from "@bosun/shared/shop";
+import { estimateStep } from "@bosun/shared/shop/estimate";
 import { wonJobsNotOnBoard } from "@bosun/shared/shop/today";
 import { useVendorBidProjects } from "@/lib/queries";
 import { useShipments, useShop, useShopRealtime, useWorkOrders } from "@/lib/shop";
@@ -10,10 +11,11 @@ import { colors, radius, space } from "@/lib/theme";
 import { Button, Card, Chip, Empty, Loading, Muted, Row, Screen } from "@/ui";
 import { WorkOrderBadge, money, timeRange } from "@/ui/shop";
 
-type Filter = "all" | "scheduled" | "in-progress" | "waiting-parts" | "completed" | "invoiced" | "to-invoice" | "owed";
+type Filter = "all" | "estimate" | "scheduled" | "in-progress" | "waiting-parts" | "completed" | "invoiced" | "to-invoice" | "owed";
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
+  { key: "estimate", label: "Estimates" },
   { key: "scheduled", label: "Scheduled" },
   { key: "in-progress", label: "In progress" },
   { key: "waiting-parts", label: "Waiting on parts" },
@@ -100,6 +102,9 @@ export default function WorkOrders() {
         renderItem={({ item: o }) => {
           const parts = partsProgress(o.id, shipments);
           const partsNote = parts.total === 0 ? null : parts.problems ? "Delivery problem" : parts.open ? `Parts ${parts.received}/${parts.total} in` : "Parts in";
+          const est = estimateStep(o);
+          const estNote =
+            est === "sent" ? "Sent · waiting on the customer" : est === "declined" ? "Declined" : est === "expired" ? "Link expired" : est === "approved" ? "Approved by the customer" : est === "draft" ? "Not sent yet" : null;
           return (
             <Card onPress={() => router.push({ pathname: "/shop/order/[id]", params: { id: o.id } })}>
               <Row style={{ justifyContent: "space-between" }}>
@@ -109,7 +114,7 @@ export default function WorkOrders() {
               <Text style={{ fontWeight: "600", fontSize: 15, color: colors.text, marginTop: 4 }} numberOfLines={1}>{o.title || "Untitled"}</Text>
               <Muted style={{ marginTop: 2 }} numberOfLines={1}>{[o.boatLabel || o.customerName, o.bay, o.assignedTo].filter(Boolean).join(" · ")}</Muted>
               <Row style={{ justifyContent: "space-between", marginTop: space.sm }}>
-                <Muted>{timeRange(o.scheduledStart, o.scheduledEnd)}</Muted>
+                <Muted>{o.status === "estimate" && estNote ? estNote : timeRange(o.scheduledStart, o.scheduledEnd)}</Muted>
                 <Text style={{ fontWeight: "700", color: colors.navy }}>{money(workOrderTotals(o.lines, o.taxRate).total)}</Text>
               </Row>
               {partsNote && <Text style={{ fontSize: 12, fontWeight: "600", marginTop: 4, color: parts.problems ? colors.red : parts.open ? colors.amber : colors.green }}>{partsNote}</Text>}

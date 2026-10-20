@@ -67,6 +67,11 @@ test.describe("public site", () => {
     await expect(page.getByText("Bosun isn’t configured")).toBeVisible();
   });
 
+  test("an estimate link without keys explains itself", async ({ page }) => {
+    await page.goto("/estimate/nope");
+    await expect(page.getByText("This estimate isn't available")).toBeVisible();
+  });
+
   test("a boat-transfer link needs a login too", async ({ page }) => {
     await page.goto("/transfer/abc");
     await expect(page.getByText("Bosun isn’t configured")).toBeVisible();
@@ -129,6 +134,25 @@ test.describe("demo mode (shop)", () => {
     await page.goto("/vendor-rfps");
     await expect(page.getByRole("heading", { name: "Jobs near you" })).toBeVisible();
     await expect(page.getByText("Accepting bids").first()).toBeVisible();
+  });
+
+  test("an estimate goes out from the board and the customer approves it from the link", async ({ page }) => {
+    await enterDemo(page, "vendor");
+    await page.goto("/vendor-shop?tab=orders");
+    await page.getByRole("button", { name: "Estimate", exact: true }).click();
+    await expect(page.getByText("Repower: twin Yamaha F300 with rigging")).toBeVisible();
+    await expect(page.getByText("SENT · WAITING ON CUSTOMER")).toBeVisible();
+
+    // The customer's side needs no login: the demo link reads the demo shop in this browser.
+    await page.goto("/estimate/demo-wo-demo-6");
+    await expect(page.getByRole("heading", { name: "Repower: twin Yamaha F300 with rigging" })).toBeVisible();
+    await expect(page.getByText("Estimated total")).toBeVisible();
+    await page.getByRole("button", { name: "Approve estimate" }).click();
+    await expect(page.getByText(/You approved this estimate/)).toBeVisible();
+
+    // Back at the shop it's a booked job waiting for a date.
+    await page.goto("/vendor-dashboard");
+    await expect(page.getByText(/John Pappas approved WO-1044/)).toBeVisible();
   });
 
   test("an owner-only page bounces a shop back to its dashboard", async ({ page }) => {

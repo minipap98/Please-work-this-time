@@ -11,6 +11,10 @@ describe("notificationRoute", () => {
     expect(notificationRoute({ post_id: "x1", make: "Pursuit" } as never, "owner")).toBe("/owners/post/x1");
   });
 
+  it("opens the work order when a customer answered an estimate", () => {
+    expect(notificationRoute({ work_order_id: "wo9" }, "vendor")).toBe("/vendor-shop?tab=orders&wo=wo9");
+  });
+
   it("falls back by role", () => {
     expect(notificationRoute({ bid_id: "b" }, "vendor")).toBe("/vendor-my-bids");
     expect(notificationRoute(null, "owner")).toBe("/inbox");

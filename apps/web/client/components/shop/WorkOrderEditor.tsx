@@ -15,9 +15,12 @@ import {
   type WorkOrderLine,
   type WorkOrderStatus,
 } from "@shared/shop";
+import { estimateStep } from "@shared/shop/estimate";
+import { blankEstimate, blankWorkOrder, draftFromOrder, type WorkOrderDraft } from "@shared/shop/drafts";
 import type { ShopSettings } from "@/data/shopDemoData";
-import type { WorkOrderDraft } from "@/hooks/use-shop";
 import { ShipmentBadge, fromLocalInput, inputCls, labelCls, money, shortDate, toLocalInput } from "./shopUi";
+
+export { blankEstimate, blankWorkOrder, draftFromOrder };
 
 interface Props {
   open: boolean;
@@ -39,47 +42,31 @@ interface Props {
   onInvoice?: () => void;
   onMarkPaid?: (method: string) => void;
   onMarkUnpaid?: () => void;
-}
-
-export function blankWorkOrder(number: string, settings: ShopSettings): WorkOrderDraft {
-  const start = new Date();
-  start.setDate(start.getDate() + 1);
-  start.setHours(8, 0, 0, 0);
-  const end = new Date(start);
-  end.setHours(12);
-  return {
-    number,
-    title: "",
-    description: "",
-    status: "scheduled",
-    customerName: "",
-    customerEmail: "",
-    boatLabel: "",
-    boatId: null,
-    projectId: null,
-    assignedTo: settings.techs[0] ?? "",
-    bay: settings.bays[0] ?? "",
-    scheduledStart: start.toISOString(),
-    scheduledEnd: end.toISOString(),
-    engineHours: null,
-    taxRate: settings.taxRate,
-    lines: [{ kind: "labor", description: "Labor", quantity: 1, unitPrice: settings.laborRate }],
-  };
-}
-
-export function draftFromOrder(o: WorkOrder): WorkOrderDraft {
-  const { createdAt: _c, completedAt: _d, exportedAt: _e, ...rest } = o;
-  return rest;
+  /** Sends (or re-sends) the estimate and opens the share sheet. */
+  onSendEstimate?: () => void;
+  /** Saves the draft, sends it as an estimate and opens the share sheet in one go. */
+  onSaveAndSend?: (draft: WorkOrderDraft) => void;
+  /** Opens the share sheet for an estimate that already went out. */
+  onShareEstimate?: () => void;
+  sendingEstimate?: boolean;
 }
 
 const NEW_CUSTOMER = "__new__";
 
+const ESTIMATE_COPY: Record<string, string> = {
+  draft: "Send the customer a link to approve this estimate. It goes on the board as a scheduled job the moment they say yes.",
+  sent: "Waiting on the customer. They can approve or decline from the link for 30 days.",
+  declined: "The customer declined. Adjust the lines and send a revised estimate, or give them a call.",
+  expired: "The link expired without an answer. Send it again to give them another 30 days.",
+};
+
 export default function WorkOrderEditor({
   open, onOpenChange, initial, inventory, shipments, onOrderPart, settings, customers, boats, onAddCustomer, saving, onSave, onDelete,
-  order, onInvoice, onMarkPaid, onMarkUnpaid,
+  order, onInvoice, onMarkPaid, onMarkUnpaid, onSendEstimate, onSaveAndSend, onShareEstimate, sendingEstimate = false,
 }: Props) {
   const [payMethod, setPayMethod] = useState<string>(PAYMENT_METHODS[0]);
   const step = order ? billingStep(order) : "not-done";
+  const estStep = order ? estimateStep(order) : null;
   const partsForBoat = initial.id ? shipments.filter((s) => s.workOrderId === initial.id) : [];
   const [d, setD] = useState<WorkOrderDraft>(initial);
   useEffect(() => setD(initial), [initial]);
@@ -138,7 +125,11 @@ export default function WorkOrderEditor({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{initial.id ? `Work order ${d.number}` : "New work order"}</DialogTitle>
+          <DialogTitle>
+            {initial.id
+              ? `${d.status === "estimate" ? "Estimate" : "Work order"} ${d.number}`
+              : d.status === "estimate" ? "New estimate" : "New work order"}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -324,6 +315,47 @@ export default function WorkOrderEditor({
           </p>
         )}
 
+        {(estStep || d.status === "estimate") && (
+          <div className={`rounded-xl border p-3 ${estStep === "approved" ? "border-emerald-200 bg-emerald-50" : estStep === "declined" ? "border-red-200 bg-red-50" : "border-sky-200 bg-sky-50"}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold">Estimate · {money(totals.total)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {!order
+                    ? "Save the estimate, then send the customer a link to approve it."
+                    : estStep === "approved"
+                      ? `${order.customerName || "The customer"} approved it ${shortDate(order.estimateApprovedAt)}${order.estimateNote ? `: “${order.estimateNote}”` : "."}${order.status === "scheduled" && !order.scheduledStart ? " Pick a date, bay and tech to put it on the board." : ""}`
+                      : estStep === "declined"
+                        ? `Declined ${shortDate(order.estimateDeclinedAt)}${order.estimateNote ? `: “${order.estimateNote}”` : "."} ${ESTIMATE_COPY.declined}`
+                        : estStep === "sent"
+                          ? `Sent ${shortDate(order.estimateSentAt)}. ${ESTIMATE_COPY.sent}`
+                          : ESTIMATE_COPY[estStep ?? "draft"]}
+                </p>
+              </div>
+              {order && estStep && estStep !== "approved" && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {estStep !== "draft" && onShareEstimate && (
+                    <button type="button" onClick={onShareEstimate} className="px-3 py-1.5 text-sm font-medium rounded-lg border border-border bg-white hover:bg-muted">
+                      Share link
+                    </button>
+                  )}
+                  {onSendEstimate && (
+                    <button
+                      type="button"
+                      onClick={onSendEstimate}
+                      disabled={dirty || sendingEstimate || d.lines.length === 0}
+                      title={dirty ? "Save your changes first" : undefined}
+                      className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50"
+                    >
+                      {sendingEstimate ? "Sending…" : estStep === "draft" ? "Send estimate" : estStep === "sent" ? "Send again" : "Send revised estimate"}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {order && (step !== "not-done" || d.status === "completed") && (
           <div className="rounded-xl border border-border bg-slate-50 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -371,7 +403,7 @@ export default function WorkOrderEditor({
           ) : <span />}
           <div className="flex flex-wrap gap-2 justify-end">
             <button type="button" onClick={() => onOpenChange(false)} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted">Cancel</button>
-            {d.status !== "completed" && d.status !== "invoiced" && (
+            {d.status !== "completed" && d.status !== "invoiced" && d.status !== "estimate" && (
               <button
                 type="button"
                 disabled={!canSave || saving}
@@ -385,10 +417,20 @@ export default function WorkOrderEditor({
               type="button"
               disabled={!canSave || saving}
               onClick={() => onSave(d)}
-              className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
+              className={`px-4 py-2 text-sm font-semibold rounded-lg disabled:opacity-50 ${d.status === "estimate" && onSaveAndSend ? "border border-border bg-white hover:bg-muted" : "bg-primary text-primary-foreground"}`}
             >
-              {saving ? "Saving…" : "Save work order"}
+              {saving ? "Saving…" : d.status === "estimate" ? "Save estimate" : "Save work order"}
             </button>
+            {d.status === "estimate" && onSaveAndSend && (
+              <button
+                type="button"
+                disabled={!canSave || saving || sendingEstimate || d.lines.length === 0}
+                onClick={() => onSaveAndSend(d)}
+                className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
+              >
+                {saving || sendingEstimate ? "Sending…" : estStep && estStep !== "draft" ? "Save & send again" : "Save & send estimate"}
+              </button>
+            )}
           </div>
         </div>
       </DialogContent>

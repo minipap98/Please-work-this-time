@@ -2,6 +2,7 @@
 // Work orders, inventory, inbound parts tracking, and QuickBooks export.
 
 export type WorkOrderStatus =
+  | "estimate"
   | "scheduled"
   | "in-progress"
   | "waiting-parts"
@@ -9,6 +10,7 @@ export type WorkOrderStatus =
   | "invoiced";
 
 export const WORK_ORDER_STATUSES: { value: WorkOrderStatus; label: string }[] = [
+  { value: "estimate", label: "Estimate" },
   { value: "scheduled", label: "Scheduled" },
   { value: "in-progress", label: "In progress" },
   { value: "waiting-parts", label: "Waiting on parts" },
@@ -51,8 +53,24 @@ export interface WorkOrder {
   invoicedAt?: string | null;
   paidAt?: string | null;
   paymentMethod?: string;
+  /**
+   * Estimate: the public link's token and when it went out, and the customer's answer. Set by
+   * send_estimate() / respond_to_estimate(), never from the editor. Approval keeps its stamp after
+   * the order moves on to scheduled. See shop/estimate.ts.
+   */
+  estimateToken?: string | null;
+  estimateSentAt?: string | null;
+  estimateApprovedAt?: string | null;
+  estimateDeclinedAt?: string | null;
+  /** What the customer wrote back with their answer. */
+  estimateNote?: string;
   createdAt: string;
   lines: WorkOrderLine[];
+}
+
+/** Quoted but not booked: an estimate is a price on paper, not work on the board. */
+export function isEstimate(o: Pick<WorkOrder, "status">): boolean {
+  return o.status === "estimate";
 }
 
 export const PAYMENT_METHODS = ["Card", "Check", "Cash", "ACH / wire", "Other"] as const;
@@ -227,7 +245,7 @@ export function occupiesDay(order: Pick<WorkOrder, "scheduledStart" | "scheduled
 /** Pairs of work orders that overlap in time in the same bay or with the same tech. */
 export function scheduleConflicts(orders: WorkOrder[]): [string, string][] {
   const active = orders.filter(
-    (o) => o.scheduledStart && o.status !== "completed" && o.status !== "invoiced"
+    (o) => o.scheduledStart && o.status !== "completed" && o.status !== "invoiced" && o.status !== "estimate"
   );
   const out: [string, string][] = [];
   for (let i = 0; i < active.length; i++) {
@@ -686,6 +704,36 @@ export function shopAlerts(input: {
       tone: "info",
       text: `${n} job${n === 1 ? "" : "s"} you won on Bosun ${n === 1 ? "isn't" : "aren't"} on the board yet`,
       action: { label: "Schedule", tab: "orders" },
+    });
+  }
+
+  // Estimates: an approved one with no date is a job waiting to be booked; a declined one needs a
+  // call or a revised price; the ones still out are a number worth watching.
+  for (const o of input.orders) {
+    if (o.status === "scheduled" && o.estimateApprovedAt && !o.scheduledStart) {
+      alerts.push({
+        id: `approved-${o.id}`,
+        tone: "good",
+        text: `${o.customerName || "The customer"} approved ${o.number}${o.boatLabel ? ` (${o.boatLabel})` : ""}: put it on the board`,
+        action: { label: "Schedule", tab: "orders", workOrderId: o.id },
+      });
+    } else if (o.status === "estimate" && o.estimateDeclinedAt && !o.estimateApprovedAt) {
+      alerts.push({
+        id: `declined-${o.id}`,
+        tone: "warn",
+        text: `${o.customerName || "The customer"} declined ${o.number}${o.estimateNote ? `: "${o.estimateNote}"` : ""}`,
+        action: { label: "Open", tab: "orders", workOrderId: o.id },
+      });
+    }
+  }
+  const waiting = input.orders.filter((o) => o.status === "estimate" && o.estimateSentAt && !o.estimateApprovedAt && !o.estimateDeclinedAt);
+  if (waiting.length) {
+    const sum = waiting.reduce((t, o) => t + workOrderTotals(o.lines, o.taxRate).total, 0);
+    alerts.push({
+      id: "estimates-out",
+      tone: "info",
+      text: `${waiting.length} estimate${waiting.length === 1 ? "" : "s"} ($${Math.round(sum).toLocaleString("en-US")}) waiting on ${waiting.length === 1 ? "the customer" : "customers"}`,
+      action: { label: "Estimates", tab: "orders" },
     });
   }
 

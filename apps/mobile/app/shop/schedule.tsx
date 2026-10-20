@@ -20,7 +20,9 @@ export default function Schedule() {
   const { vendorId, isLoading: shopLoading } = useShop();
   useShopRealtime(vendorId);
   const settings = useShopSettingsOrDefault(vendorId);
-  const { data: orders = [], isLoading } = useWorkOrders(vendorId);
+  const { data: allOrders = [], isLoading } = useWorkOrders(vendorId);
+  // An estimate is a price, not booked time: it stays off the calendar until the customer approves.
+  const orders = useMemo(() => allOrders.filter((o) => o.status !== "estimate"), [allOrders]);
   const [anchor, setAnchor] = useState(() => new Date());
   const [groupBy, setGroupBy] = useState<"bay" | "tech">("bay");
   const days = useMemo(() => weekDays(anchor), [anchor]);

@@ -11,6 +11,7 @@ interface Props {
 }
 
 const STATUS_BAR: Record<WorkOrder["status"], string> = {
+  estimate: "border-l-sky-300",
   scheduled: "border-l-slate-400",
   "in-progress": "border-l-sky-500",
   "waiting-parts": "border-l-amber-500",
@@ -31,7 +32,9 @@ function hhmm(iso: string | null) {
   return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
-export default function SchedulePanel({ orders, bays, onOpen, onNewAt }: Props) {
+export default function SchedulePanel({ orders: allOrders, bays, onOpen, onNewAt }: Props) {
+  // An estimate is a price, not booked time: it stays off the calendar until the customer approves.
+  const orders = useMemo(() => allOrders.filter((o) => o.status !== "estimate"), [allOrders]);
   const [anchor, setAnchor] = useState(() => new Date());
   const [groupBy, setGroupBy] = useState<"bay" | "tech">("bay");
   const days = useMemo(() => weekDays(anchor), [anchor]);
@@ -155,6 +158,7 @@ export default function SchedulePanel({ orders, bays, onOpen, onNewAt }: Props) 
                 <span className="font-mono text-muted-foreground">{o.number}</span>
                 <span className="font-medium">{o.title}</span>
                 <WorkOrderBadge status={o.status} />
+                {o.estimateApprovedAt && <span className="text-[10px] font-semibold text-emerald-700">APPROVED</span>}
               </button>
             ))}
           </div>

@@ -72,6 +72,8 @@ export default function Today() {
       setStatus.mutate({ id: a.action.workOrderId, status: "in-progress" }, { onError: fail });
     } else if (a.id === "coi") {
       router.push("/shop/insights");
+    } else if (a.action.workOrderId) {
+      router.push({ pathname: "/shop/order/[id]", params: { id: a.action.workOrderId } });
     } else {
       router.push(TAB_ROUTE[a.action.tab]);
     }

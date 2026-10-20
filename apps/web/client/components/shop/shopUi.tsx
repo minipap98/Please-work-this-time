@@ -51,6 +51,7 @@ export function fromLocalInput(v: string): string | null {
 }
 
 const WO_STYLES: Record<WorkOrderStatus, string> = {
+  estimate: "bg-white text-sky-700 border-sky-300 border-dashed",
   scheduled: "bg-slate-100 text-slate-700 border-slate-200",
   "in-progress": "bg-sky-50 text-sky-700 border-sky-200",
   "waiting-parts": "bg-amber-50 text-amber-700 border-amber-200",
@@ -59,6 +60,7 @@ const WO_STYLES: Record<WorkOrderStatus, string> = {
 };
 
 const WO_LABELS: Record<WorkOrderStatus, string> = {
+  estimate: "Estimate",
   scheduled: "Scheduled",
   "in-progress": "In progress",
   "waiting-parts": "Waiting on parts",

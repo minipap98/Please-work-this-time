@@ -73,7 +73,7 @@ export default function TodayPanel({ vendorId, coiExpiry }: { vendorId: string; 
   );
 
   const board = useMemo(() => {
-    const active = orders.filter((o) => o.status !== "invoiced");
+    const active = orders.filter((o) => o.status !== "invoiced" && o.status !== "estimate");
     const byStart = (a: WorkOrder, b: WorkOrder) => (a.scheduledStart ?? "").localeCompare(b.scheduledStart ?? "");
     return [
       { key: todayKey, label: "Today", list: active.filter((o) => occupiesDay(o, todayKey)).sort(byStart) },
@@ -122,6 +122,8 @@ export default function TodayPanel({ vendorId, coiExpiry }: { vendorId: string; 
       );
     } else if (a.id === "coi") {
       navigate("/vendor-insights?tab=insurance");
+    } else if (a.action.workOrderId) {
+      go(a.action.tab, `&wo=${a.action.workOrderId}`);
     } else {
       go(a.action.tab);
     }

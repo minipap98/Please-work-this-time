@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { WORK_ORDER_STATUSES, billingStep, partsProgress, workOrderTotals, type PartsShipment, type WorkOrder, type WorkOrderStatus } from "@shared/shop";
+import { estimateStep } from "@shared/shop/estimate";
 import type { Project } from "@/data/projectData";
 import { EmptyState, WorkOrderBadge, money, shortDate, timeRange } from "./shopUi";
 
 type Filter = "open" | "unpaid" | "all" | WorkOrderStatus;
+
+const ESTIMATE_TAG: Record<string, { text: string; cls: string }> = {
+  draft: { text: "NOT SENT", cls: "text-slate-500" },
+  sent: { text: "SENT · WAITING ON CUSTOMER", cls: "text-sky-700" },
+  approved: { text: "APPROVED", cls: "text-emerald-700" },
+  declined: { text: "DECLINED", cls: "text-red-700" },
+  expired: { text: "EXPIRED", cls: "text-amber-700" },
+};
 
 interface Props {
   orders: WorkOrder[];
@@ -11,6 +20,7 @@ interface Props {
   wonJobs: Project[];
   onOpen: (order: WorkOrder) => void;
   onNew: () => void;
+  onNewEstimate: () => void;
   onFromJob: (job: Project) => void;
   onStatus: (id: string, status: WorkOrderStatus) => void;
   /** From the quick search: filter the list to this customer or boat, across every status. */
@@ -19,7 +29,7 @@ interface Props {
 
 const OPEN: WorkOrderStatus[] = ["scheduled", "in-progress", "waiting-parts"];
 
-export default function WorkOrdersPanel({ orders, shipments, wonJobs, onOpen, onNew, onFromJob, onStatus, initialQuery = "" }: Props) {
+export default function WorkOrdersPanel({ orders, shipments, wonJobs, onOpen, onNew, onNewEstimate, onFromJob, onStatus, initialQuery = "" }: Props) {
   const [filter, setFilter] = useState<Filter>(initialQuery ? "all" : "open");
   const [q, setQ] = useState(initialQuery);
 
@@ -82,6 +92,9 @@ export default function WorkOrdersPanel({ orders, shipments, wonJobs, onOpen, on
           placeholder="Search WO#, customer, boat, tech…"
           className="sm:ml-auto sm:w-64 px-3 py-1.5 text-sm border border-border rounded-lg bg-background"
         />
+        <button onClick={onNewEstimate} className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-border bg-white hover:bg-muted whitespace-nowrap">
+          + Estimate
+        </button>
         <button onClick={onNew} className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-primary text-primary-foreground whitespace-nowrap">
           + Work order
         </button>
@@ -89,14 +102,20 @@ export default function WorkOrdersPanel({ orders, shipments, wonJobs, onOpen, on
 
       {shown.length === 0 ? (
         <EmptyState
-          title="No work orders here"
-          body="Write up jobs as they come in — walk-ins, slip customers, and Bosun jobs all live on one board."
+          title={filter === "estimate" ? "No estimates out" : "No work orders here"}
+          body={
+            filter === "estimate"
+              ? "When a customer calls about a job, write it up as an estimate and send them a link to approve. It goes on the board the moment they say yes."
+              : "Write up jobs as they come in — walk-ins, slip customers, and Bosun jobs all live on one board."
+          }
         />
       ) : (
         <div className="space-y-2">
           {shown.map((o) => {
             const t = workOrderTotals(o.lines, o.taxRate);
             const parts = partsProgress(o.id, shipments);
+            const est = estimateStep(o);
+            const estTag = est ? ESTIMATE_TAG[est] : null;
             return (
               <div
                 key={o.id}
@@ -111,6 +130,7 @@ export default function WorkOrdersPanel({ orders, shipments, wonJobs, onOpen, on
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-mono text-muted-foreground">{o.number}</span>
                       <WorkOrderBadge status={o.status} />
+                      {estTag && <span className={`text-[10px] font-semibold ${estTag.cls}`}>{estTag.text}</span>}
                       {o.projectId && <span className="text-[10px] font-semibold text-emerald-700">BOSUN JOB</span>}
                       {billingStep(o) === "paid" && <span className="text-[10px] font-semibold text-emerald-700">PAID</span>}
                       {billingStep(o) === "collect" && <span className="text-[10px] font-semibold text-amber-700">UNPAID</span>}
@@ -139,9 +159,15 @@ export default function WorkOrdersPanel({ orders, shipments, wonJobs, onOpen, on
                       {[o.customerName, o.boatLabel].filter(Boolean).join(" · ") || "No customer"}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {timeRange(o.scheduledStart, o.scheduledEnd)}
-                      {o.bay && ` · ${o.bay}`}
-                      {o.assignedTo && ` · ${o.assignedTo}`}
+                      {o.status === "estimate"
+                        ? est === "sent" && o.estimateSentAt
+                          ? `Sent ${shortDate(o.estimateSentAt)}`
+                          : est === "declined" && o.estimateNote
+                            ? `“${o.estimateNote}”`
+                            : "Not on the schedule until the customer approves"
+                        : timeRange(o.scheduledStart, o.scheduledEnd)}
+                      {o.status !== "estimate" && o.bay && ` · ${o.bay}`}
+                      {o.status !== "estimate" && o.assignedTo && ` · ${o.assignedTo}`}
                     </p>
                   </div>
                   <div className="text-right shrink-0">

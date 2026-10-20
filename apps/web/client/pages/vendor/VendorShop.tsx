@@ -36,18 +36,21 @@ import {
   useDeleteBoat,
   useDeleteCustomer,
   useBillWorkOrder,
+  useSendEstimate,
   type ShipmentDraft,
   type WorkOrderDraft,
 } from "@/hooks/use-shop";
 import { DEFAULT_SHOP_SETTINGS } from "@/data/shopDemoData";
 import type { Project } from "@/data/projectData";
 import { isLowStock, occupiesDay, toLocalDateKey, workOrderTotals, type InventoryItem, type WorkOrder } from "@shared/shop";
-import WorkOrderEditor, { blankWorkOrder, draftFromOrder } from "@/components/shop/WorkOrderEditor";
+import { estimateUrl } from "@shared/shop/estimate";
+import WorkOrderEditor, { blankEstimate, blankWorkOrder, draftFromOrder } from "@/components/shop/WorkOrderEditor";
 import WorkOrdersPanel from "@/components/shop/WorkOrdersPanel";
 import ShopSearchBar from "@/components/shop/ShopSearch";
 import CustomersPanel from "@/components/shop/CustomersPanel";
 import CustomerDialog from "@/components/shop/CustomerDialog";
 import InvoiceSheet from "@/components/shop/InvoiceSheet";
+import EstimateSheet from "@/components/shop/EstimateSheet";
 import { billingStep as billingStepOf, boatLabel, parseBoatLabel, type ShopBoat, type ShopCustomer } from "@shared/shop";
 import SchedulePanel from "@/components/shop/SchedulePanel";
 import InventoryPanel from "@/components/shop/InventoryPanel";
@@ -101,8 +104,13 @@ export default function VendorShop({
   const deleteBoat = useDeleteBoat(vendorId);
   const deleteCustomer = useDeleteCustomer(vendorId);
   const bill = useBillWorkOrder(vendorId);
+  const sendEstimate = useSendEstimate(vendorId);
   const [invoiceFor, setInvoiceFor] = useState<string | null>(null);
   const invoiceOrder = invoiceFor ? orders.find((o) => o.id === invoiceFor) ?? null : null;
+  // The share sheet for an estimate: the order and its link token (kept here so it opens before the refetch lands).
+  const [estimateFor, setEstimateFor] = useState<{ id: string; token: string } | null>(null);
+  const estimateOrder = estimateFor ? orders.find((o) => o.id === estimateFor.id) ?? null : null;
+  const siteOrigin = typeof window !== "undefined" ? window.location.origin : "https://getbosun.app";
   const billingName = shopName ?? vendorName ?? "Your shop";
   // Customer dialog: null closed; { customer } edits; { prefill } adds (and selects the new boat on the open work order).
   const [customerDialog, setCustomerDialog] = useState<
@@ -163,6 +171,8 @@ export default function VendorShop({
       setEditor(draftFromOrder(found));
     } else if (deepNew === "wo") {
       setEditor({ ...blankWorkOrder(nextWorkOrderNumber(orders), settings) });
+    } else if (deepNew === "estimate") {
+      setEditor({ ...blankEstimate(nextWorkOrderNumber(orders), settings) });
     } else if (deepPaste) {
       setAutoPaste(true);
     }
@@ -181,6 +191,9 @@ export default function VendorShop({
 
   const openNew = (patch: Partial<WorkOrderDraft> = {}) =>
     setEditor({ ...blankWorkOrder(nextWorkOrderNumber(orders), settings), ...patch });
+  /** A job quoted before it's booked: same editor, status Estimate, no date yet. */
+  const openNewEstimate = (patch: Partial<WorkOrderDraft> = {}) =>
+    setEditor({ ...blankEstimate(nextWorkOrderNumber(orders), settings), ...patch });
 
   /**
    * A won Bosun job already knows the owner and the boat, so the customer and boat go on file
@@ -303,6 +316,7 @@ export default function VendorShop({
                 wonJobs={wonJobs}
                 onOpen={(o: WorkOrder) => setEditor(draftFromOrder(o))}
                 onNew={() => openNew()}
+                onNewEstimate={() => openNewEstimate()}
                 onFromJob={openFromJob}
                 onStatus={(id, status) => setStatus.mutate({ id, status }, { onError: fail })}
                 initialQuery={params.get("q") ?? ""}
@@ -316,6 +330,7 @@ export default function VendorShop({
                 onAdd={() => setCustomerDialog({ prefill: {}, forEditor: false })}
                 onEdit={(c) => setCustomerDialog({ customer: c })}
                 onWorkOrder={(c, b) => openNew({ boatId: b.id, boatLabel: boatLabel(b), customerName: c.name, customerEmail: c.email })}
+                onEstimate={(c, b) => openNewEstimate({ boatId: b.id, boatLabel: boatLabel(b), customerName: c.name, customerEmail: c.email })}
               />
             )}
             {tab === "schedule" && (
@@ -393,6 +408,16 @@ export default function VendorShop({
 
       {invoiceOrder && (
         <InvoiceSheet open onOpenChange={(o) => !o && setInvoiceFor(null)} order={invoiceOrder} shopName={billingName} />
+      )}
+
+      {estimateOrder && estimateFor && (
+        <EstimateSheet
+          open
+          onOpenChange={(o) => !o && setEstimateFor(null)}
+          order={estimateOrder}
+          shopName={billingName}
+          link={estimateUrl(siteOrigin, estimateFor.token)}
+        />
       )}
 
       <CustomerDialog
@@ -474,6 +499,29 @@ export default function VendorShop({
           }}
           onMarkPaid={(method) => editor.id && bill.mutate({ id: editor.id, action: "paid", method }, { onError: fail, onSuccess: () => toast({ title: "Payment recorded" }) })}
           onMarkUnpaid={() => editor.id && bill.mutate({ id: editor.id, action: "unpaid" }, { onError: fail })}
+          onSendEstimate={() => {
+            const id = editor.id;
+            if (!id) return;
+            sendEstimate.mutate(id, {
+              onError: fail,
+              onSuccess: (token) => setEstimateFor({ id, token }),
+            });
+          }}
+          onSaveAndSend={async (d) => {
+            try {
+              const id = await saveOrder.mutateAsync(d);
+              const token = await sendEstimate.mutateAsync(id);
+              setEditor(null);
+              setEstimateFor({ id, token });
+            } catch (e) {
+              fail(e);
+            }
+          }}
+          onShareEstimate={() => {
+            const o = orders.find((x) => x.id === editor.id);
+            if (o?.estimateToken) setEstimateFor({ id: o.id, token: o.estimateToken });
+          }}
+          sendingEstimate={sendEstimate.isPending}
           onSave={(d) =>
             saveOrder.mutate(d, {
               onError: fail,

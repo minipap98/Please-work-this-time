@@ -16,6 +16,8 @@ import {
   type WorkOrderStatus,
 } from "@bosun/shared/shop";
 import { blankWorkOrder, draftFromOrder, invoiceText, nextWorkOrderNumber } from "@bosun/shared/shop/drafts";
+import { estimateStep, estimateText, estimateUrl } from "@bosun/shared/shop/estimate";
+import { SITE_URL } from "@/lib/env";
 import { useProject } from "@/lib/queries";
 import {
   useBillWorkOrder,
@@ -24,6 +26,7 @@ import {
   useInventory,
   useSaveCustomer,
   useSaveWorkOrder,
+  useSendEstimate,
   useSetWorkOrderStatus,
   useShipments,
   useShop,
@@ -72,6 +75,7 @@ export default function WorkOrderEditor() {
   const setStatus = useSetWorkOrderStatus(vendorId);
   const remove = useDeleteWorkOrder(vendorId);
   const bill = useBillWorkOrder(vendorId);
+  const sendEst = useSendEstimate(vendorId);
 
   const order = isNew ? undefined : orders.find((o) => o.id === id);
   const [d, setD] = useState<WorkOrderDraft | null>(null);
@@ -273,7 +277,20 @@ export default function WorkOrderEditor() {
     Linking.openURL(`mailto:${encodeURIComponent(order.customerEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`).catch(fail);
   }
 
+  /** Mint (or reuse) the link and hand it to the share sheet; the customer approves there with no account. */
+  async function shareEstimate(resend: boolean) {
+    if (!order) return;
+    try {
+      const token = resend || !order.estimateToken ? await sendEst.mutateAsync(order.id) : order.estimateToken;
+      const { subject, body } = estimateText(order, shopName, estimateUrl(SITE_URL, token));
+      await Share.share({ message: body, title: subject }, { subject });
+    } catch (e) {
+      fail(e);
+    }
+  }
+
   const step = order ? billingStep(order) : "not-done";
+  const estStep = order ? estimateStep(order) : null;
   const partsForOrder = order ? shipments.filter((s) => s.workOrderId === order.id) : [];
   const customerValue = customerId ? (customers.find((c) => c.id === customerId)?.name ?? d.customerName) : d.customerName;
   const boatValue = d.boatId ? (customerBoats.find((b) => b.id === d.boatId) ? boatLabel(customerBoats.find((b) => b.id === d.boatId)!) : d.boatLabel) : d.boatLabel;
@@ -379,9 +396,45 @@ export default function WorkOrderEditor() {
       </View>
 
       <ErrorText>{error}</ErrorText>
-      <Button title={isNew ? "Create work order" : "Save"} onPress={onSave} loading={save.isPending} />
+      <Button title={isNew ? (d.status === "estimate" ? "Create estimate" : "Create work order") : "Save"} onPress={onSave} loading={save.isPending} />
 
-      {order && (
+      {order && estStep && (
+        <Card style={{ marginTop: space.lg }}>
+          <Text style={{ fontWeight: "700", color: colors.navy }}>Estimate · {money(workOrderTotals(order.lines, order.taxRate).total)}</Text>
+          {estStep === "approved" && (
+            <Muted style={{ marginTop: 4 }}>
+              {order.customerName || "The customer"} approved it {shortDate(order.estimateApprovedAt)}{order.estimateNote ? `: “${order.estimateNote}”` : "."}
+              {order.status === "scheduled" && !order.scheduledStart ? " Pick a date, bay and tech to put it on the board." : ""}
+            </Muted>
+          )}
+          {estStep === "draft" && (
+            <>
+              <Muted style={{ marginTop: 4, marginBottom: space.md }}>Send the customer a link to approve it. It goes on the board the moment they say yes.</Muted>
+              <Button title="Send estimate" onPress={() => shareEstimate(true)} loading={sendEst.isPending} />
+            </>
+          )}
+          {estStep === "sent" && (
+            <>
+              <Muted style={{ marginTop: 4, marginBottom: space.md }}>Sent {shortDate(order.estimateSentAt)}. Waiting on the customer; the link answers for 30 days.</Muted>
+              <Button title="Share the link again" tone="secondary" onPress={() => shareEstimate(false)} loading={sendEst.isPending} />
+            </>
+          )}
+          {estStep === "declined" && (
+            <>
+              <Muted style={{ marginTop: 4, marginBottom: space.md }}>Declined {shortDate(order.estimateDeclinedAt)}{order.estimateNote ? `: “${order.estimateNote}”` : "."} Adjust the lines and send a revised estimate, or give them a call.</Muted>
+              <Button title="Send revised estimate" onPress={() => shareEstimate(true)} loading={sendEst.isPending} />
+            </>
+          )}
+          {estStep === "expired" && (
+            <>
+              <Muted style={{ marginTop: 4, marginBottom: space.md }}>The link expired without an answer. Send it again for another 30 days.</Muted>
+              <Button title="Send again" onPress={() => shareEstimate(true)} loading={sendEst.isPending} />
+            </>
+          )}
+        </Card>
+      )}
+
+      {order && order.status !== "estimate" && (
         <Card style={{ marginTop: space.lg }}>
           <Text style={{ fontWeight: "700", color: colors.navy }}>Billing</Text>
           {step === "not-done" && (

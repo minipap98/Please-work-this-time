@@ -946,6 +946,11 @@ export interface Database {
           invoiced_at: string | null;
           paid_at: string | null;
           payment_method: string;
+          estimate_token: string | null;
+          estimate_sent_at: string | null;
+          estimate_approved_at: string | null;
+          estimate_declined_at: string | null;
+          estimate_note: string;
           created_at: string;
           updated_at: string;
         };
@@ -972,6 +977,11 @@ export interface Database {
           invoiced_at?: string | null;
           paid_at?: string | null;
           payment_method?: string;
+          estimate_token?: string | null;
+          estimate_sent_at?: string | null;
+          estimate_approved_at?: string | null;
+          estimate_declined_at?: string | null;
+          estimate_note?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -997,6 +1007,11 @@ export interface Database {
           invoiced_at?: string | null;
           paid_at?: string | null;
           payment_method?: string;
+          estimate_token?: string | null;
+          estimate_sent_at?: string | null;
+          estimate_approved_at?: string | null;
+          estimate_declined_at?: string | null;
+          estimate_note?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -1332,7 +1347,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update" | "boat_transfer" | "community_reply";
+          type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update" | "boat_transfer" | "community_reply" | "estimate_response";
           title: string;
           body: string | null;
           data: Json | null;
@@ -1342,7 +1357,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update" | "boat_transfer" | "community_reply";
+          type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update" | "boat_transfer" | "community_reply" | "estimate_response";
           title: string;
           body?: string | null;
           data?: Json | null;
@@ -1451,6 +1466,18 @@ export interface Database {
         Args: { transfer_token: string };
         Returns: Json;
       };
+      send_estimate: {
+        Args: { p_order: string };
+        Returns: string;
+      };
+      public_estimate: {
+        Args: { p_token: string };
+        Returns: Json;
+      };
+      respond_to_estimate: {
+        Args: { p_token: string; p_approve: boolean; p_note?: string };
+        Returns: Json;
+      };
     };
     Enums: {
       user_role: "owner" | "vendor";
@@ -1462,7 +1489,7 @@ export interface Database {
       engine_type: "Outboard" | "Inboard" | "I/O (Sterndrive)";
       fee_tier_name: "Bronze" | "Silver" | "Gold";
       message_status: "sent" | "delivered" | "read";
-      notification_type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update" | "boat_transfer" | "community_reply";
+      notification_type: "bid_received" | "bid_accepted" | "bid_rejected" | "message" | "payment" | "maintenance_due" | "project_update" | "boat_transfer" | "community_reply" | "estimate_response";
       payment_status: "pending" | "processing" | "completed" | "failed" | "refunded";
       document_type: "insurance" | "registration" | "warranty" | "survey" | "title" | "other";
     };

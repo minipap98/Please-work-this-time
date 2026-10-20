@@ -32,6 +32,7 @@ import BoatLog from "./pages/BoatLog";
 import TechToday from "./pages/TechToday";
 import CrewShop from "./pages/CrewShop";
 import ServiceHistory from "./pages/ServiceHistory";
+import EstimatePage from "./pages/Estimate";
 import TransferAccept from "./pages/TransferAccept";
 import OwnersHome from "./pages/community/OwnersHome";
 import OwnersBoard from "./pages/community/OwnersBoard";
@@ -180,6 +181,8 @@ const App = () => (
                 <Route path="/parts" element={<PartsComingSoon />} />
                 <Route path="/boaters" element={<BoatersPage />} />
                 <Route path="/history/:token" element={<ServiceHistory />} />
+                {/* A shop's estimate; the customer approves it here, account or not. */}
+                <Route path="/estimate/:token" element={<EstimatePage />} />
                 <Route path="/shops" element={<ShopsPage />} />
                 <Route path="/for-shops" element={<Navigate to="/shops" replace />} />
 

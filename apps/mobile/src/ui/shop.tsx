@@ -34,6 +34,7 @@ export function timeRange(start: string | null, end: string | null): string {
 }
 
 const WO_TONE: Record<WorkOrderStatus, "sky" | "green" | "amber" | "red" | "muted"> = {
+  estimate: "sky",
   scheduled: "muted",
   "in-progress": "sky",
   "waiting-parts": "amber",
@@ -41,6 +42,7 @@ const WO_TONE: Record<WorkOrderStatus, "sky" | "green" | "amber" | "red" | "mute
   invoiced: "green",
 };
 export const WO_LABEL: Record<WorkOrderStatus, string> = {
+  estimate: "Estimate",
   scheduled: "Scheduled",
   "in-progress": "In progress",
   "waiting-parts": "Waiting on parts",

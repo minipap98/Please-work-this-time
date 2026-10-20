@@ -9,12 +9,15 @@ import { addLogEntry, deleteLogEntry, invoiceSignedUrl, listBoatLog, type NewLog
 import { createHistoryShare, getHistoryShare, publicHistory, revokeHistoryShare, setHistoryShareCosts, type HistoryShare } from "@shared/boatLog/shares";
 import { invoiceUploadPath, readInvoice as readInvoiceWithServer, uploadInvoice, type InvoiceRead } from "@shared/boatLog/invoiceRead";
 import { listReceiptInbox, resolveReceipt, type InboxReceipt } from "@shared/boatLog/receipts";
+import { claimEstimate, claimMyEstimates, pendingEstimateClaims } from "@shared/boatLog/estimateClaims";
+import type { PendingEstimateClaim } from "@shared/shop/estimate";
 import { api } from "@/lib/api";
 
 export { LOG_CATEGORIES, type MaintenanceCategory, type NewLogEntry } from "@shared/boatLog/records";
 export { type HistoryShare } from "@shared/boatLog/shares";
 export { type InvoiceRead } from "@shared/boatLog/invoiceRead";
 export { type InboxReceipt } from "@shared/boatLog/receipts";
+export { type PendingEstimateClaim } from "@shared/shop/estimate";
 
 export interface LogBoat {
   id: string;
@@ -377,5 +380,40 @@ export function useResolveReceipt() {
       await resolveReceipt(supabase, id, status);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["receipt-inbox", user?.id] }),
+  });
+}
+
+
+/* ── Estimate jobs waiting to be filed to a boat ─────────────────────────── */
+
+/**
+ * Approved or completed shop estimates addressed to my email that aren't with one of my boats
+ * yet. Asking the database first files them itself when I have exactly one boat, so the strip
+ * only shows when there's a choice to make.
+ */
+export function useEstimateClaims() {
+  const { user } = useAuth();
+  const demo = isDemoMode();
+  return useQuery({
+    queryKey: ["estimate-claims", user?.id],
+    queryFn: async (): Promise<PendingEstimateClaim[]> => {
+      await claimMyEstimates(supabase);
+      return pendingEstimateClaims(supabase);
+    },
+    enabled: !!user && !demo && !supabaseMissing,
+    staleTime: 60_000,
+  });
+}
+
+/** File one pending estimate job to the boat the owner picked. */
+export function useClaimPendingEstimate() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async ({ token, boatId }: { token: string; boatId: string }) => claimEstimate(supabase, token, boatId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["estimate-claims", user?.id] });
+      qc.invalidateQueries({ queryKey: ["boat-log"] });
+    },
   });
 }

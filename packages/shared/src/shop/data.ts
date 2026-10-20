@@ -19,6 +19,7 @@ import {
 } from "../shop";
 import type { CrewMembership } from "./crew";
 import { DONE_STATUSES, appendTechNote, type ShipmentDraft, type WorkOrderDraft } from "./drafts";
+import type { PublicEstimate } from "./estimate";
 import type { ShopSettings } from "./settings";
 
 // ── Row mapping ──────────────────────────────────────────────────────────────
@@ -77,6 +78,12 @@ export function mapWorkOrder(r: WorkOrderRow): WorkOrder {
     invoicedAt: r.invoiced_at ?? null,
     paidAt: r.paid_at ?? null,
     paymentMethod: r.payment_method ?? "",
+    estimateToken: r.estimate_token ?? null,
+    estimateSentAt: r.estimate_sent_at ?? null,
+    estimateApprovedAt: r.estimate_approved_at ?? null,
+    estimateDeclinedAt: r.estimate_declined_at ?? null,
+    estimateNote: r.estimate_note ?? "",
+    ownerBoatId: r.owner_boat_id ?? null,
     createdAt: r.created_at,
     lines: [...(r.lines ?? [])]
       .sort((a, b) => a.sort_order - b.sort_order)
@@ -313,6 +320,29 @@ export async function markExported(client: Db, ids: string[]): Promise<void> {
   const now = new Date().toISOString();
   const { error } = await client.from("shop_work_orders").update({ exported_at: now, status: "invoiced", updated_at: now }).in("id", ids);
   if (error) throw error;
+}
+
+// ── Estimates ────────────────────────────────────────────────────────────────
+
+/** Sends (or re-sends) an estimate: mints the link once and clears any earlier answer. Returns the token. */
+export async function sendEstimate(client: Db, id: string): Promise<string> {
+  const { data, error } = await client.rpc("send_estimate", { p_order: id });
+  if (error) throw error;
+  return data as string;
+}
+
+/** Public, no login: the estimate behind a link, or null when the token is unknown or never sent. */
+export async function publicEstimate(client: Db, token: string): Promise<PublicEstimate | null> {
+  const { data, error } = await client.rpc("public_estimate", { p_token: token });
+  if (error) throw error;
+  return (data as unknown as PublicEstimate | null) ?? null;
+}
+
+/** The customer's answer from the link. Approving books the job; the shop is notified either way. */
+export async function respondToEstimate(client: Db, token: string, approve: boolean, note = ""): Promise<PublicEstimate | null> {
+  const { data, error } = await client.rpc("respond_to_estimate", { p_token: token, p_approve: approve, p_note: note });
+  if (error) throw error;
+  return (data as unknown as PublicEstimate | null) ?? null;
 }
 
 // ── Inbound parts ────────────────────────────────────────────────────────────

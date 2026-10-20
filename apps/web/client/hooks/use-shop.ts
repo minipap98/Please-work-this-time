@@ -16,7 +16,11 @@ import {
   type WorkOrderLine,
   type WorkOrderStatus,
 } from "@shared/shop";
-import { mapBoat, mapCustomer, mapInventory, mapSettings, mapShipment, mapWorkOrder, type WorkOrderRow } from "@shared/shop/data";
+import { mapBoat, mapCustomer, mapInventory, mapSettings, mapShipment, mapWorkOrder, publicEstimate, respondToEstimate, sendEstimate, type WorkOrderRow } from "@shared/shop/data";
+import { claimEstimate, type EstimateClaimResult } from "@shared/boatLog/estimateClaims";
+import { DEMO_LOG_BOAT } from "@/hooks/use-boat-log";
+import type { WorkOrderDraft } from "@shared/shop/drafts";
+import { estimateExpiry, type PublicEstimate } from "@shared/shop/estimate";
 import {
   inviteCrew,
   listCrew,
@@ -359,9 +363,7 @@ export function nextWorkOrderNumber(orders: WorkOrder[]): string {
   return `WO-${max + 1}`;
 }
 
-export type WorkOrderDraft = Omit<WorkOrder, "id" | "createdAt" | "completedAt" | "exportedAt"> & {
-  id?: string;
-};
+export type { WorkOrderDraft };
 
 const DONE: WorkOrderStatus[] = ["completed", "invoiced"];
 
@@ -541,6 +543,136 @@ export function useBillWorkOrder(vendorId: string | null) {
       if (error) throw error;
     },
     onSuccess: () => invalidateShop(qc, vendorId!),
+  });
+}
+
+// ── Estimates ────────────────────────────────────────────────────────────────
+
+/** Demo links look like /estimate/demo-<order id> and read the demo shop in this browser. */
+const DEMO_TOKEN_PREFIX = "demo-";
+
+function demoPublicEstimate(token: string): PublicEstimate | null {
+  const shop = loadDemo();
+  const o = shop.workOrders.find((x) => x.estimateToken === token);
+  if (!o || !o.estimateSentAt) return null;
+  return {
+    number: o.number,
+    title: o.title,
+    description: o.description,
+    customerName: o.customerName,
+    boatLabel: o.boatLabel,
+    engineHours: o.engineHours,
+    taxRate: o.taxRate,
+    status: o.status,
+    sentAt: o.estimateSentAt,
+    expiresAt: estimateExpiry(o.estimateSentAt),
+    approvedAt: o.estimateApprovedAt ?? null,
+    declinedAt: o.estimateDeclinedAt ?? null,
+    note: o.estimateNote ?? "",
+    shop: { name: "Dean's Marine", phone: "(772) 555-0148", website: null, logoUrl: null, serviceArea: "Stuart, FL" },
+    lines: o.lines.map((l) => ({ kind: l.kind, description: l.description, quantity: l.quantity, unitPrice: l.unitPrice })),
+    // The demo's "owner" is whoever holds this browser, so the kept state shows to them.
+    ownerBoatId: o.ownerBoatId ?? null,
+    filed: o.ownerBoatId ? o.status === "completed" || o.status === "invoiced" : null,
+  };
+}
+
+/** Sends (or re-sends) an estimate and returns the link token. Re-sending clears an earlier answer. */
+export function useSendEstimate(vendorId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<string> => {
+      if (isDemoMode()) {
+        const token = `${DEMO_TOKEN_PREFIX}${id}`;
+        const now = new Date().toISOString();
+        mutateDemo((s) => {
+          s.workOrders = s.workOrders.map((o) =>
+            o.id === id ? { ...o, estimateToken: token, estimateSentAt: now, estimateApprovedAt: null, estimateDeclinedAt: null, estimateNote: "" } : o
+          );
+        });
+        return token;
+      }
+      return sendEstimate(db(), id);
+    },
+    onSuccess: () => invalidateShop(qc, vendorId!),
+  });
+}
+
+/** The public page: the estimate behind a link, with no login. Null when the link is unknown. */
+export function usePublicEstimate(token: string | undefined) {
+  return useQuery({
+    queryKey: ["public-estimate", token],
+    queryFn: async (): Promise<PublicEstimate | null> => {
+      if (!token) return null;
+      if (token.startsWith(DEMO_TOKEN_PREFIX)) return demoPublicEstimate(token);
+      if (supabaseMissing) return null;
+      return publicEstimate(db(), token);
+    },
+    enabled: !!token,
+  });
+}
+
+/** The customer's answer from the public page. Approving books the job on the shop's board. */
+export function useRespondToEstimate(token: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ approve, note }: { approve: boolean; note: string }): Promise<PublicEstimate | null> => {
+      if (!token) throw new Error("This estimate link isn't valid.");
+      if (token.startsWith(DEMO_TOKEN_PREFIX)) {
+        const now = new Date().toISOString();
+        const clean = note.trim().slice(0, 1000);
+        mutateDemo((s) => {
+          s.workOrders = s.workOrders.map((o) => {
+            if (o.estimateToken !== token) return o;
+            if (approve) {
+              return { ...o, estimateApprovedAt: o.estimateApprovedAt ?? now, estimateDeclinedAt: null, estimateNote: clean, status: o.status === "estimate" ? "scheduled" : o.status };
+            }
+            if (o.estimateApprovedAt) throw new Error("This estimate was already approved. Call the shop to change the job.");
+            return { ...o, estimateDeclinedAt: now, estimateNote: clean };
+          });
+        });
+        return demoPublicEstimate(token);
+      }
+      return respondToEstimate(db(), token, approve, note);
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(["public-estimate", token], data);
+      qc.invalidateQueries({ queryKey: ["shop-work-orders"] });
+    },
+  });
+}
+
+/**
+ * The customer keeps an approved estimate with one of their boats (claim_estimate(): the boat must
+ * be theirs and the order addressed to their account's email). In the demo the one demo boat is
+ * "theirs" and nothing leaves the browser.
+ */
+export function useClaimEstimate(token: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (boatId: string): Promise<EstimateClaimResult> => {
+      if (!token) throw new Error("This estimate link isn't valid.");
+      if (token.startsWith(DEMO_TOKEN_PREFIX)) {
+        if (boatId !== DEMO_LOG_BOAT.id) throw new Error("That boat isn't one of yours.");
+        let filed = false;
+        mutateDemo((s) => {
+          s.workOrders = s.workOrders.map((o) => {
+            if (o.estimateToken !== token) return o;
+            if (!o.estimateApprovedAt && o.status !== "completed" && o.status !== "invoiced") throw new Error("Approve the estimate first, then keep it with your boat.");
+            filed = o.status === "completed" || o.status === "invoiced";
+            return { ...o, ownerBoatId: boatId };
+          });
+        });
+        return { boatId, filed };
+      }
+      return claimEstimate(db(), token, boatId);
+    },
+    onSuccess: (r) => {
+      qc.setQueryData<PublicEstimate | null>(["public-estimate", token], (prev) => (prev ? { ...prev, ownerBoatId: r.boatId, filed: r.filed } : prev));
+      qc.invalidateQueries({ queryKey: ["boat-log"] });
+      qc.invalidateQueries({ queryKey: ["estimate-claims"] });
+      qc.invalidateQueries({ queryKey: ["shop-work-orders"] });
+    },
   });
 }
 

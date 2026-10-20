@@ -32,8 +32,8 @@ export default function ShopHub() {
   }
 
   const todayKey = toLocalDateKey(new Date().toISOString());
-  const open = orders.filter((o) => o.status !== "invoiced").length;
-  const today = orders.filter((o) => o.status !== "invoiced" && occupiesDay(o, todayKey)).length;
+  const open = orders.filter((o) => o.status !== "invoiced" && o.status !== "estimate").length;
+  const today = orders.filter((o) => o.status !== "invoiced" && o.status !== "estimate" && occupiesDay(o, todayKey)).length;
   const low = inventory.filter(isLowStock).length;
   const inTransit = shipments.filter((s) => !s.receivedAt).length;
   const count = (n: number) => (n ? <Badge tone="muted">{n}</Badge> : undefined);

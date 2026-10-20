@@ -2,7 +2,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addLogEntry, deleteLogEntry, listBoatLog, updateLogEntry, type LogEntryPatch, type NewLogEntry } from "@bosun/shared/boatLog/records";
 import { invoiceUploadPath, readInvoice, uploadInvoice, type InvoiceRead } from "@bosun/shared/boatLog/invoiceRead";
+import { claimEstimate, claimMyEstimates, pendingEstimateClaims } from "@bosun/shared/boatLog/estimateClaims";
 import { listReceiptInbox, resolveReceipt } from "@bosun/shared/boatLog/receipts";
+import type { PendingEstimateClaim } from "@bosun/shared/shop/estimate";
 import { createHistoryShare, getHistoryShare, publicHistory, revokeHistoryShare, setHistoryShareCosts } from "@bosun/shared/boatLog/shares";
 import { api } from "./api";
 import { useAuth } from "./auth";
@@ -90,5 +92,36 @@ export function useResolveReceipt() {
   return useMutation({
     mutationFn: (v: { id: string; status: "added" | "dismissed" }) => resolveReceipt(supabase, v.id, v.status),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["receipt-inbox", user?.id] }),
+  });
+}
+
+// ── Shop estimates waiting for a boat ─────────────────────────────────────────
+// Approved (or finished) estimate jobs addressed to my email that aren't filed to one of my
+// boats yet. The database files them by itself when I have exactly one boat; with several, the
+// Boat Log asks which. Same queries as the web's useEstimateClaims.
+
+export function useEstimateClaims() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["estimate-claims", user?.id],
+    queryFn: async (): Promise<PendingEstimateClaim[]> => {
+      await claimMyEstimates(supabase);
+      return pendingEstimateClaims(supabase);
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+}
+
+/** File one waiting estimate job to the boat the owner picked. */
+export function useClaimPendingEstimate() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: (v: { token: string; boatId: string }) => claimEstimate(supabase, v.token, v.boatId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["estimate-claims", user?.id] });
+      qc.invalidateQueries({ queryKey: ["boat-log"] });
+    },
   });
 }

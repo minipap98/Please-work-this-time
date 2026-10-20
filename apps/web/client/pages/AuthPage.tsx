@@ -74,7 +74,7 @@ export default function AuthPage() {
           setLoading(false);
           return;
         }
-        const { error: err } = await signUp(email, password, name, role);
+        const { error: err } = await signUp(email, password, name, role, safeNextPath(searchParams.get("next")));
         if (err) {
           setError(err);
         } else {

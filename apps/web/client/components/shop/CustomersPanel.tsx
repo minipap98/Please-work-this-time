@@ -11,6 +11,7 @@ export default function CustomersPanel({
   onAdd,
   onEdit,
   onWorkOrder,
+  onEstimate,
 }: {
   customers: ShopCustomer[];
   boats: ShopBoat[];
@@ -18,6 +19,8 @@ export default function CustomersPanel({
   onAdd: () => void;
   onEdit: (c: ShopCustomer) => void;
   onWorkOrder: (c: ShopCustomer, b: ShopBoat) => void;
+  /** Quote a job for this boat first; the customer approves it from a link. */
+  onEstimate: (c: ShopCustomer, b: ShopBoat) => void;
 }) {
   const [q, setQ] = useState("");
   const boatsByCustomer = useMemo(() => {
@@ -86,6 +89,7 @@ export default function CustomersPanel({
                             {[b.engine, b.hullId && `HIN ${b.hullId}`, b.slip, jobsByBoat.get(b.id) ? `${jobsByBoat.get(b.id)} work order${jobsByBoat.get(b.id) === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ")}
                           </p>
                         </div>
+                        <button onClick={() => onEstimate(c, b)} className="text-xs font-semibold text-sky-700 hover:underline whitespace-nowrap">+ Estimate</button>
                         <button onClick={() => onWorkOrder(c, b)} className="text-xs font-semibold text-sky-700 hover:underline whitespace-nowrap">+ Work order</button>
                       </li>
                     ))}

@@ -26,6 +26,7 @@ import {
   saveInventoryItem,
   saveShipment,
   saveWorkOrder,
+  sendEstimate,
   setWorkOrderStatus,
   techUpdateJob,
   updateShopSettings,
@@ -181,6 +182,12 @@ export function useDeleteWorkOrder(vendorId: string | null) {
 export function useBillWorkOrder(vendorId: string | null) {
   const qc = useQueryClient();
   return useMutation({ mutationFn: (a: BillingAction) => billWorkOrder(supabase, a), onSuccess: () => invalidateShop(qc, vendorId) });
+}
+
+/** Sends (or re-sends) an estimate; resolves with the link token. Re-sending clears an earlier answer. */
+export function useSendEstimate(vendorId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (id: string) => sendEstimate(supabase, id), onSuccess: () => invalidateShop(qc, vendorId) });
 }
 
 // ── Inbound parts ─────────────────────────────────────────────────────────────

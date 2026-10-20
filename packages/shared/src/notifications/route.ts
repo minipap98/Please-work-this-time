@@ -10,11 +10,14 @@ export interface NotificationData {
   boat_id?: string;
   /** A reply on an owners' community thread. */
   post_id?: string;
+  /** A customer answered an estimate on this work order. */
+  work_order_id?: string;
 }
 
 export function notificationRoute(data: NotificationData | null | undefined, role: AppRole | null | undefined): string {
   if (data?.transfer_token) return `/transfer/${data.transfer_token}`;
   if (data?.post_id) return `/owners/post/${data.post_id}`;
+  if (data?.work_order_id) return `/vendor-shop?tab=orders&wo=${data.work_order_id}`;
   if (data?.boat_id) return "/my-boats";
   if (data?.project_id) return `/project/${data.project_id}`;
   return role === "vendor" ? "/vendor-my-bids" : "/inbox";

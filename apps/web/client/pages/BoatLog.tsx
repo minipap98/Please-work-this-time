@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import ImportInvoiceDialog from "@/components/boatlog/ImportInvoiceDialog";
 import ReceiptInbox, { RECEIPTS_ADDRESS } from "@/components/boatlog/ReceiptInbox";
+import EstimateClaims from "@/components/boatlog/EstimateClaims";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useMyBoats } from "@/hooks/use-my-boat";
@@ -150,6 +151,7 @@ export default function BoatLog() {
             </>
           }
         />
+        <EstimateClaims className="mb-5" />
         <ReceiptInbox className="mb-5" />
         {RECEIPTS_ADDRESS && boat && (
           <p className="mb-5 text-xs text-muted-foreground">

@@ -45,7 +45,7 @@ export default function TechToday() {
 
   const todayKey = toLocalDateKey(new Date().toISOString());
   const { today, upcoming, done } = useMemo(() => {
-    const active = jobs.filter((j) => j.status !== "completed" && j.status !== "invoiced");
+    const active = jobs.filter((j) => j.status !== "completed" && j.status !== "invoiced" && j.status !== "estimate");
     const byStart = (a: WorkOrder, b: WorkOrder) => (a.scheduledStart ?? "9").localeCompare(b.scheduledStart ?? "9");
     return {
       today: active.filter((j) => !j.scheduledStart || occupiesDay(j, todayKey) || (j.scheduledStart.slice(0, 10) < todayKey)).sort(byStart),

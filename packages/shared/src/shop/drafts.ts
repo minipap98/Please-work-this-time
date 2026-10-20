@@ -3,7 +3,10 @@
 import { workOrderTotals, type PartsShipment, type WorkOrder, type WorkOrderStatus } from "../shop";
 import type { ShopSettings } from "./settings";
 
-export type WorkOrderDraft = Omit<WorkOrder, "id" | "createdAt" | "completedAt" | "exportedAt"> & { id?: string };
+/** Server-stamped fields the editor never writes: created/completed/exported, and the estimate trail. */
+type StampedFields = "createdAt" | "completedAt" | "exportedAt" | "estimateToken" | "estimateSentAt" | "estimateApprovedAt" | "estimateDeclinedAt" | "estimateNote";
+
+export type WorkOrderDraft = Omit<WorkOrder, "id" | StampedFields> & { id?: string };
 export type ShipmentDraft = Omit<PartsShipment, "id" | "createdAt" | "receivedAt"> & { id?: string };
 
 /** Statuses that count as finished work (the logbook trigger fires on these). */
@@ -45,8 +48,17 @@ export function blankWorkOrder(number: string, settings: ShopSettings, now: Date
   };
 }
 
+/** An estimate: same form, no date, bay or tech yet. Approval books it as an unscheduled job. */
+export function blankEstimate(number: string, settings: ShopSettings, now: Date = new Date()): WorkOrderDraft {
+  return { ...blankWorkOrder(number, settings, now), status: "estimate", scheduledStart: null, scheduledEnd: null, assignedTo: "", bay: "" };
+}
+
 export function draftFromOrder(o: WorkOrder): WorkOrderDraft {
-  const { createdAt: _c, completedAt: _d, exportedAt: _e, ...rest } = o;
+  const {
+    createdAt: _c, completedAt: _d, exportedAt: _e,
+    estimateToken: _t, estimateSentAt: _s, estimateApprovedAt: _a, estimateDeclinedAt: _x, estimateNote: _n,
+    ...rest
+  } = o;
   return rest;
 }
 

@@ -5,7 +5,7 @@ import { isActiveProjectStatus } from "@bosun/shared/api";
 import { summarizeLog } from "@bosun/shared/boatLog";
 import { dueSummary } from "@bosun/shared/maintenance/status";
 import { useAuth } from "@/lib/auth";
-import { useBoatLog, useReceiptInbox } from "@/lib/boatLog";
+import { useBoatLog, useEstimateClaims, useReceiptInbox } from "@/lib/boatLog";
 import { useMyBoats } from "@/lib/boats";
 import { useDueTasks } from "@/lib/maintenance";
 import { useOwnerProjects } from "@/lib/queries";
@@ -23,6 +23,7 @@ export default function OwnerHome() {
   const { data: log = [] } = useBoatLog(active?.id);
   const { counts } = useDueTasks(active);
   const { data: receipts = [] } = useReceiptInbox();
+  const { data: claims = [] } = useEstimateClaims();
 
   if (boatsLoading) return <Loading />;
 
@@ -76,6 +77,15 @@ export default function OwnerHome() {
             onPress={() => router.push("/owners")}
           />
         </>
+      )}
+      {claims.length > 0 && boats.length > 0 && (
+        <LinkRow
+          icon="clipboard-outline"
+          title={`${claims.length} shop job${claims.length === 1 ? "" : "s"} waiting to be filed`}
+          sub="Estimates you approved. Pick the boat and the shop's record goes into its Boat Log."
+          onPress={() => router.push("/boat-log")}
+          badge={<Badge tone="green">{claims.length}</Badge>}
+        />
       )}
       {receipts.length > 0 && (
         <LinkRow

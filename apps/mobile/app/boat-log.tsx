@@ -12,6 +12,7 @@ import { useMyBoats } from "@/lib/boats";
 import { SITE_URL } from "@/lib/env";
 import { colors, radius, space } from "@/lib/theme";
 import { Badge, Button, Card, Chip, Empty, Loading, Muted, Row, Screen } from "@/ui";
+import { EstimateClaimsCard } from "@/ui/estimateClaims";
 import { LinkRow, SectionTitle, StatTile, SwitchRow, formatDate, money } from "@/ui/pickers";
 
 type Filter = "all" | "verified" | "owner";
@@ -101,6 +102,7 @@ export default function BoatLogScreen() {
         sub="Tap to update the meter reading"
         onPress={() => router.push({ pathname: "/log/hours", params: { boat: boat.id } })}
       />
+      <EstimateClaimsCard boats={boats} activeId={boat.id} />
       {receipts.length > 0 && (
         <LinkRow icon="mail-unread-outline" title={`${receipts.length} emailed receipt${receipts.length === 1 ? "" : "s"} to review`} sub="Forwarded receipts, read and waiting for your OK." onPress={() => router.push("/receipts")} />
       )}

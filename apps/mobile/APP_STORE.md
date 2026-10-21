@@ -27,7 +27,7 @@ where noted; never commit secrets.
 ## Supabase
 
 - [ ] Run migrations `20261022` → `20261027` (SQL Editor, "without RLS").
-- [ ] Database Webhook on `notifications` INSERT → `POST https://getbosun.app/api/v1/push/dispatch` with
+- [ ] Database Webhook on `notifications` INSERT → `POST https://www.getbosun.app/api/v1/push/dispatch` with
       header `x-bosun-webhook-secret: <PUSH_WEBHOOK_SECRET>` (dashboard, or fill the secret into
       `20261025_push_webhook.sql` and run it).
 - [ ] Auth → URL Configuration: add `https://getbosun.app/login` to Redirect URLs if it isn't there. Sign-up
@@ -49,8 +49,11 @@ where noted; never commit secrets.
       phone), user content (photos, messages, invoices and receipts the owner imports), identifiers (user ID),
       coarse location (home port / rounded job coordinates), precise location only while "Near me" is on in
       Find a Shop (never stored), usage data. No tracking, no third-party advertising.
-- [ ] **Sign-in for review**: a demo owner and a demo shop account on production (email + password), with at
-      least one open job and one bid between them, in the "Sign-In Information" box.
+- [x] **Sign-in for review**: demo accounts exist on production with sample data (two boats with photos, a Boat
+      Log, a service schedule, an open job with a bid, a booked job with messages, a completed job with a review):
+      owner `review-owner@getbosun.app`, shops `review-shop@getbosun.app` (Harbor Point Marine) and
+      `review-shop2@getbosun.app` (Crandon Marine Service). All three share one password; it is kept outside the
+      repo. Put the owner login in the "Sign-In Information" box.
 - [ ] **Review notes** (paste): "Bosun connects boat owners with marine repair shops. Owners post jobs and
       accept bids; shops bid and message. Payments for the physical service are arranged with the shop
       directly or through Stripe on the website (3.1.3(e)). Shop subscription plans are purchased and managed
@@ -58,8 +61,9 @@ where noted; never commit secrets.
       not apply). Push notifications are for bids, messages and matching jobs; they can be turned off in iOS
       Settings."
 - [ ] **Age rating** questionnaire: none of the listed content → 4+.
-- [ ] **Screenshots**: 6.9" and 6.5" iPhone sets (the simulator's iPhone 16 Pro Max and iPhone 11 Pro Max
-      sizes). Suggested: Home (boat + what's due), Boat Log, Maintenance, a job with bids, Find a Shop, a chat.
+- [x] **Screenshots**: `apps/mobile/store/screenshots/` holds a 6.9" set (1320×2868, iPhone 17 Pro Max simulator,
+      9:41 status bar) taken from the review owner account: Home, Boat Log, Maintenance, a job with a bid, Find a
+      Shop, a chat, Jobs, My Boats, boat detail. App Store Connect reuses the 6.9" set for smaller iPhones.
 - [ ] **Review notes, AI**: the invoice import and the service schedule send the owner's own file or engine
       details to the Bosun server, which reads them with Claude; nothing is trained on. Mention it if asked.
 - [ ] **Support URL** `https://getbosun.app`, **Privacy Policy URL** `https://getbosun.app/privacy`,

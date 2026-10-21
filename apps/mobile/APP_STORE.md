@@ -27,7 +27,7 @@ where noted; never commit secrets.
 ## Supabase
 
 - [ ] Run migrations `20261022` → `20261027` (SQL Editor, "without RLS").
-- [ ] Database Webhook on `notifications` INSERT → `POST https://getbosun.app/api/v1/push/dispatch` with
+- [ ] Database Webhook on `notifications` INSERT → `POST https://www.getbosun.app/api/v1/push/dispatch` with
       header `x-bosun-webhook-secret: <PUSH_WEBHOOK_SECRET>` (dashboard, or fill the secret into
       `20261025_push_webhook.sql` and run it).
 - [ ] Auth → URL Configuration: add `https://getbosun.app/login` to Redirect URLs if it isn't there. Sign-up

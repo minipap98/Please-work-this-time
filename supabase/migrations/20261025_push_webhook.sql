@@ -16,7 +16,7 @@ set search_path = public
 as $$
 begin
   perform net.http_post(
-    url := 'https://getbosun.app/api/v1/push/dispatch',
+    url := 'https://www.getbosun.app/api/v1/push/dispatch',
     body := jsonb_build_object(
       'type', 'INSERT',
       'table', 'notifications',
